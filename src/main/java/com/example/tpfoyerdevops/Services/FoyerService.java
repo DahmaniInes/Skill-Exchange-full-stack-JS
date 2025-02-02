@@ -1,4 +1,4 @@
-package com.example.tpfoyerdevops.Services.Foyer;
+package com.example.tpfoyerdevops.Services;
 
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;

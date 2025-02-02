@@ -1,9 +1,18 @@
 package com.example.tpfoyerdevops.Entities;
 
 
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.OneToOne;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.experimental.FieldDefaults;
+
+import javax.persistence.Entity;
+import javax.persistence.Id;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.List;
+
 
 @Entity
 @Table(name = "T_FOYER")

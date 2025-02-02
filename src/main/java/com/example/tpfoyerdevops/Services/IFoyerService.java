@@ -1,4 +1,4 @@
-package com.example.tpfoyerdevops.Services.Foyer;
+package com.example.tpfoyerdevops.Services;
 
 import tn.esprit.spring.DAO.Entities.Etudiant;
 import tn.esprit.spring.DAO.Entities.Foyer;

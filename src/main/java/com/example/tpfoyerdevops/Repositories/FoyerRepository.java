@@ -2,8 +2,10 @@ package com.example.tpfoyerdevops.Repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import tn.esprit.spring.DAO.Entities.Foyer;
-import tn.esprit.spring.DAO.Entities.TypeChambre;
+import com.example.tpfoyerdevops.Entities.Foyer;
+import com.example.tpfoyerdevops.Entities.Chambre;
+
+
 
 import java.util.List;
 
