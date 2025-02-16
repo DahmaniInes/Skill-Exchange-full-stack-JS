@@ -18,6 +18,26 @@ target/
 *.iws
 *.iml
 *.ipr
+# Ignorer les fichiers système Windows
+*.lnk
+Thumbs.db
+Desktop.ini
+.DS_Store
+/AppData/
+/Documents/
+/Downloads/
+/Desktop/
+
+# Ignorer les fichiers spécifiques aux IDE
+.vscode/
+.idea/
+*.iml
+
+# Ignorer les dossiers de configuration et de cache
+.cache/
+.config/
+.ipynb_checkpoints/
+
 
 ### NetBeans ###
 /nbproject/private/
