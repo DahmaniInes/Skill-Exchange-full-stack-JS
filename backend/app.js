@@ -1,10 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+import React from 'react';
+import SignUp from './components/SignUp';
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const App = () => {
+  return (
+    <div>
+      <h1>Bienvenue sur l'application</h1>
+      <SignUp />
+    </div>
+  );
+};
 
 var TestRouter = require('./Routes/Test');
 app.use('/test', TestRouter);
@@ -51,3 +61,4 @@ app.listen(PORT, () => {
 
 
 module.exports = app;
+export default App;
