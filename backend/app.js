@@ -1,53 +1,55 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+require("dotenv").config();
+var createError = require("http-errors");
+var express = require("express");
+var path = require("path");
+var cookieParser = require("cookie-parser");
+var logger = require("morgan");
+var session = require("express-session");
+var MongoStore = require("connect-mongo");
+var mongoose = require("mongoose");
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+var indexRouter = require("./routes/index");
+var usersRouter = require("./routes/users");
 
-var TestRouter = require('./Routes/Test');
-app.use('/test', TestRouter);
+var app = express();
 
-var mongoose = require('mongoose');
-var mongoconnection = require('./Config/connection.json');
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-
-//mongo config
-  mongoose.connect( mongoconnection.url , 
-  { useNewUrlParser:
-  true ,
-  useUnifiedTopology: true
+// Session Configuration
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
+    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 Days
   })
-  .then(() => console.log("Connected to DB success!!"))
-  .catch(err => console.error("Could not connect to DB", err));
+);
 
-
-
-
-
-
-
-// Middleware
-app.use(cors());
+// Middleware Setup
+app.use(logger("dev"));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, "public")));
 
-// Routes API
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API fonctionne correctement!' });
+app.use("/", indexRouter);
+app.use("/users", usersRouter);
+
+// Catch 404 and forward to error handler
+app.use(function (req, res, next) {
+  next(createError(404));
 });
 
-// En production, servir les fichiers statiques du frontend
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-  });
-}
-
-app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
+// Error handler
+app.use(function (err, req, res, next) {
+  res.locals.message = err.message;
+  res.locals.error = req.app.get("env") === "development" ? err : {};
+  res.status(err.status || 500);
+  res.render("error");
 });
 
+app.listen(3000, () => console.log("Server running on port 3000"));
 
 module.exports = app;
