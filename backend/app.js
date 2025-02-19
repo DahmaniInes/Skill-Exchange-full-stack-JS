@@ -23,11 +23,6 @@ var mongoconnection = require('./Config/connection.json');
   .catch(err => console.error("Could not connect to DB", err));
 
 
-
-
-
-
-
 // Middleware
 app.use(cors());
 app.use(express.json());

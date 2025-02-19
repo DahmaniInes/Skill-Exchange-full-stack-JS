@@ -16,5 +16,8 @@
   "description": "",
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.3"
   }
 }
