@@ -1,7 +1,5 @@
-// src/components/SignUp.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
-import './SignUp.css'; // Link to CSS file for styling
 
 const SignUp = () => {
   const [firstName, setFirstName] = useState('');
@@ -18,7 +16,7 @@ const SignUp = () => {
 
     try {
       const response = await axios.post('http://localhost:5000/api/signup', userData);
-      setMessage(response.data.message); // Display success message
+      setMessage(response.data.message); // Show the success message
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Error during sign-up');
@@ -30,11 +28,11 @@ const SignUp = () => {
     <div className="signup-container">
       <h2>Sign Up</h2>
 
-      {/* Display error or success messages */}
+      {/* Display success or error message */}
       {error && <p className="error-message">{error}</p>}
       {message && <p className="success-message">{message}</p>}
 
-      {/* Sign-up form */}
+      {/* Sign up form */}
       <form onSubmit={handleSubmit}>
         <input
           type="text"
@@ -63,7 +61,7 @@ const SignUp = () => {
         <button type="submit">Sign Up</button>
       </form>
 
-      {/* Link to login page */}
+      {/* Link to login */}
       <p>Already have an account? <a href="/login">Login</a></p>
     </div>
   );

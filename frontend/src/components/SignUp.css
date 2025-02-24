@@ -1,52 +1,102 @@
 /* src/SignUp.css */
+
 .signup-container {
-    width: 400px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 400px;
+  margin: 0 auto;
+  padding: 30px;
+  background: linear-gradient(135deg, #06bbcc, #00a8cc); /* Dégradé bleu */
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.8s ease-out; /* Animation d'apparition */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  
-  .signup-container h2 {
-    text-align: center;
-    margin-bottom: 20px;
+  to {
+    opacity: 1;
   }
-  
-  .signup-container input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
-  
-  .signup-container button {
-    width: 100%;
-    padding: 10px;
-    background-color: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .signup-container button:hover {
-    background-color: #2563eb;
-  }
-  
-  .signup-container p {
-    text-align: center;
-    margin-top: 20px;
-  }
-  
-  .error-message {
-    color: red;
-    text-align: center;
-  }
-  
-  .success-message {
-    color: green;
-    text-align: center;
-  }
-  
+}
+
+.signup-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: white; /* Couleur du texte */
+}
+
+.signup-container input {
+  width: 100%;
+  padding: 10px 40px; /* Espace pour les icônes */
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.signup-container input[type="text"],
+.signup-container input[type="password"] {
+  background-color: white;
+}
+
+.signup-container input::placeholder {
+  color: #888; /* Couleur des placeholders */
+}
+
+.signup-container input:focus {
+  outline: none;
+  border-color: #06bbcc; /* Bordure au focus */
+  box-shadow: 0 0 5px rgba(6, 187, 204, 0.5); /* Ombre au focus */
+}
+
+.signup-container button {
+  width: 100%;
+  padding: 12px;
+  background-color: #06bbcc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.signup-container button:hover {
+  background-color: #00a8cc;
+}
+
+.signup-container p {
+  text-align: center;
+  margin-top: 20px;
+  color: white;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
+}
+
+.success-message {
+  color: green;
+  text-align: center;
+}
+
+/* Icônes dans les champs de texte */
+.input-container {
+  position: relative;
+}
+
+.input-container input {
+  padding-left: 40px; /* Pour l'icône */
+}
+
+.input-container i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #06bbcc; /* Couleur de l'icône */
+  font-size: 18px;
+}
+
