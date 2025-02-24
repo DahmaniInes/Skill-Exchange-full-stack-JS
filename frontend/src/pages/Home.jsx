@@ -1,4 +1,5 @@
 import React from 'react';
+
 import carousel1 from '../assets/img/carousel-1.jpg';
 import carousel2 from '../assets/img/carousel-2.jpg';
 import about from '../assets/img/about.jpg';
@@ -18,7 +19,42 @@ import testimonial2 from '../assets/img/testimonial-2.jpg';
 import testimonial3 from '../assets/img/testimonial-3.jpg';
 import testimonial4 from '../assets/img/testimonial-4.jpg';
 
+
+/*import '../utils/css/bootstrap.min.css';
+import '../utils/css/style.css';
+import 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css';
+import 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css';
+import '../utils/lib/animate/animate.min.css';
+import '../utils/lib/owlcarousel/assets/owl.carousel.min.css';*/
+
+
 const Home = () => {
+    /*useEffect(() => {
+        const scripts = [
+            "https://code.jquery.com/jquery-3.4.1.min.js",
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js",
+            "../utils/lib/wow/wow.min.js",
+            "../utils/lib/easing/easing.min.js",
+            "../utils/lib/waypoints/waypoints.min.js",
+            "../utils/lib/owlcarousel/owl.carousel.min.js",
+            "../utils/js/main.js"
+        ];
+
+        const scriptElements = scripts.map((src) => {
+            const script = document.createElement("script");
+            script.src = src;
+            script.async = true;
+            document.body.appendChild(script);
+            return script;
+        });
+
+        return () => {
+            scriptElements.forEach((script) => {
+                document.body.removeChild(script);
+            });
+        };
+    }, []);*/
+
     return (
         <div>
             {/* Carousel Start */}
