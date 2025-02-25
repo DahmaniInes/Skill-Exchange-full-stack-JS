@@ -1,4 +1,4 @@
-const express = require("express");
+/*const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -28,3 +28,4 @@ app.use("/api", authRoutes);
 app.listen(5000, () => {
   console.log("Serveur démarré sur http://localhost:5000");
 });
+*/
