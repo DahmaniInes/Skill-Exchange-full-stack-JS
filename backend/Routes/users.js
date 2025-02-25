@@ -1,11 +1,12 @@
 var express = require("express");
 var bcrypt = require("bcryptjs");
-var User = require("../models/User");
+var User = require("../Models/User");
 
 var router = express.Router();
 
 // User Login
 router.post("/login", async (req, res) => {
+  console.error("Erreur lors de la connexion :");
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
