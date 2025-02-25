@@ -1,4 +1,6 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+
+
 
 const UserSchema = new mongoose.Schema(
   {
@@ -13,6 +15,8 @@ const UserSchema = new mongoose.Schema(
     bio: { type: String, default: "" },
     location: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
+    isVerified: { type: Boolean, default: false },  // Ajout du champ pour la vérification de l'email
+    createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

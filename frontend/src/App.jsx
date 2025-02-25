@@ -1,3 +1,11 @@
+// src/App.jsx
+import React from 'react';
+import SignUp from './components/SignUp';
+import './index.css';
+
+
+
+    
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -42,6 +50,9 @@ function App() {
       document.removeEventListener('DOMContentLoaded', () => {});
     };
   }, []);
+  <div>
+      <SignUp />
+    </div>
 
   return (
     <BrowserRouter>
