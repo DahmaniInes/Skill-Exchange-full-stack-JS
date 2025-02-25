@@ -16,5 +16,8 @@
   "description": "",
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "owl.carousel": "^2.3.4"
   }
 }

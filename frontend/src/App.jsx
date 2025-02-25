@@ -8,6 +8,8 @@ import Contact from './pages/Contact';
 import About from './pages/About';
 import Courses from './pages/Courses';
 import NotFound from './pages/NotFound';
+//import "https://code.jquery.com/jquery-3.6.0.min.js";
+//import "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js";
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
