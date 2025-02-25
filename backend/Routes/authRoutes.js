@@ -1,55 +1,66 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const User = require("../Models/User");
-const sgMail = require('@sendgrid/mail'); // Import SendGrid
 const dotenv = require("dotenv");
 
 dotenv.config();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY); // Set API key
-
 const router = express.Router();
 
-// Send verification email
+// Configurer Nodemailer avec votre mot de passe d'application
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Utilisez le mot de passe d'application ici
+  },
+});
+
+// Fonction pour envoyer l'email de vérification
 const sendVerificationEmail = (email, token) => {
   const verificationUrl = `http://localhost:5000/api/verify/${token}`;
-
-  const msg = {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
     to: email,
-    from: 'hibalouhibii@gmail.com', // Use a verified SendGrid email
-    subject: 'Verify Your Email Address',
-    text: `Please verify your email by clicking on the following link: ${verificationUrl}`,
-    html: `<strong>Please verify your email by clicking on the following link: <a href="${verificationUrl}">${verificationUrl}</a></strong>`,
+    subject: "Please verify your email address",
+    text: `Click on the link to verify your email: ${verificationUrl}`,
+    html: `<p>Click on the link to verify your email: <a href="${verificationUrl}">${verificationUrl}</a></p>`,
   };
 
-  sgMail
-    .send(msg)
-    .then(() => {
-      console.log('Verification email sent to:', email);
-    })
-    .catch(error => {
-      console.error('Error sending email:', error);
-    });
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error("Error sending email:", err);
+    } else {
+      console.log("Email sent:", info.response);
+    }
+  });
 };
 
-// Sign-up route
+// Route d'inscription
 router.post("/signup", async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
-  // Check if email already exists
+  // Vérifier si l'email existe déjà
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     return res.status(400).json({ message: "This email is already in use." });
   }
 
-  // Hash the password
+  // Valider le mot de passe (doit avoir des majuscules, des minuscules, des chiffres, et être plus de 8 caractères)
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ message: "Password must contain uppercase, lowercase, a number, a special character, and be at least 8 characters long." });
+  }
+
+  // Hacher le mot de passe
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Create a verification token
+  // Créer un token de vérification
   const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-  // Create new user
+  // Créer un nouvel utilisateur
   const newUser = new User({
     firstName,
     lastName,
@@ -59,17 +70,17 @@ router.post("/signup", async (req, res) => {
 
   await newUser.save();
 
-  // Send verification email
+  // Envoyer l'email de vérification
   sendVerificationEmail(email, verificationToken);
 
   res.status(200).json({ message: "Signup successful. Please check your email for verification." });
 });
 
-// Verify email route
+// Route de vérification de l'email
 router.get("/verify/:token", async (req, res) => {
   const { token } = req.params;
 
-  // Verify the token
+  // Vérifier le token
   jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) {
       return res.status(400).json({ message: "Invalid or expired verification link." });
@@ -80,7 +91,7 @@ router.get("/verify/:token", async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Mark user as verified
+    // Marquer l'utilisateur comme vérifié
     user.isVerified = true;
     await user.save();
 

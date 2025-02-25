@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import bgImage from "../assets/images/bg-sign-up-cover.jpeg";
+import './SignUp.css'; // Ajoutez le style de votre formulaire dans ce fichier CSS
 
 const SignUp = () => {
   const [firstName, setFirstName] = useState('');
@@ -15,8 +17,8 @@ const SignUp = () => {
     const userData = { firstName, lastName, email, password };
 
     try {
-      const response = await axios.post('http://localhost:5000/api/signup', userData);
-      setMessage(response.data.message); // Show the success message
+      const response = await axios.post("http://localhost:5000/api/signup", userData);
+      setMessage(response.data.message); // Affichez le message de succès
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Error during sign-up');
@@ -25,44 +27,46 @@ const SignUp = () => {
   };
 
   return (
-    <div className="signup-container">
-      <h2>Sign Up</h2>
+    <div className="signup-container" style={{ backgroundImage: `url(${bgImage})` }}>
+      <div className="signup-content">
+        <h2>Welcome to the Sign-Up</h2>
 
-      {/* Display success or error message */}
-      {error && <p className="error-message">{error}</p>}
-      {message && <p className="success-message">{message}</p>}
+        {/* Afficher le message de succès ou d'erreur */}
+        {error && <p className="error-message">{error}</p>}
+        {message && <p className="success-message">{message}</p>}
 
-      {/* Sign up form */}
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="First Name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Last Name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit">Sign Up</button>
-      </form>
+        {/* Formulaire d'inscription */}
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="First Name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="submit">Sign Up</button>
+        </form>
 
-      {/* Link to login */}
-      <p>Already have an account? <a href="/login">Login</a></p>
+        {/* Lien vers la page de connexion */}
+        <p>Already have an account? <a href="/login">Login</a></p>
+      </div>
     </div>
   );
 };

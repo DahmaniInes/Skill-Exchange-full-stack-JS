@@ -1,102 +1,68 @@
-/* src/SignUp.css */
-
 .signup-container {
-  width: 400px;
-  margin: 0 auto;
-  padding: 30px;
-  background: linear-gradient(135deg, #06bbcc, #00a8cc); /* Dégradé bleu */
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  animation: fadeIn 0.8s ease-out; /* Animation d'apparition */
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.signup-container h2 {
-  text-align: center;
-  margin-bottom: 20px;
-  color: white; /* Couleur du texte */
-}
-
-.signup-container input {
   width: 100%;
-  padding: 10px 40px; /* Espace pour les icônes */
+  height: 100vh;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.signup-content {
+  width: 400px;
+  background: rgba(255, 255, 255, 0.9); /* Translucide pour l'effet */
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.signup-content h2 {
+  color: #06bbcc;
+  margin-bottom: 20px;
+} 
+
+.signup-content input {
+  width: 100%;
+  padding: 12px;
   margin: 10px 0;
+  border-radius: 5px;
   border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  box-sizing: border-box;
-}
+  font-size: 16px; 
+} 
 
-.signup-container input[type="text"],
-.signup-container input[type="password"] {
-  background-color: white;
-}
-
-.signup-container input::placeholder {
-  color: #888; /* Couleur des placeholders */
-}
-
-.signup-container input:focus {
+.signup-content input:focus {
   outline: none;
-  border-color: #06bbcc; /* Bordure au focus */
-  box-shadow: 0 0 5px rgba(6, 187, 204, 0.5); /* Ombre au focus */
+  border-color: #06bbcc;
+  box-shadow: 0 0 5px rgba(6, 187, 204, 0.5);
 }
 
-.signup-container button {
+.signup-content button {
   width: 100%;
   padding: 12px;
   background-color: #06bbcc;
   color: white;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  border-radius: 5px;
   font-size: 16px;
-  transition: background-color 0.3s ease-in-out;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.signup-container button:hover {
+.signup-content button:hover {
   background-color: #00a8cc;
 }
 
-.signup-container p {
-  text-align: center;
+.signup-content p {
   margin-top: 20px;
-  color: white;
+  color: #666;
 }
 
 .error-message {
-  color: red;
-  text-align: center;
+  color: red; 
 }
 
 .success-message {
   color: green;
-  text-align: center;
-}
-
-/* Icônes dans les champs de texte */
-.input-container {
-  position: relative;
-}
-
-.input-container input {
-  padding-left: 40px; /* Pour l'icône */
-}
-
-.input-container i {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #06bbcc; /* Couleur de l'icône */
-  font-size: 18px;
-}
-
+} 
+   
