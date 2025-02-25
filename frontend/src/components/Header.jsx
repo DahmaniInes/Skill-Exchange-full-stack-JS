@@ -17,7 +17,8 @@ function Header() {
   const carouselRef = useRef(null);
   const carouselInitializedRef = useRef(false);
   const [showCarousel, setShowCarousel] = useState(isHomePage);
-  
+  const [showProfileMenu, setShowProfileMenu] = useState(false); // État pour gérer l'affichage du menu profil
+
   // État pour forcer la réinitialisation des animations
   const [animationKey, setAnimationKey] = useState(0);
 
@@ -346,6 +347,28 @@ function Header() {
             <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
               Contact
             </Link>
+            <div className="nav-item dropdown">
+              <a 
+                href="#" 
+                className="nav-link dropdown-toggle" 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+              >
+                <i className="fa fa-user me-2"></i>Signup
+              </a>
+              {showProfileMenu && (
+                <div className="dropdown-menu fade-down m-0">
+                  <Link to="/profile" className="dropdown-item">
+                    Profile
+                  </Link>
+                  <Link to="/settings" className="dropdown-item">
+                    Settings
+                  </Link>
+                  <Link to="/logout" className="dropdown-item">
+                    Logout
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
           <Link to="/join" className="btn btn-primary py-4 px-lg-5 d-none d-lg-block">
             Join Now <i className="fa fa-arrow-right ms-3"></i>
