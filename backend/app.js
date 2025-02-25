@@ -10,6 +10,7 @@ var mongoose = require("mongoose");
 
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
+const cors = require("cors");
 
 var app = express();
 
@@ -26,6 +27,8 @@ app.use(
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 Days
   })
 );
+
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 // Middleware Setup
 app.use(logger("dev"));
@@ -50,6 +53,6 @@ app.use(function (err, req, res, next) {
   res.render("error");
 });
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+app.listen(3001, () => console.log("Server running on port 3000"));
 
 module.exports = app;
