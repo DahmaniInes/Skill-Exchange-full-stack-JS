@@ -1,50 +1,49 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// 📌 Connexion à MongoDB
+const mongoconnection = require("./Config/connection.json");
 
-
-
-var mongoose = require('mongoose');
-var mongoconnection = require('./Config/connection.json');
-
-
-//mongo config
-  mongoose.connect( mongoconnection.url , 
-  { useNewUrlParser:
-  true ,
-  useUnifiedTopology: true
+mongoose
+  .connect(mongoconnection.url, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
   })
-  .then(() => console.log("Connected to DB success!!"))
-  .catch(err => console.error("Could not connect to DB", err));
+  .then(() => console.log("✅ Connecté à MongoDB avec succès!"))
+  .catch((err) => {
+    console.error("❌ Erreur de connexion à MongoDB :", err);
+    process.exit(1); // Quitter l'application si MongoDB ne démarre pas
+  });
 
-// Middleware
+// 📌 Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Ajouté pour supporter les requêtes `x-www-form-urlencoded`
 
-// Routes API
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API fonctionne correctement!' });
-});
+// 📌 Routes API de test
+const profileRoutes = require("./Routes/profileRoutes");
+app.use("/api", profileRoutes); // Assure-toi que ce middleware est bien ajouté
 
-// En production, servir les fichiers statiques du frontend
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+
+// 📌 Gestion des fichiers statiques en production
+if (process.env.NODE_ENV === "production") {
+  const frontendPath = path.join(__dirname, "../frontend/dist");
+  app.use(express.static(frontendPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
 
+// 📌 Démarrage du serveur
 app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`✅ Serveur démarré sur : http://localhost:${PORT}`);
 });
-
-
-
-
 
 module.exports = app;
