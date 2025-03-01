@@ -7,15 +7,25 @@ var logger = require("morgan");
 var session = require("express-session");
 var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
-
+const authRoutes = require("./Routes/authRoutes");
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
+var loginRouter = require('./Routes/authGOOGLE');
+var loginGit = require('./Routes/authGitHub');
+const app = express();
 const cors = require("cors");
 
-var app = express();
+app.use(cors({
+    origin: 'http://localhost:5173', // Allow frontend URL
+    methods: ['GET', 'POST'], // Allow only specific methods
+    credentials: true, // Allow credentials (optional)
+  }));
+app.use(express.json());
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+app.use("/api", authRoutes);
+
 
 // Session Configuration
 app.use(
@@ -28,8 +38,6 @@ app.use(
   })
 );
 
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
-
 // Middleware Setup
 app.use(logger("dev"));
 app.use(express.json());
@@ -39,6 +47,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
+app.use("/login", loginRouter);
+app.use("/loginGit", loginGit);
+
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -52,7 +63,15 @@ app.use(function (err, req, res, next) {
   res.status(err.status || 500);
   res.render("error");
 });
+// Set EJS as the template engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views')); // specify the directory for views
 
-app.listen(3001, () => console.log("Server running on port 3000"));
+// Example route to render a view
+app.get('/', (req, res) => {
+  res.render('index'); // Ensure there is an index.ejs file in the views folder
+});
+
+app.listen(5000, () => console.log("Server running on port 5000"));
 
 module.exports = app;
