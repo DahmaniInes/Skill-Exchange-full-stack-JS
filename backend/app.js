@@ -10,9 +10,11 @@ var mongoose = require("mongoose");
 const authRoutes = require("./Routes/authRoutes");
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
-
+var loginRouter = require('./Routes/authGOOGLE');
+var loginGit = require('./Routes/authGitHub');
 const app = express();
 const cors = require("cors");
+
 app.use(cors({
     origin: 'http://localhost:5173', // Allow frontend URL
     methods: ['GET', 'POST'], // Allow only specific methods
@@ -45,6 +47,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
+app.use("/login", loginRouter);
+app.use("/loginGit", loginGit);
+
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
