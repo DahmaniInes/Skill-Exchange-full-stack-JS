@@ -12,25 +12,36 @@ const Login = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  
+
+
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post("http://localhost:5000/users/login", {
         email,
         password,
-      });
-      
+      }, { withCredentials: true }); // Make sure to include withCredentials
+  
+      // Access session ID from headers
+      const sessionUserId = response.headers['x-session-userid'];
+      console.log("Session UserId from header:", sessionUserId);
+  
       console.log("Login successful:", response.data);
       setMessage("Login successful! Redirecting...");
       setError('');
-      navigate("/");
+      navigate("/home");
+  
+      // Optionally, save the session ID in localStorage or in state if needed
+      localStorage.setItem("sessionUserId", sessionUserId);
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
       setError("Login failed. Please check your email and password.");
       setMessage('');
     }
   };
+  
+  
   
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:5000/login/auth/google";
@@ -43,7 +54,7 @@ const Login = () => {
   return (
     <div className="signup-container" style={{ backgroundImage: `url(${bgImage})` }}>
       <div className="signup-content">
-        <h2>Welcome to the Sign-In</h2>
+        <h2>Sign-In</h2>
         
         {error && <p className="error-message">{error}</p>}
         {message && <p className="success-message">{message}</p>}

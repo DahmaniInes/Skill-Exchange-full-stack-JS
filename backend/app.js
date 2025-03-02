@@ -23,7 +23,7 @@ app.use(cors({
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGO_URI);
 app.use("/api", authRoutes);
 
 
@@ -34,9 +34,15 @@ app.use(
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 Days
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days
+      httpOnly: true, // Prevent client-side access
+      secure: false, // Set to true if using HTTPS
+      sameSite: 'None', // Allow cross-origin requests
+    },
   })
 );
+
 
 // Middleware Setup
 app.use(logger("dev"));

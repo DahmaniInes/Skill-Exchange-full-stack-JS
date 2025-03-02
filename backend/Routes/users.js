@@ -3,6 +3,7 @@ var bcrypt = require("bcryptjs");
 var User = require("../Models/User");
 
 var router = express.Router();
+const verifySession = require('../middleware/verifySession');
 
 // User Login
 router.post("/login", async (req, res) => {
@@ -14,17 +15,24 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
+  // Set the session data
   req.session.userId = user._id;
+
+  // Add the session ID or any custom header with the session information
+  res.setHeader('X-Session-UserId', user._id); // For example, passing userId in the custom header
+
+  // Return the response with the session header
   res.json({ message: "Login successful", user });
 });
 
+
 // Logout
-router.post("/logout", (req, res) => {
+router.post("/logout",verifySession, (req, res) => {
   req.session.destroy(() => res.json({ message: "Logged out" }));
 });
 
 // Check Authenticated User
-router.get("/profile", async (req, res) => {
+router.get("/profile",verifySession, async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
 
   const user = await User.findById(req.session.userId);
