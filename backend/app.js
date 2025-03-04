@@ -6,8 +6,8 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-var TestRouter = require('./Routes/Test');
-app.use('/test', TestRouter);
+
+const adminRoutes = require('./Routes/adminRoutes');
 
 var mongoose = require('mongoose');
 var mongoconnection = require('./Config/connection.json');
@@ -23,16 +23,13 @@ var mongoconnection = require('./Config/connection.json');
   .catch(err => console.error("Could not connect to DB", err));
 
 
-
-
-
-
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Routes API
+
+app.use('/api/admin', adminRoutes);
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API fonctionne correctement!' });
 });
