@@ -12,15 +12,14 @@ const UserSchema = new mongoose.Schema(
       default: "user" 
     },
     phone: { type: String, default: null },
-    profilePicture: { type: String, default: null }, // URL de l'image
-    skills: [{ type: String }], // Liste de compétences
-    bio: { type: String, default: "" }, // Courte description
-    location: { type: String, default: "" }, // Ville/Pays
-    isActive: { type: Boolean, default: true }, // Statut de l'utilisateur
+    profilePicture: { type: String, default: null },
+    bio: { type: String, default: "" },
+    location: { type: String, default: "" },
+    isActive: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("User", nouussaTest);
+module.exports = mongoose.model('User', UserSchema);
