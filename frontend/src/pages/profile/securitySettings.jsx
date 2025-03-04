@@ -1,5 +1,14 @@
-import React, { useState } from "react";
-import { FaLock, FaEye, FaEyeSlash, FaCheck, FaTimes } from "react-icons/fa";
+import React, { useState, useCallback, useEffect } from "react";
+import { 
+  FaShieldAlt,
+  FaEye, 
+  FaEyeSlash, 
+  FaCheck, 
+  FaTimes, 
+  FaLock,
+  FaRegCheckCircle
+} from "react-icons/fa";
+import ProfileService from "../../services/ProfileService";
 import "./SecuritySettings.css";
 
 const SecuritySettings = () => {
@@ -8,139 +17,220 @@ const SecuritySettings = () => {
     newPassword: "",
     confirmPassword: ""
   });
-  const [showPasswords, setShowPasswords] = useState({
+  const [visibility, setVisibility] = useState({
     current: false,
     new: false,
     confirm: false
   });
-  const [message, setMessage] = useState({ type: "", content: "" });
+  const [errors, setErrors] = useState({});
+  const [feedback, setFeedback] = useState(null);
+  const [strength, setStrength] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const requirements = [
+    { id: 1, text: "Minimum 12 characters", validator: (p) => p.length >= 12 },
+    { id: 2, text: "Uppercase and lowercase", validator: (p) => /(?=.*[a-z])(?=.*[A-Z])/.test(p) },
+    { id: 3, text: "At least one number", validator: (p) => /\d/.test(p) },
+    { id: 4, text: "Special character", validator: (p) => /[!@#$%^&*]/.test(p) }
+  ];
 
-  const togglePasswordVisibility = (field) => {
-    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
-  };
+  const validateStrength = useCallback((password) => {
+    return requirements.filter(req => req.validator(password)).length;
+  }, [requirements]);
 
-  const validateForm = () => {
-    const { currentPassword, newPassword, confirmPassword } = formData;
-    const errors = [];
-
-    if (!currentPassword) errors.push("Current password is required");
-    if (newPassword.length < 8) errors.push("Password must be at least 8 characters");
-    if (newPassword !== confirmPassword) errors.push("Passwords don't match");
-
-    return errors;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const errors = validateForm();
+  const validateForm = (field, value) => {
+    const newErrors = { ...errors };
     
-    if (errors.length > 0) {
-      setMessage({ type: "error", content: errors[0] });
+    switch(field) {
+      case 'newPassword':
+        newErrors[field] = value.length < 12 ? 'Minimum 12 characters' : '';
+        setStrength(validateStrength(value));
+        break;
+      case 'confirmPassword':
+        newErrors[field] = value !== formData.newPassword ? 'Passwords do not match' : '';
+        break;
+      default:
+        newErrors[field] = value ? '' : 'Field required';
+    }
+    
+    setErrors(newErrors);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (Object.values(errors).some(error => error) || strength < 3) {
+      setFeedback({ type: 'error', message: 'Please correct the errors' });
       return;
     }
 
-    setMessage({ type: "success", content: "Password updated successfully!" });
-  };
+    try {
+      setIsLoading(true);
+      setFeedback(null);
 
-  const handleCancel = () => {
-    setFormData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    });
-    setMessage({ type: "", content: "" });
+      // Validate current password first
+      await ProfileService.validatePassword(formData.currentPassword);
+
+      // Update password if validation successful
+      await ProfileService.updatePassword(
+        formData.currentPassword,
+        formData.newPassword
+      );
+
+      setFeedback({ 
+        type: 'success', 
+        message: 'Password updated successfully!' 
+      });
+      
+      // Reset form
+      setFormData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+      setStrength(0);
+
+    } catch (error) {
+      setFeedback({ 
+        type: 'error', 
+        message: error.message || 'Password update failed' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="security-container">
-      <div className="security-header">
-        <h2><FaLock /> Security Settings</h2>
-      </div>
+    <div className="security-panel">
+      <header className="security-header">
+        <FaShieldAlt className="shield-icon" />
+        <h1>Account Security</h1>
+        <p>Protect your account with a strong password</p>
+      </header>
 
-      <form onSubmit={handleSubmit}>
-        {/* Current Password */}
-        <div className="input-group">
-          <label className="input-label">Current Password</label>
-          <div className="input-wrapper">
-            <input
-              type={showPasswords.current ? "text" : "password"}
-              placeholder="Enter current password"
-              value={formData.currentPassword}
-              onChange={(e) => handleInputChange("currentPassword", e.target.value)}
-            />
-            <button
-              type="button"
-              className="toggle-btn"
-              onClick={() => togglePasswordVisibility("current")}
-              aria-label="Toggle password visibility"
-            >
-              {showPasswords.current ? <FaEyeSlash /> : <FaEye />}
-            </button>
+      <form className="security-form" onSubmit={handleSubmit}>
+        <div className="form-group">
+          <PasswordInput
+            label="Current Password"
+            name="currentPassword"
+            value={formData.currentPassword}
+            visible={visibility.current}
+            error={errors.currentPassword}
+            onToggle={() => setVisibility(v => ({ ...v, current: !v.current }))}
+            onChange={(value) => {
+              setFormData(d => ({ ...d, currentPassword: value }));
+              validateForm('currentPassword', value);
+            }}
+          />
+        </div>
+
+        <div className="form-group">
+          <PasswordInput
+            label="New Password"
+            name="newPassword"
+            value={formData.newPassword}
+            visible={visibility.new}
+            error={errors.newPassword}
+            onToggle={() => setVisibility(v => ({ ...v, new: !v.new }))}
+            onChange={(value) => {
+              setFormData(d => ({ ...d, newPassword: value }));
+              validateForm('newPassword', value);
+            }}
+          />
+          
+          <div className="password-requirements">
+            {requirements.map(req => (
+              <div key={req.id} className={`requirement ${req.validator(formData.newPassword) ? 'valid' : ''}`}>
+                <FaRegCheckCircle />
+                <span>{req.text}</span>
+              </div>
+            ))}
+            <div className="strength-meter">
+              <div 
+                className={`strength-bar strength-${strength}`}
+                data-strength={['Weak', 'Fair', 'Good', 'Strong'][strength]}
+              ></div>
+            </div>
           </div>
         </div>
 
-        {/* New Password */}
-        <div className="input-group">
-          <label className="input-label">New Password</label>
-          <div className="input-wrapper">
-            <input
-              type={showPasswords.new ? "text" : "password"}
-              placeholder="Enter new password"
-              value={formData.newPassword}
-              onChange={(e) => handleInputChange("newPassword", e.target.value)}
-            />
-            <button
-              type="button"
-              className="toggle-btn"
-              onClick={() => togglePasswordVisibility("new")}
-              aria-label="Toggle password visibility"
-            >
-              {showPasswords.new ? <FaEyeSlash /> : <FaEye />}
-            </button>
-          </div>
+        <div className="form-group">
+          <PasswordInput
+            label="Confirm Password"
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            visible={visibility.confirm}
+            error={errors.confirmPassword}
+            onToggle={() => setVisibility(v => ({ ...v, confirm: !v.confirm }))}
+            onChange={(value) => {
+              setFormData(d => ({ ...d, confirmPassword: value }));
+              validateForm('confirmPassword', value);
+            }}
+          />
         </div>
 
-        {/* Confirm Password */}
-        <div className="input-group">
-          <label className="input-label">Confirm Password</label>
-          <div className="input-wrapper">
-            <input
-              type={showPasswords.confirm ? "text" : "password"}
-              placeholder="Confirm new password"
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-            />
-            <button
-              type="button"
-              className="toggle-btn"
-              onClick={() => togglePasswordVisibility("confirm")}
-              aria-label="Toggle password visibility"
-            >
-              {showPasswords.confirm ? <FaEyeSlash /> : <FaEye />}
-            </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        {message.content && (
-          <div className={`message ${message.type}`}>
-            {message.type === "success" ? <FaCheck /> : <FaTimes />}
-            {message.content}
+        {feedback && (
+          <div className={`feedback ${feedback.type}`}>
+            {feedback.type === 'error' ? <FaTimes /> : <FaCheck />}
+            {feedback.message}
           </div>
         )}
 
-        {/* Buttons */}
-        <div className="button-group">
-          <button type="submit" className="btn primary">Save Changes</button>
-          <button type="button" className="btn secondary" onClick={handleCancel}>Cancel</button>
+        <div className="form-actions">
+          <button 
+            type="submit" 
+            className="btn primary"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <div className="spinner"></div>
+            ) : (
+              'Update Password'
+            )}
+          </button>
+          <button 
+            type="button" 
+            className="btn secondary"
+            onClick={() => {
+              setFormData({
+                currentPassword: "",
+                newPassword: "",
+                confirmPassword: ""
+              });
+              setFeedback(null);
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </form>
     </div>
   );
 };
+
+const PasswordInput = ({ label, name, value, visible, error, onChange, onToggle }) => (
+  <div className="password-input">
+    <label htmlFor={name}>{label}</label>
+    <div className="input-container">
+      <FaLock className="input-icon" />
+      <input
+        id={name}
+        type={visible ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={error ? 'error' : ''}
+      />
+      <button 
+        type="button" 
+        className="toggle-btn"
+        onClick={onToggle}
+        aria-label={`${visible ? 'Hide' : 'Show'} password`}
+      >
+        {visible ? <FaEyeSlash /> : <FaEye />}
+      </button>
+    </div>
+    {error && <div className="error-message"><FaTimes /> {error}</div>}
+  </div>
+);
 
 export default SecuritySettings;

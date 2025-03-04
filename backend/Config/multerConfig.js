@@ -1,33 +1,27 @@
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("./cloudinaryConfig");
+const cloudinary = require("../Config/cloudinaryConfig");
 
-// Configuration du stockage avec Cloudinary
+
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "uploads", // Dossier Cloudinary
-    allowed_formats: ["jpg", "png", "jpeg", "pdf"], // Formats autorisés
-    resource_type: "auto", // Permet d'uploader des images & PDF
-  },
-});
-
-// Filtrer les fichiers (accepter uniquement les images et les PDF)
+    cloudinary,
+    params: (req, file) => ({
+      folder: file.mimetype === "application/pdf" ? "cv" : "profiles",
+      resource_type: file.mimetype === "application/pdf" ? "raw" : "image",
+      format: file.mimetype.startsWith('image') ? 'jpg' : undefined,
+      transformation: { width: 500, height: 500, crop: "limit" } // Ajout
+    })
+  });
+// 📌 Filtrage des fichiers acceptés (images et PDF)
 const fileFilter = (req, file, cb) => {
-  // Accepter les formats image et PDF
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-  
   if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true); // Accepter le fichier
+    cb(null, true);
   } else {
-    cb(new Error("Seules les images (JPEG, PNG, JPG) et les fichiers PDF sont autorisés."), false); // Rejeter le fichier
+    cb(new Error("Seules les images et fichiers PDF sont autorisés."), false);
   }
 };
 
-// Création de l'upload avec Multer et le filter
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter, // Ajout du file filter
-});
+const upload = multer({ storage, fileFilter });
 
-module.exports = upload;
+module.exports = { upload };

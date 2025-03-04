@@ -1,159 +1,218 @@
+/* SecuritySettings.css */
 :root {
-    --primary-color: #06BBCC;
-    --error-color: #e74c3c;
-    --success-color: #2ecc71;
-    --text-color: #2c3e50;
-    --border-color: #ecf0f1;
+  --primary: #06BBCC;
+  --error: #ff4444;
+  --success: #4CAF50;
+  --background: #f8fafc;
+  --text: #2d3748;
+  --border: #e2e8f0;
+}
+
+.security-panel {
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 2.5rem;
+  background: white;
+  border-radius: 1.5rem;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
+}
+
+.security-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.security-header .shield-icon {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.security-header h1 {
+  font-size: 1.75rem;
+  color: white; /* Changed to white */
+  margin-bottom: 0.5rem;
+}
+
+.security-header p {
+  color: #718096;
+  font-size: 0.95rem;
+}
+
+.security-form {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.password-input {
+  position: relative;
+}
+
+.password-input label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--background);
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  border: 2px solid var(--border);
+}
+
+.input-container:hover {
+  border-color: var(--primary);
+}
+
+.input-container.error {
+  border-color: var(--error);
+}
+
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  color: #a0aec0;
+}
+
+.password-input input {
+  width: 100%;
+  padding: 1rem 1rem 1rem 3rem;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.toggle-btn {
+  position: absolute;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  color: var(--primary);
+  background: rgba(6, 187, 204, 0.1);
+}
+
+.password-requirements {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.requirement {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #718096;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.requirement.valid {
+  color: var(--success);
+  opacity: 1;
+}
+
+.requirement svg {
+  font-size: 0.9rem;
+}
+
+.feedback {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.feedback.error {
+  background: #fff5f5;
+  color: var(--error);
+}
+
+.feedback.success {
+  background: #f0fff4;
+  color: var(--success);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 6px rgba(6, 187, 204, 0.2);
+}
+
+.btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(6, 187, 204, 0.3);
+}
+
+.btn.secondary {
+  background: white;
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.btn.secondary:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.error-message {
+  margin-top: 0.5rem;
+  color: var(--error);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .security-panel {
+    margin: 1rem;
+    padding: 1.5rem;
   }
   
-  .security-container {
-    max-width: 500px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  .form-actions {
+    flex-direction: column;
   }
-  
-  .security-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-  
-  .security-header h2 {
-    color: var(--primary-color);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    justify-content: center;
-    margin: 0;
-    font-size: 1.75rem;
-  }
-  
-  .input-group {
-    margin-bottom: 1.5rem;
-  }
-  
-  .input-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: var(--text-color);
-    font-weight: 700;
-  }
-  
-  .input-wrapper {
-    position: relative;
-  }
-  
-  .input-wrapper input {
-    width: 100%;
-    padding: 12px 40px 12px 15px;
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.3s ease;
-    color: var(--text-color);
-    background: #fff;
-  }
-  
-  .input-wrapper input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(6, 187, 204, 0.1);
-  }
-  
-  .toggle-btn {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #95a5a6;
-    cursor: pointer;
-    padding: 4px;
-    font-size: 1.1rem;
-  }
-  
-  .toggle-btn:hover {
-    color: var(--primary-color);
-  }
-  
-  .message {
-    padding: 12px;
-    border-radius: 8px;
-    margin: 1.5rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-weight: 500;
-  }
-  
-  .message.error {
-    background: #fdeded;
-    color: var(--error-color);
-    border: 1px solid var(--error-color);
-  }
-  
-  .message.success {
-    background: #edf7ed;
-    color: var(--success-color);
-    border: 1px solid var(--success-color);
-  }
-  
-  .button-group {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-  
-  .btn {
-    padding: 12px 20px;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    flex: 1;
-  }
-  
-  .btn.primary {
-    background: var(--primary-color);
-    color: white;
-  }
-  
-  .btn.primary:hover {
-    background: #0599AA;
-    transform: translateY(-1px);
-  }
-  
-  .btn.secondary {
-    background: white;
-    color: var(--text-color);
-    border: 2px solid var(--border-color);
-  }
-  
-  .btn.secondary:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-    transform: translateY(-1px);
-  }
-  
-  @media (max-width: 600px) {
-    .security-container {
-      margin: 1rem;
-      padding: 1.5rem;
-    }
-  
-    .button-group {
-      flex-direction: column;
-    }
-  
-    .btn {
-      width: 100%;
-    }
-  }
+}

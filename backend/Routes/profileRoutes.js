@@ -3,41 +3,52 @@ const {
   getUserProfile,
   updateProfile,
   updatePassword,
+  uploadCV,
+  deleteCV,
   addExperience,
   deleteExperience,
   addEducation,
   deleteEducation,
-  updateSocialLinks,
-  updateSkills,
-  uploadCV, // Gardé une seule fois
-  addRating,
-  toggleProfilePrivacy,
-  getPublicProfile
+  addSkill,
+  deleteSkill,
+  updatePrivacySettings,
+  getProfileRecommendations
 } = require("../Controllers/profileController");
-const { register} = require("../Controllers/register");
-const { login} = require("../Controllers/login");
 
+const { register } = require("../Controllers/register");
+const { login } = require("../Controllers/login");
+const { upload } = require("../Config/multerConfig");
 const authMiddleware = require("../middleware/authMiddleware");
-const { uploadImage, uploadCV: uploadMulterCV } = require("../middleware/uploadMiddleware"); // Assurez-vous d'importer les bons middlewares
 
 const router = express.Router();
 
-// 📌 Routes protégées par `authMiddleware`
+// Routes existantes
 router.get("/me", authMiddleware, getUserProfile);
-router.put("/me", authMiddleware, uploadImage.single("profilePicture"), updateProfile);
 router.put("/me/password", authMiddleware, updatePassword);
-router.put("/me/privacy", authMiddleware, toggleProfilePrivacy);
-router.put("/profile", authMiddleware, uploadImage.single("profilePicture"), updateProfile);
+router.put("/profile", authMiddleware, upload.single("profilePicture"), updateProfile);
 
-//  Route publique pour consulter un profil
-router.get("/public/:id", getPublicProfile);
+// Routes CV
+router.post("/upload-cv", authMiddleware, upload.single("cv"), uploadCV);
+router.delete("/delete-cv", authMiddleware, deleteCV);
 
-//  Route pour uploader un CV
-router.post("/upload-cv", authMiddleware, uploadMulterCV.single("cv"), uploadCV);
-// Route d'inscription
-router.post('/register', register);
+// Routes d'authentification
+router.post("/register", register);
+router.post("/login", login);
 
-// Route de connexion
-router.post('/login', login);
+// Nouvelles routes pour expériences
+router.post("/experiences", authMiddleware, addExperience);
+router.delete("/experiences/:experienceId", authMiddleware, deleteExperience);
+
+// Nouvelles routes pour formations
+router.post("/educations", authMiddleware, addEducation);
+router.delete("/educations/:educationId", authMiddleware, deleteEducation);
+
+// Nouvelles routes pour compétences
+router.post("/skills", authMiddleware, addSkill);
+router.delete("/skills/:skillId", authMiddleware, deleteSkill);
+
+// Routes pour les paramètres de confidentialité et recommandations
+router.put("/privacy-settings", authMiddleware, updatePrivacySettings);
+router.get("/profile-recommendations", authMiddleware, getProfileRecommendations);
 
 module.exports = router;

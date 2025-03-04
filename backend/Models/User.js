@@ -8,7 +8,14 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     phone: { type: String, default: null },
-    profilePicture: { type: String, default: null }, // Image de profil
+    profilePicture: {
+      type: String,
+      default: "https://res.cloudinary.com/...",
+      validate: {
+        validator: v => v.startsWith('https://res.cloudinary.com/diahyrchf/'),
+        message: "URL d'avatar invalide"
+      }
+    },
     bio: { type: String, default: "" },
     location: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
