@@ -8,10 +8,11 @@ import "../utils/css/bootstrap.min.css";
 import "../utils/css/style.css";
 import "../utils/lib/animate/animate.min.css";
 import "../utils/lib/owlcarousel/assets/owl.carousel.min.css";
-
+import axiosInstance from "../interceptor/axiosInstance";
 // Import des images
 import carousel1 from "../assets/img/carousel-1.jpg";
 import carousel2 from "../assets/img/carousel-2.jpg";
+import { useNavigate } from 'react-router-dom';
 
 function Header() {
   const location = useLocation(); // Récupère le chemin actuel
@@ -36,37 +37,21 @@ function Header() {
   };
 
 
-  const handleLogout = async (e) => {
-    e.preventDefault();
-    const sessionToken = localStorage.getItem("sessionToken"); // Get the session token from localStorage
+  const navigate = useNavigate();
+
+const handleLogout = async () => {
+  try {
+    const response = await axiosInstance.post("/users/logout");
+    console.log("Logout successful:", response.data);
+    localStorage.removeItem("jwtToken"); // Clear the token from local storage
+    
+    // Redirect to the login path
+    navigate("/login");
+  } catch (error) {
+    console.error("Logout failed:", error.response?.data || error.message);
+  }
+};
   
-    if (!sessionToken) {
-      setError("No active session found.");
-      return;
-    }
-  
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/users/logout", 
-        {}, // No body content needed for logout
-        {
-          headers: {
-            Authorization: `Bearer ${sessionToken}`, // Add the session token to the Authorization header
-          },
-        }
-      );
-  
-      console.log("Logout successful:", response.data);
-      setMessage("Logout successful! Redirecting...");
-      setError('');
-      localStorage.removeItem("sessionToken"); // Remove the session token from localStorage
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error.response?.data || error.message);
-      setError("Logout failed");
-      setMessage('');
-    }
-  };
   
   
   

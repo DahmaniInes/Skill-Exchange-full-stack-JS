@@ -15,11 +15,16 @@ var loginGit = require('./Routes/authGitHub');
 const app = express();
 const cors = require("cors");
 
+
+
 app.use(cors({
-    origin: 'http://localhost:5173', // Allow frontend URL
-    methods: ['GET', 'POST'], // Allow only specific methods
-    credentials: true, // Allow credentials (optional)
-  }));
+  origin: 'http://localhost:5173', // Your frontend URL
+  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-UserId'], // Add 'Authorization' to the allowed headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
+}));
+
+
 app.use(express.json());
 
 // Connect to MongoDB
@@ -27,7 +32,6 @@ mongoose.connect(process.env.MONGO_URI);
 app.use("/api", authRoutes);
 
 
-// Session Configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -37,7 +41,7 @@ app.use(
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days
       httpOnly: true, // Prevent client-side access
-      secure: false, // Set to true if using HTTPS
+      secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS in production
       sameSite: 'None', // Allow cross-origin requests
     },
   })

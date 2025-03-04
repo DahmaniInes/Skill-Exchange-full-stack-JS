@@ -21,25 +21,31 @@ const Login = () => {
       const response = await axios.post("http://localhost:5000/users/login", {
         email,
         password,
-      }, { withCredentials: true }); // Make sure to include withCredentials
+      });
   
-      // Access session ID from headers
-      const sessionUserId = response.headers['x-session-userid'];
-      console.log("Session UserId from header:", sessionUserId);
+      // Save the JWT token in local storage
+      const token = response.data.token;
+      if (token) {
+        localStorage.setItem("jwtToken", token);
+        console.log("JWT Token saved:", token);
+      } else {
+        console.warn("JWT Token not found in response");
+      }
   
       console.log("Login successful:", response.data);
       setMessage("Login successful! Redirecting...");
       setError('');
       navigate("/home");
   
-      // Optionally, save the session ID in localStorage or in state if needed
-      localStorage.setItem("sessionUserId", sessionUserId);
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
       setError("Login failed. Please check your email and password.");
       setMessage('');
     }
   };
+  
+  
+
   
   
   

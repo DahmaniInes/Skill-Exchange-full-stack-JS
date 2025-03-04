@@ -3,11 +3,13 @@ var bcrypt = require("bcryptjs");
 var User = require("../Models/User");
 
 var router = express.Router();
-const verifySession = require('../middleware/verifySession');
+const verifyToken = require('../middleware/verifySession');
 
-// User Login
+
+const jwt = require('jsonwebtoken');
+
 router.post("/login", async (req, res) => {
-  console.error("Erreur lors de la connexion :");
+  console.log("Login request received");
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
@@ -15,51 +17,43 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
-  // Set the session data
-  req.session.userId = user._id;
+  // Create a JWT token
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-  // Add the session ID or any custom header with the session information
-  res.setHeader('X-Session-UserId', user._id); // For example, passing userId in the custom header
+  // Send token in response
+  res.json({ message: "Login successful", token });
+});
 
-  // Return the response with the session header
-  res.json({ message: "Login successful", user });
+router.post("/logout",verifyToken, (req, res) => {
+  // Just inform the client to delete the token
+  res.json({ message: "Logged out - Please remove the token from storage" });
 });
 
 
-// Logout
-router.post("/logout",verifySession, (req, res) => {
-  req.session.destroy(() => res.json({ message: "Logged out" }));
-});
 
-// Check Authenticated User
-router.get("/profile",verifySession, async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
 
-  const user = await User.findById(req.session.userId);
+
+
+// Get Authenticated User Profile
+router.get("/profile", verifyToken, async (req, res) => {
+  const user = await User.findById(req.userId); // Use `req.userId` from header
+  if (!user) return res.status(404).json({ message: "User not found" });
+
   res.json(user);
 });
 
+// User Registration
 router.post("/register", async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   const user = new User({ firstName, lastName, email, password: hashedPassword });
   await user.save();
-  res.send('Registration page'); 
+  res.send("User registered successfully");
 });
 
-
-// In your routes/users.js
-
-router.get('/verify-session', (req, res) => {
-  console.log('Session Data:', req.session);
-  console.log('Cookies:', req.cookies); // Check if cookies are being received
-  if (req.session.userId) {
-    res.json({ success: true, message: "Session is active", userId: req.session.userId });
-  } else {
-    res.json({ success: false, message: "No active session found" });
-  }
+// Verify if session is active
+router.get("/verify-session", verifyToken, (req, res) => {
+  res.json({ success: true, message: "Session is active", userId: req.userId });
 });
-
-
 
 module.exports = router;
