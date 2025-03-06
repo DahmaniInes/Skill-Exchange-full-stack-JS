@@ -1,10 +1,11 @@
 // src/App.jsx
 import React from 'react';
-import SignUp from './components/SignUp';
+
 import './index.css';
 
 
-
+import Login from "./pages/login/login";
+import Signup from "./pages/signup/SignUp";
     
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -50,22 +51,21 @@ function App() {
       document.removeEventListener('DOMContentLoaded', () => {});
     };
   }, []);
-  <div>
-      <SignUp />
-    </div>
+
 
   return (
-    <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
+          <Route path='/home' element={<Home />} />
           <Route path="contact" element={<Contact />} />
           <Route path="about" element={<About />} />
           <Route path="courses" element={<Courses />} />
+          <Route path="/login" element={<Login />} />
+         <Route path="/signup" element={<Signup />} />
           <Route path="*" element={<NotFound />} />
+          
         </Route>
       </Routes>
-    </BrowserRouter>
   );
 }
 

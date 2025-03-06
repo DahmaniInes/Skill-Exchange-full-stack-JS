@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import axios from 'axios';
+
 // Import des styles CSS
 import "../utils/css/bootstrap.min.css";
 import "../utils/css/style.css";
 import "../utils/lib/animate/animate.min.css";
 import "../utils/lib/owlcarousel/assets/owl.carousel.min.css";
-
+import axiosInstance from "../interceptor/axiosInstance";
 // Import des images
 import carousel1 from "../assets/img/carousel-1.jpg";
 import carousel2 from "../assets/img/carousel-2.jpg";
+import { useNavigate } from 'react-router-dom';
 
 function Header() {
   const location = useLocation(); // Récupère le chemin actuel
@@ -33,6 +36,26 @@ function Header() {
     "/notfound": "Not Found",
   };
 
+
+  const navigate = useNavigate();
+
+const handleLogout = async () => {
+  try {
+    const response = await axiosInstance.post("/users/logout");
+    console.log("Logout successful:", response.data);
+    localStorage.removeItem("jwtToken"); // Clear the token from local storage
+    
+    // Redirect to the login path
+    navigate("/login");
+  } catch (error) {
+    console.error("Logout failed:", error.response?.data || error.message);
+  }
+};
+  
+  
+  
+  
+
   const title = pageTitles[location.pathname] || "Page";
 
   // Effet pour s'assurer que Bootstrap JS est chargé
@@ -48,7 +71,7 @@ function Header() {
           console.error('Erreur de chargement de Bootstrap JS:', err);
         }
       };
-      
+
       loadBootstrap();
     }
   }, []);
@@ -67,10 +90,10 @@ function Header() {
   useEffect(() => {
     // Quand la route change, mettre à jour l'état du carousel
     setShowCarousel(isHomePage);
-    
+
     // Réinitialiser l'animation à chaque changement de route
     setAnimationKey(prevKey => prevKey + 1);
-    
+
     // Ajout: forcer le défilement en haut de la page lors d'un changement
     window.scrollTo(0, 0);
   }, [isHomePage, location.pathname]);
@@ -91,12 +114,12 @@ function Header() {
         try {
           // Créer une nouvelle instance du carousel
           const $carousel = window.jQuery(".header-carousel");
-          
+
           // Assurer que toute instance précédente est détruite
           if ($carousel.data('owl.carousel')) {
             $carousel.owlCarousel('destroy');
           }
-          
+
           // Initialiser une nouvelle instance
           $carousel.owlCarousel({
             autoplay: true,
@@ -110,7 +133,7 @@ function Header() {
               '<i class="bi bi-chevron-right"></i>'
             ]
           });
-          
+
           // Stocker la référence
           carouselRef.current = $carousel;
           carouselInitializedRef.current = true;
@@ -131,7 +154,7 @@ function Header() {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      
+
       // Si nous quittons la page d'accueil, nettoyer complètement le carousel
       if (carouselInitializedRef.current && carouselRef.current) {
         try {
@@ -152,7 +175,7 @@ function Header() {
       const navbarHeight = navbar.offsetHeight;
       document.body.style.paddingTop = `${navbarHeight}px`;
     }
-    
+
     // Si jamais la navbar n'est pas "sticky", on peut l'appliquer via JS
     const handleScroll = () => {
       const navbar = document.querySelector('.navbar');
@@ -168,10 +191,10 @@ function Header() {
 
     // Appliquer immédiatement au chargement
     handleScroll();
-    
+
     // Puis écouter les événements de défilement
     window.addEventListener('scroll', handleScroll);
-    
+
     // Nettoyage
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -226,23 +249,19 @@ function Header() {
   // Rendu conditionnel du header des autres pages
   const renderPageHeader = () => {
     if (showCarousel) return null;
-  
+
     return (
       <div
-        className="container-fluid bg-primary py-5 mb-5 page-header"
+        className=""
         style={{
-          backgroundImage: `url(${carousel1})`,
-          backgroundPosition: "center",
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
           position: "relative",
         }}
         key={`page-header-${animationKey}`}
       >
-        {/* Overlay pour améliorer la lisibilité du texte */}
+        {/* Overlay for readability */}
         <div
           style={{
-            position: "absolute",
+            displaynone: "none",
             top: 0,
             left: 0,
             right: 0,
@@ -250,35 +269,11 @@ function Header() {
             backgroundColor: "rgba(24, 29, 56, .7)",
           }}
         ></div>
-  
-        <div className="container py-5 position-relative">
-          <div className="row justify-content-center">
-            <div className="col-lg-10 text-center">
-              <h1 className="display-3 text-white animated slideInDown">{title}</h1>
-              <nav aria-label="breadcrumb">
-                <ol className="breadcrumb justify-content-center">
-                  <li className="breadcrumb-item">
-                    <Link to="/" className="text-white animated slideInLeft">
-                      Home
-                    </Link>
-                  </li>
-                  <li className="breadcrumb-item">
-                    <Link to="/pages" className="text-white animated slideInDown">
-                      Pages
-                    </Link>
-                  </li>
-                  <li className="breadcrumb-item text-white active animated slideInRight" aria-current="page">
-                    {title}
-                  </li>
-                </ol>
-              </nav>
-            </div>
-          </div>
-        </div>
       </div>
     );
   };
-  
+
+
   return (
     <>
       {/* Spinner Start */}
@@ -293,8 +288,8 @@ function Header() {
       {/* Spinner End */}
 
       {/* Navbar Start - Modification pour garantir qu'elle est fixe */}
-      <nav 
-        className="navbar navbar-expand-lg bg-white navbar-light shadow p-0" 
+      <nav
+        className="navbar navbar-expand-lg bg-white navbar-light shadow p-0"
         style={{
           position: 'fixed',
           top: 0,
@@ -348,9 +343,9 @@ function Header() {
               Contact
             </Link>
             <div className="nav-item dropdown">
-              <a 
-                href="#" 
-                className="nav-link dropdown-toggle" 
+              <a
+                href="#"
+                className="nav-link dropdown-toggle"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
               >
                 <i className="fa fa-user me-2"></i>Signup
@@ -363,9 +358,9 @@ function Header() {
                   <Link to="/settings" className="dropdown-item">
                     Settings
                   </Link>
-                  <Link to="/logout" className="dropdown-item">
+                  <span className="dropdown-item" onClick={handleLogout}>
                     Logout
-                  </Link>
+                  </span>
                 </div>
               )}
             </div>
