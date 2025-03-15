@@ -17,6 +17,10 @@ const UserSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: false },  // Ajout du champ pour la vérification de l'email
     createdAt: { type: Date, default: Date.now },
+    authKeyTOTP: { type: String, required: false }, // Clé secrète TOTP
+    isTOTPEnabled: { type: Boolean, default: false }, // Indique si TOTP est activé
+
+
   },
   { timestamps: true }
 );

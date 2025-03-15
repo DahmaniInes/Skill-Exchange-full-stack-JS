@@ -23,20 +23,28 @@ const Login = () => {
         password,
       });
   
+      
       // Save the JWT token in local storage
-      const token = response.data.token;
+      const { user, token } = response.data;
       if (token) {
         localStorage.setItem("jwtToken", token);
         console.log("JWT Token saved:", token);
       } else {
         console.warn("JWT Token not found in response");
       }
+
+      
   
       console.log("Login successful:", response.data);
       setMessage("Login successful! Redirecting...");
       setError('');
-      navigate("/home");
-  
+      if (!response.data.user.isTOTPEnabled) {
+        // First login after registration, redirect to TOTP setup
+        navigate("/auth");
+      } else {
+        // User already has TOTP set up, go to home page
+        navigate("/");
+      }
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
       setError("Login failed. Please check your email and password.");
