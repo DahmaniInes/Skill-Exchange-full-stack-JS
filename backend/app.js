@@ -15,6 +15,7 @@ var loginGit = require('./Routes/authGitHub');
 const app = express();
 const cors = require("cors");
 
+var authOATH = require('./Routes/oath-totp');
 
 
 app.use(cors({
@@ -59,6 +60,7 @@ app.use("/", indexRouter);
 app.use("/users", usersRouter);
 app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
+app.use("/auth",authOATH);
 
 
 // Catch 404 and forward to error handler

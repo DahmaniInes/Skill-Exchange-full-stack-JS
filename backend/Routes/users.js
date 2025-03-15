@@ -21,7 +21,7 @@ router.post("/login", async (req, res) => {
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
   // Send token in response
-  res.json({ message: "Login successful", token });
+  res.json({ message: "Login successful", token , user: { isTOTPEnabled: user.isTOTPEnabled }});
 });
 
 router.post("/logout",verifyToken, (req, res) => {

@@ -20,6 +20,7 @@ import Courses from './pages/Courses';
 import NotFound from './pages/NotFound';
 //import "https://code.jquery.com/jquery-3.6.0.min.js";
 //import "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js";
+import TotpStup from './pages/TotpSetup';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -62,8 +63,8 @@ function App() {
           <Route path="courses" element={<Courses />} />
           <Route path="/login" element={<Login />} />
          <Route path="/signup" element={<Signup />} />
+         <Route path="/auth" element={<TotpStup />} />
           <Route path="*" element={<NotFound />} />
-          
         </Route>
       </Routes>
   );
