@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import bgImage from "../../assets/images/bg-sign-up-cover.jpeg";
-import googleLogo from "../../assets/img/google-logo.png"; // Add this image to your assets
-import githubLogo from "../../assets/img/github-logo.jpg"; // Add this image to your assets
+import googleLogo from "../../assets/img/google-logo.png";
+import githubLogo from "../../assets/img/github-logo.jpg";
 import './login.css';
 
 const Login = () => {
@@ -12,8 +12,52 @@ const Login = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
-
+  const location = useLocation();
+  
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      localStorage.setItem("jwtToken", token);
+      console.log("JWT Token from OAuth saved:", token);
+      
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      fetchUserInfo(token);
+    }
+  }, [location]);
+  
+  const fetchUserInfo = async (token) => {
+    try {
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      
+      let userInfo;
+      try {
+        const googleResponse = await axios.get("http://localhost:5000/login/google-user", config);
+        userInfo = googleResponse.data.user;
+      } catch (error) {
+        // Si échoue, on essaie par GitHub
+        const githubResponse = await axios.get("http://localhost:5000/loginGit/github-user", config);
+        userInfo = githubResponse.data.user;
+      }
+      
+      console.log("User info retrieved:", userInfo);
+      
+      // Redirection selon le cas
+      setMessage("Authentication successful! Redirecting...");
+      setError('');
+      
+     
+      navigate("/");
+      
+    } catch (error) {
+      console.error("Failed to fetch user info:", error);
+      setError("Authentication successful, but failed to retrieve user information.");
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,8 +66,7 @@ const Login = () => {
         email,
         password,
       });
-  
-      
+        
       // Save the JWT token in local storage
       const { user, token } = response.data;
       if (token) {
@@ -32,17 +75,13 @@ const Login = () => {
       } else {
         console.warn("JWT Token not found in response");
       }
-
-      
-  
+        
       console.log("Login successful:", response.data);
       setMessage("Login successful! Redirecting...");
       setError('');
       if (!response.data.user.isTOTPEnabled) {
-        // First login after registration, redirect to TOTP setup
         navigate("/auth");
       } else {
-        // User already has TOTP set up, go to home page
         navigate("/");
       }
     } catch (error) {
@@ -51,12 +90,7 @@ const Login = () => {
       setMessage('');
     }
   };
-  
-  
-
-  
-  
-  
+     
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:5000/login/auth/google";
   };
@@ -69,10 +103,10 @@ const Login = () => {
     <div className="signup-container" style={{ backgroundImage: `url(${bgImage})` }}>
       <div className="signup-content">
         <h2>Sign-In</h2>
-        
+          
         {error && <p className="error-message">{error}</p>}
         {message && <p className="success-message">{message}</p>}
-        
+          
         <form onSubmit={handleLogin}>
           <input
             type="email"
@@ -89,20 +123,20 @@ const Login = () => {
             required
           />
           <button type="submit">Login</button>
-          
+            
           {/* Google OAuth button with logo */}
           <button 
-            type="button" 
+            type="button"
             className="oauth-button google-button"
             onClick={handleGoogleLogin}
           >
             <img src={googleLogo} alt="Google logo" />
             Sign in with Google
           </button>
-          
+            
           {/* GitHub OAuth button with logo */}
           <button 
-            type="button" 
+            type="button"
             className="oauth-button github-button"
             onClick={handleGithubLogin}
           >
@@ -110,7 +144,7 @@ const Login = () => {
             Sign in with GitHub
           </button>
         </form>
-        
+          
         <p>Create account? <a href="/signup">Sign Up</a></p>
       </div>
     </div>
