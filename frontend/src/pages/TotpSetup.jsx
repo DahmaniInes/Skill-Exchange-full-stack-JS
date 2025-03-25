@@ -5,50 +5,59 @@ import { useNavigate } from 'react-router-dom';
 const TotpSetup = () => {
     const [qrCode, setQrCode] = useState('');
     const [secret, setSecret] = useState('');
-    const [token, setToken] = useState('');
+    const [totpCode, setTotpCode] = useState('');
     const [message, setMessage] = useState('');
-    const navigate = useNavigate(); // Utiliser useNavigate pour la redirection
+    const navigate = useNavigate();
 
-    // Récupérer le QR Code et la clé secrète
     useEffect(() => {
-        axios.get('http://localhost:5000/auth/setup-totp')
-            .then(response => {
-                setQrCode(response.data.qrCode);
-                setSecret(response.data.secret);
-            })
-            .catch(error => console.error('Erreur lors de la récupération du QR Code', error));
-    }, []);
+        axios.get('http://localhost:5000/auth/setup-totp', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+            }
+        })
+        .then(response => {
+            setQrCode(response.data.qrCode);
+            setSecret(response.data.secret);
+        })
+        .catch(error => {
+            console.error('Erreur lors de la récupération du QR Code', error);
+        });
+    }, [navigate]);
 
-    // Valider le code TOTP
     const verifyToken = () => {
-        axios.post('http://localhost:5000/auth/verify-totp', { token, secret })
-            .then(response => {
-                setMessage(response.data.message);
-                if (response.data.success) {
-                    // Rediriger vers la page d'accueil après un court délai
-                    setTimeout(() => {
-                        navigate('/'); // Redirection vers la page d'accueil
-                    }, 100); // Délai de 1 seconde avant la redirection
+        axios.post('http://localhost:5000/auth/verify-totp', 
+            { token: totpCode, secret },
+            {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 }
-            })
-            .catch(error => setMessage(error.response.data.message));
+            }
+        )
+        .then(response => {
+            setMessage(response.data.message);
+            if (response.data.success) {
+                setTimeout(() => navigate('/'), 100);
+            }
+        })
+        .catch(error => {
+            setMessage(error.response?.data?.message || 'Erreur de vérification');
+        });
     };
 
     return (
         <div>
             <h1>Configurer TOTP</h1>
-            {qrCode && <img src={qrCode} alt="QR Code" />} {/* Afficher l'image uniquement si qrCode est disponible */}
+            {qrCode && <img src={qrCode} alt="QR Code" />}
             <p>Clé secrète : {secret}</p>
 
             <h2>Vérifier TOTP</h2>
             <input
                 type="text"
                 placeholder="Entrez le code TOTP"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
             />
             <button onClick={verifyToken}>Vérifier</button>
-
             {message && <p>{message}</p>}
         </div>
     );

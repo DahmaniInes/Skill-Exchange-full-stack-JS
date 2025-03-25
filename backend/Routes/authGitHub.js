@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 const User = require('../Models/User');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Route pour initier l'authentification GitHub
 router.get('/auth/github', (req, res) => {
@@ -24,7 +25,6 @@ router.get('/auth/github', (req, res) => {
   console.log('Redirection vers GitHub:', githubAuthUrl);
   res.redirect(githubAuthUrl);
 });
-
 
 // Route pour gérer le callback de GitHub
 router.get('/login-with-github', async (req, res) => {
@@ -122,49 +122,17 @@ router.get('/login-with-github', async (req, res) => {
       });
     }
     
-    // Créer une session pour l'utilisateur
-    req.session.userId = user._id;
-    console.log('Session créée pour l\'utilisateur:', user._id);
-    
-    // Rediriger vers la page d'accueil React
+    // Créer un JWT pour l'utilisateur
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log("Token JWT créé avec succès pour GitHub OAuth");
+
+    // Envoi du token côté client via le header
+    res.set('Authorization', `Bearer ${token}`);
     res.redirect('http://localhost:5173');
     
   } catch (error) {
     console.error('ERREUR GITHUB AUTH:', error);
-    res.redirect('http://localhost:5173?error=authentication_failed');
-  }
-});
-
-// Route pour récupérer les informations de l'utilisateur connecté par GitHub
-router.get('/github-user', async (req, res) => {
-  if (!req.session.userId) {
-    console.log('Tentative d\'accès sans session');
-    return res.status(401).json({ success: false, message: 'Non authentifié' });
-  }
-  
-  try {
-    const user = await User.findById(req.session.userId);
-    if (!user) {
-      console.log('Utilisateur non trouvé en base:', req.session.userId);
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
-    }
-    
-    console.log('Données utilisateur envoyées:', user.firstName + ' ' + user.lastName);
-    
-    res.json({
-      success: true,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Erreur lors de la récupération des données utilisateur:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    res.status(500).send('Erreur d\'authentification');
   }
 });
 

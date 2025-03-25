@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import bgImage from "../../assets/images/bg-sign-up-cover.jpeg";
-import googleLogo from "../../assets/img/google-logo.png"; // Add this image to your assets
-import githubLogo from "../../assets/img/github-logo.jpg"; // Add this image to your assets
+import googleLogo from "../../assets/img/google-logo.png";
+import githubLogo from "../../assets/img/github-logo.jpg";
 import './login.css';
 
 const Login = () => {
@@ -12,8 +12,61 @@ const Login = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
-
+  const location = useLocation();
+  
+  // Fonction pour extraire le token de l'URL lors des redirections OAuth
+  useEffect(() => {
+    // Récupérer le token depuis l'URL si présent (après redirection OAuth)
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      // Stocker le token JWT
+      localStorage.setItem("jwtToken", token);
+      console.log("JWT Token from OAuth saved:", token);
+      
+      // Nettoyer l'URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Récupérer les informations utilisateur avec le token
+      fetchUserInfo(token);
+    }
+  }, [location]);
+  
+  // Fonction pour récupérer les informations utilisateur après OAuth
+  const fetchUserInfo = async (token) => {
+    try {
+      // On peut appeler l'une ou l'autre de ces routes, elles fonctionnent avec JWT
+      // On essaie d'abord par Google (vous pourriez adapter cette logique selon votre besoin)
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      
+      let userInfo;
+      try {
+        const googleResponse = await axios.get("http://localhost:5000/login/google-user", config);
+        userInfo = googleResponse.data.user;
+      } catch (error) {
+        // Si échoue, on essaie par GitHub
+        const githubResponse = await axios.get("http://localhost:5000/loginGit/github-user", config);
+        userInfo = githubResponse.data.user;
+      }
+      
+      console.log("User info retrieved:", userInfo);
+      
+      // Redirection selon le cas
+      setMessage("Authentication successful! Redirecting...");
+      setError('');
+      
+      // Vous devrez adapter cette logique selon votre modèle utilisateur
+      // et comment vous gérez TOTP pour les utilisateurs OAuth
+      navigate("/");
+      
+    } catch (error) {
+      console.error("Failed to fetch user info:", error);
+      setError("Authentication successful, but failed to retrieve user information.");
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,8 +75,7 @@ const Login = () => {
         email,
         password,
       });
-  
-      
+        
       // Save the JWT token in local storage
       const { user, token } = response.data;
       if (token) {
@@ -32,9 +84,7 @@ const Login = () => {
       } else {
         console.warn("JWT Token not found in response");
       }
-
-      
-  
+        
       console.log("Login successful:", response.data);
       setMessage("Login successful! Redirecting...");
       setError('');
@@ -51,12 +101,7 @@ const Login = () => {
       setMessage('');
     }
   };
-  
-  
-
-  
-  
-  
+     
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:5000/login/auth/google";
   };
@@ -69,10 +114,10 @@ const Login = () => {
     <div className="signup-container" style={{ backgroundImage: `url(${bgImage})` }}>
       <div className="signup-content">
         <h2>Sign-In</h2>
-        
+          
         {error && <p className="error-message">{error}</p>}
         {message && <p className="success-message">{message}</p>}
-        
+          
         <form onSubmit={handleLogin}>
           <input
             type="email"
@@ -89,20 +134,20 @@ const Login = () => {
             required
           />
           <button type="submit">Login</button>
-          
+            
           {/* Google OAuth button with logo */}
           <button 
-            type="button" 
+            type="button"
             className="oauth-button google-button"
             onClick={handleGoogleLogin}
           >
             <img src={googleLogo} alt="Google logo" />
             Sign in with Google
           </button>
-          
+            
           {/* GitHub OAuth button with logo */}
           <button 
-            type="button" 
+            type="button"
             className="oauth-button github-button"
             onClick={handleGithubLogin}
           >
@@ -110,7 +155,7 @@ const Login = () => {
             Sign in with GitHub
           </button>
         </form>
-        
+          
         <p>Create account? <a href="/signup">Sign Up</a></p>
       </div>
     </div>
