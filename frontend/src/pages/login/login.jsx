@@ -14,30 +14,22 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Fonction pour extraire le token de l'URL lors des redirections OAuth
   useEffect(() => {
-    // Récupérer le token depuis l'URL si présent (après redirection OAuth)
     const params = new URLSearchParams(location.search);
     const token = params.get('token');
     
     if (token) {
-      // Stocker le token JWT
       localStorage.setItem("jwtToken", token);
       console.log("JWT Token from OAuth saved:", token);
       
-      // Nettoyer l'URL
       window.history.replaceState({}, document.title, window.location.pathname);
       
-      // Récupérer les informations utilisateur avec le token
       fetchUserInfo(token);
     }
   }, [location]);
   
-  // Fonction pour récupérer les informations utilisateur après OAuth
   const fetchUserInfo = async (token) => {
     try {
-      // On peut appeler l'une ou l'autre de ces routes, elles fonctionnent avec JWT
-      // On essaie d'abord par Google (vous pourriez adapter cette logique selon votre besoin)
       const config = {
         headers: { Authorization: `Bearer ${token}` }
       };
@@ -58,8 +50,7 @@ const Login = () => {
       setMessage("Authentication successful! Redirecting...");
       setError('');
       
-      // Vous devrez adapter cette logique selon votre modèle utilisateur
-      // et comment vous gérez TOTP pour les utilisateurs OAuth
+     
       navigate("/");
       
     } catch (error) {
@@ -89,10 +80,8 @@ const Login = () => {
       setMessage("Login successful! Redirecting...");
       setError('');
       if (!response.data.user.isTOTPEnabled) {
-        // First login after registration, redirect to TOTP setup
         navigate("/auth");
       } else {
-        // User already has TOTP set up, go to home page
         navigate("/");
       }
     } catch (error) {
