@@ -62,6 +62,20 @@ app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth",authOATH);
 
+// 📌 Routes API de test
+const profileRoutes = require("./Routes/profileRoutes");
+app.use("/api", profileRoutes); // Assure-toi que ce middleware est bien ajouté
+
+
+// 📌 Gestion des fichiers statiques en production
+if (process.env.NODE_ENV === "production") {
+  const frontendPath = path.join(__dirname, "../frontend/dist");
+  app.use(express.static(frontendPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+}
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {

@@ -1,31 +1,31 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
-
-import axios from 'axios';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import axiosInstance from "../interceptor/axiosInstance";
 
 // Import des styles CSS
 import "../utils/css/bootstrap.min.css";
 import "../utils/css/style.css";
 import "../utils/lib/animate/animate.min.css";
 import "../utils/lib/owlcarousel/assets/owl.carousel.min.css";
-import axiosInstance from "../interceptor/axiosInstance";
+
 // Import des images
 import carousel1 from "../assets/img/carousel-1.jpg";
 import carousel2 from "../assets/img/carousel-2.jpg";
-import { useNavigate } from 'react-router-dom';
 
 function Header() {
-  const location = useLocation(); // Récupère le chemin actuel
+  const location = useLocation();
   const isHomePage = location.pathname === "/";
   const carouselRef = useRef(null);
   const carouselInitializedRef = useRef(false);
   const [showCarousel, setShowCarousel] = useState(isHomePage);
-  const [showProfileMenu, setShowProfileMenu] = useState(false); // État pour gérer l'affichage du menu profil
-
-  // État pour forcer la réinitialisation des animations
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
+  const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') || 'Auto');
+  const [language, setLanguage] = useState(localStorage.getItem('language') || 'English');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+  const navigate = useNavigate();
 
-  // Définition des titres et des breadcrumbs en fonction du chemin d'URL
+  // Définition des titres
   const pageTitles = {
     "/": "Home",
     "/about": "About Us",
@@ -36,33 +36,39 @@ function Header() {
     "/notfound": "Not Found",
   };
 
-
-  const navigate = useNavigate();
-
-const handleLogout = async () => {
-  try {
-    const response = await axiosInstance.post("/users/logout");
-    console.log("Logout successful:", response.data);
-    localStorage.removeItem("jwtToken"); // Clear the token from local storage
-    
-    // Redirect to the login path
-    navigate("/login");
-  } catch (error) {
-    console.error("Logout failed:", error.response?.data || error.message);
-  }
-};
-  
-  
-  
-  
-
   const title = pageTitles[location.pathname] || "Page";
 
-  // Effet pour s'assurer que Bootstrap JS est chargé
+  // Gestion du dark mode
   useEffect(() => {
-    // Vérifier si Bootstrap est chargé
+    const applyDarkMode = () => {
+      document.body.classList.toggle('dark-mode', darkMode === 'Dark' || (darkMode === 'Auto' && prefersDark.matches));
+    };
+    applyDarkMode();
+    if (darkMode === 'Auto') prefersDark.addEventListener('change', applyDarkMode);
+    return () => prefersDark.removeEventListener('change', applyDarkMode);
+  }, [darkMode]);
+
+  // Sauvegarde des préférences
+  useEffect(() => {
+    localStorage.setItem('darkMode', darkMode);
+    localStorage.setItem('language', language);
+  }, [darkMode, language]);
+
+  // Logout
+  const handleLogout = async () => {
+    try {
+      const response = await axiosInstance.post("/users/logout");
+      console.log("Logout successful:", response.data);
+      localStorage.removeItem("jwtToken");
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error.response?.data || error.message);
+    }
+  };
+
+  // Initialisation Bootstrap
+  useEffect(() => {
     if (typeof window !== 'undefined' && !window.bootstrap) {
-      // Importer dynamiquement Bootstrap JS
       const loadBootstrap = async () => {
         try {
           await import('bootstrap/dist/js/bootstrap.bundle.min.js');
@@ -71,12 +77,11 @@ const handleLogout = async () => {
           console.error('Erreur de chargement de Bootstrap JS:', err);
         }
       };
-
       loadBootstrap();
     }
   }, []);
 
-  // Effet pour le spinner uniquement
+  // Spinner
   useEffect(() => {
     const spinner = document.getElementById("spinner");
     if (spinner) {
@@ -86,41 +91,30 @@ const handleLogout = async () => {
     }
   }, []);
 
-  // Effet pour détecter les changements de page
+  // Gestion du changement de page
   useEffect(() => {
-    // Quand la route change, mettre à jour l'état du carousel
     setShowCarousel(isHomePage);
-
-    // Réinitialiser l'animation à chaque changement de route
     setAnimationKey(prevKey => prevKey + 1);
-
-    // Ajout: forcer le défilement en haut de la page lors d'un changement
     window.scrollTo(0, 0);
   }, [isHomePage, location.pathname]);
 
-  // Effet pour initialiser manuellement le carousel
+  // Carousel
   useEffect(() => {
     if (!showCarousel) return;
 
     let timeoutId = null;
 
     const setupCarousel = () => {
-      // Vérifier que jQuery et OwlCarousel sont disponibles
       if (window.jQuery && window.jQuery.fn.owlCarousel) {
-        // Seulement si l'élément carousel existe dans le DOM
         const carouselElement = document.querySelector(".header-carousel");
         if (!carouselElement) return;
 
         try {
-          // Créer une nouvelle instance du carousel
           const $carousel = window.jQuery(".header-carousel");
-
-          // Assurer que toute instance précédente est détruite
           if ($carousel.data('owl.carousel')) {
             $carousel.owlCarousel('destroy');
           }
 
-          // Initialiser une nouvelle instance
           $carousel.owlCarousel({
             autoplay: true,
             smartSpeed: 1500,
@@ -134,28 +128,20 @@ const handleLogout = async () => {
             ]
           });
 
-          // Stocker la référence
           carouselRef.current = $carousel;
           carouselInitializedRef.current = true;
         } catch (error) {
           console.error("Erreur d'initialisation du carousel:", error);
         }
       } else {
-        // Réessayer plus tard
         timeoutId = setTimeout(setupCarousel, 200);
       }
     };
 
-    // Démarrer le processus
     setupCarousel();
 
-    // Nettoyage
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-
-      // Si nous quittons la page d'accueil, nettoyer complètement le carousel
+      if (timeoutId) clearTimeout(timeoutId);
       if (carouselInitializedRef.current && carouselRef.current) {
         try {
           carouselRef.current.owlCarousel('destroy');
@@ -167,16 +153,14 @@ const handleLogout = async () => {
     };
   }, [showCarousel]);
 
-  // Ajout d'un effet pour s'assurer que la navbar reste fixe
+  // Navbar fixe
   useEffect(() => {
-    // Ajuster le padding-top du body pour éviter que le contenu ne soit masqué
     const navbar = document.querySelector('.navbar');
     if (navbar) {
       const navbarHeight = navbar.offsetHeight;
       document.body.style.paddingTop = `${navbarHeight}px`;
     }
 
-    // Si jamais la navbar n'est pas "sticky", on peut l'appliquer via JS
     const handleScroll = () => {
       const navbar = document.querySelector('.navbar');
       if (navbar) {
@@ -189,20 +173,16 @@ const handleLogout = async () => {
       }
     };
 
-    // Appliquer immédiatement au chargement
     handleScroll();
-
-    // Puis écouter les événements de défilement
     window.addEventListener('scroll', handleScroll);
 
-    // Nettoyage
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.body.style.paddingTop = '0';
     };
   }, []);
 
-  // Rendu conditionnel du carousel en fonction de l'état
+  // Rendu conditionnel du carousel
   const renderCarousel = () => {
     if (!showCarousel) return null;
 
@@ -258,7 +238,6 @@ const handleLogout = async () => {
         }}
         key={`page-header-${animationKey}`}
       >
-        {/* Overlay for readability */}
         <div
           style={{
             displaynone: "none",
@@ -273,10 +252,9 @@ const handleLogout = async () => {
     );
   };
 
-
   return (
     <>
-      {/* Spinner Start */}
+      {/* Spinner */}
       <div
         id="spinner"
         className="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center"
@@ -285,9 +263,8 @@ const handleLogout = async () => {
           <span className="sr-only">Loading...</span>
         </div>
       </div>
-      {/* Spinner End */}
 
-      {/* Navbar Start - Modification pour garantir qu'elle est fixe */}
+      {/* Navbar avec les améliorations */}
       <nav
         className="navbar navbar-expand-lg bg-white navbar-light shadow p-0"
         style={{
@@ -304,6 +281,7 @@ const handleLogout = async () => {
             <i className="fa fa-book me-3"></i>eLEARNING
           </h2>
         </Link>
+        
         <button
           type="button"
           className="navbar-toggler me-4"
@@ -312,6 +290,7 @@ const handleLogout = async () => {
         >
           <span className="navbar-toggler-icon"></span>
         </button>
+        
         <div className="collapse navbar-collapse" id="navbarCollapse">
           <div className="navbar-nav ms-auto p-4 p-lg-0">
             <Link to="/" className={`nav-item nav-link ${location.pathname === "/" ? "active" : ""}`}>
@@ -342,35 +321,76 @@ const handleLogout = async () => {
             <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
               Contact
             </Link>
-            <div className="nav-item dropdown">
-              <a
-                href="#"
-                className="nav-link dropdown-toggle"
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-              >
-                <i className="fa fa-user me-2"></i>Signup
-              </a>
-              {showProfileMenu && (
-                <div className="dropdown-menu fade-down m-0">
-                  <Link to="/profile" className="dropdown-item">
-                    Profile
-                  </Link>
-                  <Link to="/settings" className="dropdown-item">
-                    Settings
-                  </Link>
-                  <span className="dropdown-item" onClick={handleLogout}>
-                    Logout
-                  </span>
-                </div>
-              )}
+          </div>
+
+          {/* Ajout des nouvelles fonctionnalités */}
+          <div className="d-flex align-items-center me-4">
+            {/* Sélecteur de langue */}
+            <div className="dropdown me-3">
+              <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                🌍 {language}
+              </button>
+              <ul className="dropdown-menu">
+                <li><a className="dropdown-item" href="#" onClick={() => setLanguage('English')}>🇬🇧 English</a></li>
+                <li><a className="dropdown-item" href="#" onClick={() => setLanguage('Español')}>🇪🇸 Español</a></li>
+                <li><a className="dropdown-item" href="#" onClick={() => setLanguage('Français')}>🇫🇷 Français</a></li>
+              </ul>
+            </div>
+
+            {/* Mode sombre */}
+            <div className="dropdown me-3">
+              <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                {darkMode === 'Light' ? '☀️' : darkMode === 'Dark' ? '🌙' : '🌗'}
+              </button>
+              <ul className="dropdown-menu">
+                <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Light')}>☀️ Light</a></li>
+                <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Dark')}>🌙 Dark</a></li>
+                <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Auto')}>🌗 Auto</a></li>
+              </ul>
             </div>
           </div>
+
+          {/* Menu profil amélioré */}
+          <div className="nav-item dropdown me-4">
+            <a
+              href="#"
+              className="nav-link dropdown-toggle d-flex align-items-center"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+            >
+              <img 
+                src="https://via.placeholder.com/40" 
+                alt="User" 
+                className="rounded-circle me-2 border border-2 border-primary" 
+                style={{ width: '40px', height: '40px' }}
+              />
+              <span className="fw-semibold">User</span>
+            </a>
+            {showProfileMenu && (
+              <div className="dropdown-menu fade-down m-0 dropdown-menu-end">
+                <Link to="/posts" className="dropdown-item">
+                  <i className="fa fa-file-text-o me-2"></i>Posts
+                </Link>
+
+                <Link to="/login" className="dropdown-item">
+                  <i className="fa fa-file-text-o me-2"></i>Login
+                </Link>
+
+                <Link to="/profile" className="dropdown-item">
+                  <i className="fa fa-user-circle me-2"></i>Profile
+                </Link>
+                <hr className="dropdown-divider" />
+                <span className="dropdown-item text-danger" onClick={handleLogout}>
+                  <i className="fa fa-sign-out me-2"></i>Logout
+                </span>
+              </div>
+            )}
+          </div>
+
           <Link to="/join" className="btn btn-primary py-4 px-lg-5 d-none d-lg-block">
             Join Now <i className="fa fa-arrow-right ms-3"></i>
           </Link>
         </div>
       </nav>
-      {/* Navbar End */}
 
       {/* Rendu conditionnel du carousel ou du header de page */}
       {renderCarousel()}

@@ -1,0 +1,136 @@
+:root {
+    --primary-color: #06BBCC;
+    --primary-color-light: #17e3f5;
+    --primary-color-dark: #0599a6;
+    --background-light: #f4f6f7;
+    --text-color: #2c3e50;
+    --text-color-light: #34495e;
+    --shadow: 0 4px 6px rgba(6, 187, 204, 0.1);
+}
+
+.professional-profile {
+    max-width: 800px;
+    margin: 2rem auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid rgba(6, 187, 204, 0.1);
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-color-dark));
+    color: white;
+    position: relative;
+}
+
+.profile-navigation {
+    display: flex;
+    background: rgba(6, 187, 204, 0.05);
+    border-bottom: 1px solid rgba(6, 187, 204, 0.2);
+}
+
+.nav-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--primary-color);
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.nav-button.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.skill-card {
+    background: rgba(6, 187, 204, 0.05);
+    border: 1px solid rgba(6, 187, 204, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.skill-card:hover {
+    box-shadow: 0 4px 10px rgba(6, 187, 204, 0.1);
+    transform: translateY(-5px);
+}
+
+.skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.skill-name {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.skill-level-indicator {
+    display: flex;
+    align-items: center;
+}
+
+.skill-level-bar {
+    display: flex;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: #06BBCC;
+}
+
+.skill-level-bar.beginner {
+    color: #06BBCC;
+}
+
+.skill-level-bar.intermediate {
+    color: #06BBCC;
+}
+
+.skill-level-bar.expert {
+    color: #06BBCC;
+}
+
+.no-skills-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    color: rgba(6, 187, 204, 0.5);
+}
+
+.setting-group .section-title {
+    color: var(--primary-color);
+    border-bottom: 2px solid rgba(6, 187, 204, 0.2);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-navigation {
+        flex-direction: column;
+    }
+}
