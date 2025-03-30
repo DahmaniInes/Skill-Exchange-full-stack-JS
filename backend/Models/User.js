@@ -12,8 +12,6 @@ const UserSchema = new mongoose.Schema(
     phone: { type: String, default: null },
     profilePicture: { type: String, default: null },
     skills: [{ type: String }],
-    bio: { type: String, default: "" },
-    location: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: false },  // Ajout du champ pour la vérification de l'email
     createdAt: { type: Date, default: Date.now },

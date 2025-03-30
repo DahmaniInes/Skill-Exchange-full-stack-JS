@@ -1,5 +1,6 @@
 // src/App.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
+import axios from 'axios'; // Import manquant
 
 import './index.css';
 
@@ -9,7 +10,6 @@ import Signup from "./pages/signup/SignUp";
     
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
 import { WOW } from 'wowjs';
 
 import MainLayout from './layouts/MainLayout';
@@ -24,6 +24,7 @@ import TotpStup from './pages/TotpSetup';
 import ProfileForm from './pages/profile/ProfileForm'; // Ton composant de modification de profil // Exemple d'un autre composant
 import SecuritySettings from './pages/profile/SecuritySettings'; // Exemple d'un autre composant
 import Profile from './pages/profile/ProfilePage'; // Composanticher le profil pour aff
+import MessengerPage from './pages/MessengerPages/MessengerPage';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -32,7 +33,23 @@ import 'animate.css';
 import 'wowjs/css/libs/animate.css';
 
 function App() {
-  useEffect(() => {
+    // Configuration de l'intercepteur Axios
+    useEffect(() => {
+      axios.interceptors.request.use(config => {
+        console.log('Intercepteur appelé, headers:', config.headers);
+
+        const token = localStorage.getItem('jwtToken');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }else{
+          delete config.headers.Authorization;
+
+        }
+        return config;
+      }, error => {
+        return Promise.reject(error);
+      });
+
     // Attendre que le DOM soit complètement chargé
     document.addEventListener('DOMContentLoaded', () => {
       const wow = new WOW({
@@ -57,7 +74,12 @@ function App() {
   }, []);
 
 
+
+ 
+
+
   return (
+
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route path='/home' element={<Home />} />
@@ -70,9 +92,12 @@ function App() {
            <Route path="profileForm" element={<ProfileForm />} />
           <Route path="SecuritySettings" element={<SecuritySettings />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="MessengerPage" element={<MessengerPage />} />
+
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+
   );
 }
 

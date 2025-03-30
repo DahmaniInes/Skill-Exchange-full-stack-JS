@@ -1,0 +1,712 @@
+/* Reset et base */
+.messenger-app {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Conteneur principal */
+.messenger-container {
+    display: flex;
+    height: calc(100vh - 60px); /* Ajustez selon la hauteur de votre header */
+    width: 100%;
+}
+
+/* Panneau des conversations (30%) */
+.conversations-panel {
+    flex: 0 0 30%;
+    max-width: 30%;
+    min-width: 250px;
+    height: 100%;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+}
+
+/* Panneau de chat (70%) */
+.chat-panel {
+    flex: 1;
+    min-width: 0; /* Important pour le responsive */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .messenger-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .conversations-panel {
+        flex: 1;
+        max-width: 100%;
+        width: 100%;
+        height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .chat-panel {
+        flex: 1;
+        height: 60vh;
+    }
+}
+
+/* Styles pour éviter les débordements */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* Styles existants conservés */
+
+/* Nouveau style pour la sélection de l'utilisateur */
+.chat-item.selected {
+    background-color: #f0f0f0;
+}
+
+.chat-area.user-profile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.profile-section {
+    text-align: center;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.profile-avatar img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+}
+
+.profile-name {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.profile-job-title {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.profile-bio {
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.voir-profile-btn {
+    background-color: #0084ff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.chat-area.empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #888;
+}
+
+
+/* Ajoutez ceci en premier dans votre CSS */
+.chat-area .messages-container .user-profile-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+    background: #fff;
+    border-radius: 8px;
+    margin: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .chat-area .messages-container .user-profile-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 300px;
+  }
+  
+  .chat-area .messages-container .user-profile-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 15px;
+    border: 3px solid #06BBCC;
+  }
+  
+  .chat-area .messages-container .user-full-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1px;
+  }
+  
+  .chat-area .messages-container .user-job-title {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 5px;
+  }
+  
+  .chat-area .messages-container .user-bio {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 15px;
+    line-height: 1;
+  }
+  
+  .chat-area .messages-container .view-profile-btn {
+    background-color: #06BBCC;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .chat-area .messages-container .view-profile-btn:hover {
+    background-color: #06BBCC;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  /* Styles pour la zone de messages */
+/* MessengerApplicationStyles.css */
+
+/* Structure principale */
+.chat-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* Container des messages avec barre de défilement */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #06BBCC #f0f2f5;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: #f0f2f5;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background-color: #06BBCC;
+  border-radius: 6px;
+}
+
+.scrollable-content {
+  min-height: min-content;
+}
+
+/* Section profil */
+.user-profile-section {
+  padding: 15px;
+  border-bottom: 1px solid #e4e6eb;
+}
+
+.user-profile-content {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.user-profile-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 15px;
+}
+
+.user-profile-details {
+  flex: 1;
+}
+
+.user-full-name {
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+
+.user-job-title {
+  color: #06BBCC;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.user-bio {
+  font-size: 14px;
+  color: #65676b;
+  margin-bottom: 15px;
+  line-height: 1.4;
+}
+
+.view-profile-btn {
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.personal-conversation-note {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e4e6eb;
+  color: #65676b;
+  font-size: 14px;
+}
+
+.personal-conversation-note small {
+  display: block;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+/* Liste des messages */
+.messages-list {
+  padding: 15px;
+}
+
+.message-container {
+  display: flex;
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.message-container.sent {
+  justify-content: flex-end;
+}
+
+.message-container.received {
+  justify-content: flex-start;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 8px;
+  align-self: flex-end;
+}
+
+.message {
+  max-width: 60%;
+  word-wrap: break-word;
+}
+
+.message-content {
+  padding: 10px 15px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.message-sent .message-content {
+  background-color: #06BBCC;
+  color: #fff;
+  border-top-right-radius: 0;
+}
+
+.message-received .message-content {
+  background-color: #f0f2f5;
+  color: #000;
+  border-top-left-radius: 0;
+}
+
+.message-time {
+  font-size: 11px;
+  color: #65676b;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.message-status {
+  font-size: 10px;
+  color: #999;
+  margin-left: 5px;
+  font-style: italic;
+}
+
+/* Zone d'input */
+.input-area {
+  display: flex;
+  padding: 10px 15px;
+  border-top: 1px solid #e4e6eb;
+  background-color: #fff;
+  align-items: center;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 20px;
+  border: none;
+  background-color: #f0f2f5;
+  font-size: 14px;
+  max-height: 120px;
+  resize: none;
+}
+
+.send-button {
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+.send-button:disabled {
+  background-color: #e4e6eb;
+  cursor: not-allowed;
+}
+
+/* Styles pour les états vides */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #65676b;
+  font-size: 16px;
+}
+
+
+
+
+/* Styles pour l'upload d'image et vidéo */
+.message-image-container {
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.message-image {
+  max-width: 250px;
+  max-height: 250px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+/* Styles pour les documents */
+.message-document-container {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  max-width: 250px;
+}
+
+.document-icon {
+  margin-right: 10px;
+}
+
+.document-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.download-btn {
+  font-size: 12px;
+  color: #06BBCC;
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.download-btn:hover {
+  text-decoration: underline;
+}
+
+/* Styles communs pour les boutons d'action */
+.input-action-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-action-btn:hover {
+  transform: scale(1.1);
+}
+
+.input-actions {
+  display: flex;
+  gap: 10px;
+}
+
+
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.message-document-container {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  max-width: 250px;
+}
+
+.document-icon {
+  margin-right: 10px;
+}
+
+.document-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.download-btn {
+  font-size: 12px;
+  color: #06BBCC;
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.download-btn:hover {
+  text-decoration: underline;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* Styles pour les boutons vocaux */
+.voice-message-btn {
+  margin-right: 10px;
+}
+
+.start-recording-btn, 
+.stop-recording-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.start-recording-btn:hover {
+  background: rgba(0, 132, 255, 0.1);
+}
+
+.stop-recording-btn {
+  background: #ff4d4d;
+  color: white;
+}
+
+.stop-recording-btn:hover {
+  background: #ff3333;
+}
+
+/* Animation pendant l'enregistrement */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.is-recording {
+  animation: pulse 1.5s infinite;
+}
+
+.message-audio-container {
+  margin: 8px 0;
+}
+
+.message-audio {
+  width: 250px;
+  height: 40px;
+}

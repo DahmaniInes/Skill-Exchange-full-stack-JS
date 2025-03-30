@@ -12,6 +12,8 @@ var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
 var loginRouter = require('./Routes/authGOOGLE');
 var loginGit = require('./Routes/authGitHub');
+var MessengerRoute = require('./Routes/MessengerRoute');
+
 const app = express();
 const cors = require("cors");
 
@@ -49,6 +51,23 @@ app.use(
 );
 
 
+
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+require('./middleware/messengerSocket')(io);
+
+
+
+
+
 // Middleware Setup
 app.use(logger("dev"));
 app.use(express.json());
@@ -61,6 +80,8 @@ app.use("/users", usersRouter);
 app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth",authOATH);
+app.use("/MessengerRoute",MessengerRoute);
+
 
 // 📌 Routes API de test
 const profileRoutes = require("./Routes/profileRoutes");
@@ -98,6 +119,11 @@ app.get('/', (req, res) => {
   res.render('index'); // Ensure there is an index.ejs file in the views folder
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+server.listen(5000, () => console.log("Server running on port 5000"));
+
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 module.exports = app;

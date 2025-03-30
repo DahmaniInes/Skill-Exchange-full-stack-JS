@@ -21,12 +21,16 @@ const Login = () => {
     if (token) {
       localStorage.setItem("jwtToken", token);
       console.log("JWT Token from OAuth saved:", token);
-      
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log("Jeton JWT OAuth sauvegardé :", token);
+
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      fetchUserInfo(token);
+      //////////////////////////////////
+      navigate("/");
+
+      //fetchUserInfo(token);
     }
-  }, [location]);
+  }, [location, navigate]);
   
   const fetchUserInfo = async (token) => {
     try {

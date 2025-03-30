@@ -27,6 +27,7 @@ router.post("/login", async (req, res) => {
 router.post("/logout",verifyToken, (req, res) => {
   // Just inform the client to delete the token
   res.json({ message: "Logged out - Please remove the token from storage" });
+
 });
 
 
