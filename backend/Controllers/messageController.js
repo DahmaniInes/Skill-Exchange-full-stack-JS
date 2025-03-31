@@ -1,5 +1,6 @@
 const { Conversation, Message } = require('../Models/MessageSchema');
 const { upload } = require('../Config/cloudinaryMessenger');
+const { v4: uuidv4 } = require('uuid');
 
 const messageController = {
   // Uploader un fichier
@@ -120,6 +121,9 @@ const messageController = {
     }
   },
 
+
+
+
   // Récupérer l'historique des messages
   async getMessages(socket, userId, otherUserId) {
     try {
@@ -146,81 +150,89 @@ const messageController = {
       console.error('Error fetching messages:', error);
       socket.emit('error', { message: 'Failed to load messages' });
     }
-  }
-};
+  },
 
-
-const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorderRef.current = new MediaRecorder(stream);
-    audioChunksRef.current = [];
-    
-    mediaRecorderRef.current.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        audioChunksRef.current.push(e.data);
-      }
-    };
-    
-    mediaRecorderRef.current.onstop = () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-      setAudioBlob(audioBlob);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      setFilePreview(audioUrl);
-    };
-    
-    mediaRecorderRef.current.start();
-    setIsRecording(true);
-  } catch (error) {
-    console.error('Error starting recording:', error);
-    alert('Microphone access denied or not available');
-  }
-};
-
-const stopRecording = () => {
-  if (mediaRecorderRef.current && isRecording) {
-    mediaRecorderRef.current.stop();
-    mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    setIsRecording(false);
-  }
-};
-
-const handleSendVoiceMessage = async () => {
-  if (!audioBlob) return;
+  // Ajoutez cette méthode au messageController
   
+
+async uploadAudio(req, res) {
   try {
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'voice-message.wav');
+    console.log('Upload audio request received');
     
-    const uploadResponse = await fetch('http://localhost:5000/MessengerRoute/upload', {
-      method: 'POST',
-      body: formData
+    if (!req.file) {
+      console.log('No file received in request');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Aucun fichier audio reçu',
+        code: 'NO_FILE'
+      });
+    }
+
+    console.log('File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
     });
-    
-    const fileInfo = await uploadResponse.json();
-    
-    const messageData = {
-      senderId: currentUserId,
-      receiverId: selectedUser._id,
-      content: 'Voice message',
-      attachments: [{
-        url: fileInfo.url,
-        fileType: 'audio',
-        originalName: 'voice-message.wav'
-      }]
-    };
-    
-    socketRef.current.emit('sendMessage', messageData);
-    
-    // Reset audio state
-    setAudioBlob(null);
-    setFilePreview(null);
+
+    // Validation du type de fichier
+    const validAudioTypes = [
+      'audio/mpeg',    // mp3
+      'audio/wav',     // wav
+      'audio/ogg',     // ogg
+      'audio/x-m4a',   // m4a
+      'audio/webm',    // webm
+      'audio/aac'      // aac
+    ];
+
+    if (!validAudioTypes.includes(req.file.mimetype)) {
+      console.log('Invalid file type:', req.file.mimetype);
+      return res.status(400).json({
+        success: false,
+        message: 'Type de fichier audio non supporté',
+        receivedType: req.file.mimetype,
+        code: 'INVALID_FILE_TYPE'
+      });
+    }
+
+    // Vérification que Cloudinary a bien retourné un path
+    if (!req.file.path) {
+      console.error('Cloudinary upload failed - no path returned');
+      return res.status(500).json({
+        success: false,
+        message: 'Échec de l\'upload sur Cloudinary',
+        code: 'CLOUDINARY_ERROR'
+      });
+    }
+
+    // Génération de l'URL de téléchargement
+    const downloadUrl = `${req.file.path}?fl_attachment`;
+
+    console.log('Upload successful:', {
+      path: req.file.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
+    return res.status(200).json({
+      success: true,
+      url: req.file.path,
+      downloadUrl,
+      fileType: 'audio',
+      originalName: req.file.originalname,
+      size: req.file.size,
+      publicId: req.file.filename
+    });
+
   } catch (error) {
-    console.error('Error sending voice message:', error);
-  } finally {
-    setIsUploading(false);
+    console.error('Server error during audio upload:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de l\'upload audio',
+      error: error.message,
+      code: 'SERVER_ERROR'
+    });
   }
+}
 };
 
 module.exports = messageController;

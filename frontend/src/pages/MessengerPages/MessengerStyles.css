@@ -653,60 +653,146 @@
 }
 
 
-
-
-
-
-
-
-
-
-
-
-/* Styles pour les boutons vocaux */
-.voice-message-btn {
-  margin-right: 10px;
+/* Audio recording styles */
+.recording-active {
+  color: #ff0000 !important;
+  animation: pulse 1.5s infinite;
 }
 
-.start-recording-btn, 
-.stop-recording-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.start-recording-btn:hover {
-  background: rgba(0, 132, 255, 0.1);
-}
-
-.stop-recording-btn {
-  background: #ff4d4d;
-  color: white;
-}
-
-.stop-recording-btn:hover {
-  background: #ff3333;
-}
-
-/* Animation pendant l'enregistrement */
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.5; }
   100% { opacity: 1; }
 }
 
-.is-recording {
-  animation: pulse 1.5s infinite;
+.audio-preview-container {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+}
+
+.audio-preview {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.remove-audio-btn {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .message-audio-container {
-  margin: 8px 0;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-.message-audio {
-  width: 250px;
+.message-audio-player {
+  flex-grow: 1;
+  max-width: 250px;
   height: 40px;
 }
+
+.download-audio-btn {
+  margin-left: 10px;
+  color: #06BBCC;
+  display: flex;
+  align-items: center;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 2px solid white;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+
+
+/* Styles pour le sélecteur d'émojis */
+.emoji-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.emoji-picker-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #06BBCC;
+  transition: all 0.2s;
+}
+
+.emoji-picker-btn:hover {
+  transform: scale(1.1);
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Ajustement de la zone d'input */
+.input-area {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  position: relative;
+}
+
+.message-input {
+  flex-grow: 1;
+  margin: 0 10px;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  outline: none;
+}
+
+/* Pour fermer le picker quand on clique ailleurs */
+.emoji-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+
+
+
+
+
+
+
+
+
