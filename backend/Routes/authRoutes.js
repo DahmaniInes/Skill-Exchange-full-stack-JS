@@ -39,64 +39,103 @@ const sendVerificationEmail = (email, token) => {
 };
 
 // Route d'inscription
+// URLs des avatars par défaut selon le genre
+const DEFAULT_AVATARS = {
+  male: "https://res.cloudinary.com/diahyrchf/image/upload/v1743254777/male-avatar_nbdjlv.jpg",
+  female: "https://res.cloudinary.com/diahyrchf/image/upload/v1743116481/female-avatar_t28htw.jpg",
+  default: "https://res.cloudinary.com/diahyrchf/image/upload/v1234567890/user-avatars/default-avatar.jpg"
+};
+
+// Vérification des URL
+const isValidURL = (url) => {
+  const urlRegex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/;
+  return !url || urlRegex.test(url);
+};
+
+// Route d'inscription (signup)
 router.post("/signup", async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
+  try {
+    const {
+      firstName, lastName, email, password, phone, bio, location, role, gender,
+      profilePicture, jobTitle, company, university, degree, cv, skills, experience, education, socialLinks
+    } = req.body;
 
-  // Vérifier si l'email existe déjà
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return res.status(400).json({ message: "This email is already in use." });
-  }
-
-  // Valider le mot de passe (doit avoir des majuscules, des minuscules, des chiffres, et être plus de 8 caractères)
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(password)) {
-    return res.status(400).json({ message: "Password must contain uppercase, lowercase, a number, a special character, and be at least 8 characters long." });
-  }
-
-  // Hacher le mot de passe
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Créer un token de vérification
-  const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-  // Créer un nouvel utilisateur
-  const newUser = new User({
-    firstName,
-    lastName,
-    email,
-    password: hashedPassword,
-  });
-
-  await newUser.save();
-
-  // Envoyer l'email de vérification
-  sendVerificationEmail(email, verificationToken);
-
-  res.status(200).json({ message: "Signup successful. Please check your email for verification." });
-});
-
-// Route de vérification de l'email
-router.get("/verify/:token", async (req, res) => {
-  const { token } = req.params;
-
-  // Vérifier le token
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-    if (err) {
-      return res.status(400).json({ message: "Invalid or expired verification link." });
+    // Vérifier si l'email existe déjà
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "This email is already in use." });
     }
 
-    const user = await User.findOne({ email: decoded.email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
+    // Valider le mot de passe
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain uppercase, lowercase, a number, a special character, and be at least 8 characters long."
+      });
     }
 
-    // Marquer l'utilisateur comme vérifié
-    user.isVerified = true;
-    await user.save();
+    // Hacher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    res.status(200).json({ message: "Email verified successfully!" });
-  });
+    // Créer un token de vérification d'email
+    const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    // Vérifier les liens sociaux
+    if (socialLinks) {
+      for (const key in socialLinks) {
+        if (!isValidURL(socialLinks[key])) {
+          return res.status(400).json({ message: `Invalid URL for ${key}` });
+        }
+      }
+    }
+
+    // Vérifier l'image de profil et appliquer l'avatar par défaut selon le genre
+    let validProfilePicture;
+    if (profilePicture && isValidURL(profilePicture)) {
+      validProfilePicture = profilePicture;
+    } else {
+      validProfilePicture = gender === "female" ? DEFAULT_AVATARS.female 
+                        : gender === "male" ? DEFAULT_AVATARS.male 
+                        : DEFAULT_AVATARS.default;
+    }
+
+    // Vérifier le CV
+    const validCV = cv && isValidURL(cv) ? cv : null;
+
+    // Création du nouvel utilisateur
+    const newUser = new User({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      phone: phone || null,
+      bio: bio || "",
+      location: location || "",
+      role: role || "user",
+      gender: gender || "other", // Valeur par défaut si non spécifié
+      profilePicture: validProfilePicture,
+      jobTitle: jobTitle || "",
+      company: company || "",
+      university: university || "",
+      degree: degree || "",
+      cv: validCV,
+      isVerified: false,
+      skills: skills || [],
+      experience: experience || [],
+      education: education || [],
+      socialLinks: socialLinks || {},
+    });
+
+    await newUser.save();
+
+    // Envoyer l'email de vérification
+    sendVerificationEmail(email, verificationToken);
+
+    res.status(200).json({ message: "Signup successful. Please check your email for verification." });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "An error occurred during signup." });
+  }
 });
-
 module.exports = router;

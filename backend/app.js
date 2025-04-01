@@ -9,22 +9,34 @@ var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
 const authRoutes = require("./Routes/authRoutes");
 var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
+var usersRouter = require("./Routes/users");
 var loginRouter = require('./Routes/authGOOGLE');
 var loginGit = require('./Routes/authGitHub');
+
 const app = express();
 const cors = require("cors");
 
 var authOATH = require('./Routes/oath-totp');
 
 
+// app.js
+// app.js
+// Dans app.js - Mettre à jour la configuration CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend URL
-  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-UserId'], // Add 'Authorization' to the allowed headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Client-Version', // Header personnalisé ajouté ici
+    'X-Requested-With'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'Authorization']
 }));
 
+// Ajouter un handler global pour les requêtes OPTIONS
+app.options('*', cors());
 
 app.use(express.json());
 
@@ -49,6 +61,12 @@ app.use(
 );
 
 
+
+const http = require('http');
+const server = http.createServer(app);
+
+
+
 // Middleware Setup
 app.use(logger("dev"));
 app.use(express.json());
@@ -56,12 +74,28 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/", indexRouter);
-app.use("/users", usersRouter);
-app.use("/login", loginRouter);
+app.use("/", usersRouter);
+//app.use("/users", usersRouter);
+//app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth",authOATH);
 
+
+
+// 📌 Routes API de test
+const profileRoutes = require("./Routes/profileRoutes");
+app.use("/api", profileRoutes); // Assure-toi que ce middleware est bien ajouté
+
+
+// 📌 Gestion des fichiers statiques en production
+if (process.env.NODE_ENV === "production") {
+  const frontendPath = path.join(__dirname, "../frontend/dist");
+  app.use(express.static(frontendPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+}
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -84,6 +118,11 @@ app.get('/', (req, res) => {
   res.render('index'); // Ensure there is an index.ejs file in the views folder
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+server.listen(5000, () => console.log("Server running on port 5000"));
+
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 module.exports = app;
