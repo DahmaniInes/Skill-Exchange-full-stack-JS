@@ -67,7 +67,7 @@ function App() {
           <Route path="/login" element={<Login />} />
          <Route path="/signup" element={<Signup />} />
          <Route path="/auth" element={<TotpStup />} />
-           <Route path="profileForm" element={<ProfileForm />} />
+          <Route path="profileForm" element={<ProfileForm />} />
           <Route path="SecuritySettings" element={<SecuritySettings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />

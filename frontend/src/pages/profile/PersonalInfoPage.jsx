@@ -111,7 +111,7 @@ const PersonalInfoPage = ({ formData, setFormData, nextStep, handleCancel }) => 
       email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "Email invalide" : "",
       phone: value && !/^\+?[\d\s()-]{8,20}$/.test(value) ? "Format invalide" : "",
       location: value.length < 3 ? "Localisation invalide" : "",
-      bio: value.length < 50 ? "Minimum 50 caractères" : ""
+      bio: value.length < 20 ? "Minimum 20 caractères" : ""
     };
     return validations[field];
   };
@@ -124,30 +124,33 @@ const PersonalInfoPage = ({ formData, setFormData, nextStep, handleCancel }) => 
       errors: { ...prev.errors, [field]: error }
     }));
   };
-
   const handleSubmit = async () => {
+    console.log("🔵 handleSubmit called!");
+  
     const validationErrors = Object.entries(formData).reduce((acc, [key, value]) => ({
       ...acc,
       [key]: validateField(key, value)
     }), {});
-
+  
     if (Object.values(validationErrors).some(e => e)) {
+      console.log("🔴 Validation errors:", validationErrors);
       setErrors(validationErrors);
       return;
     }
-
+  
     try {
       setLoading(true);
       await ProfileService.updatePersonalInfo(formData);
-      nextStep();
+      console.log("🟢 Profile updated successfully, going to next step...");
+      nextStep();  // Passer à l'étape suivante après validation
     } catch (error) {
-      setErrors({ 
-        global: error.message || "Erreur lors de la mise à jour" 
-      });
+      console.log("🔴 Update failed:", error.message);
+      setErrors({ global: error.message || "Erreur lors de la mise à jour" });
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <section className="personal-info-section">
