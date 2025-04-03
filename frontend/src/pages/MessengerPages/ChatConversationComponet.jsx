@@ -5,7 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import EmojiPicker from 'emoji-picker-react';
 import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
 
-const ChatConversation = ({ selectedUser }) => {
+const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
   const [callData, setCallData] = useState(null);
@@ -35,9 +35,10 @@ const ChatConversation = ({ selectedUser }) => {
   const [callDuration, setCallDuration] = useState(0);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [showMoreMenu, setShowMoreMenu] = useState(false); // Added missing state declaration
+  const [contextMenu, setContextMenu] = useState({ messageId: null, x: 0, y: 0 });
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editedContent, setEditedContent] = useState('');
 
-  // Fonctions utilitaires (inchangées)
   const formatDuration = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -46,13 +47,10 @@ const ChatConversation = ({ selectedUser }) => {
 
   const cancelCall = () => {
     if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming')) {
-      console.log('Cancel call triggered', { callId: callData._id, receiverId: selectedUser._id });
       socketRef.current.emit('cancelCall', { callId: callData._id, receiverId: selectedUser._id });
       setCallStatus(null);
       setCallData(null);
       setCallType(null);
-    } else {
-      console.log('Cancel call not triggered: invalid state', { callData, callStatus });
     }
   };
 
@@ -99,7 +97,7 @@ const ChatConversation = ({ selectedUser }) => {
         socketRef.current.emit('endCall', { callId: callData._id, duration, type: callType });
       }
     } catch (error) {
-      console.error('Error in endCall:', error);
+      console.error('Erreur lors de la fin de l\'appel :', error);
     } finally {
       setTimeout(() => {
         setCallStatus(null);
@@ -137,42 +135,62 @@ const ChatConversation = ({ selectedUser }) => {
       await peerConnectionRef.current.setLocalDescription(offer);
       socketRef.current.emit('callOffer', { offer, callerId: currentUserId, receiverId: selectedUser._id });
     } catch (error) {
-      console.error('Error starting call:', error);
+      console.error('Erreur au démarrage de l\'appel :', error);
       endCall();
     }
   };
 
-  // Toggle the visibility of the more menu
-  const toggleMoreMenu = () => {
-    setShowMoreMenu((prev) => !prev);
+  const handleContextMenuClick = (e, messageId, isSent) => {
+    e.preventDefault();
+    const rect = e.target.getBoundingClientRect();
+    let x = isSent ? rect.left - 100 : rect.right + 5;
+    let y = rect.top;
+    setContextMenu({ messageId, x, y });
   };
 
-  // Placeholder functions for menu actions (you can implement these as needed)
-  const handleAddPerson = () => {
-    console.log('Add person to conversation');
-    setShowMoreMenu(false);
-    // Add your logic here
+  const handleCloseContextMenu = () => {
+    setContextMenu({ messageId: null, x: 0, y: 0 });
   };
 
-  const handleDeleteConversation = () => {
-    console.log('Delete conversation');
-    setShowMoreMenu(false);
-    // Add your logic here
+  const handleCopy = (content) => {
+    navigator.clipboard.writeText(content);
+    handleCloseContextMenu();
   };
 
-  const handleEnableEmailNotifications = () => {
-    console.log('Enable email notifications');
-    setShowMoreMenu(false);
-    // Add your logic here
+  const handleDeleteForMe = (messageId) => {
+    socketRef.current.emit('deleteMessageForMe', { messageId, userId: currentUserId });
+    handleCloseContextMenu();
   };
 
-  const handleDisableNotifications = () => {
-    console.log('Disable notifications');
-    setShowMoreMenu(false);
-    // Add your logic here
+  const handleDeleteForEveryone = (messageId) => {
+    socketRef.current.emit('deleteMessageForEveryone', { messageId });
+    handleCloseContextMenu();
   };
 
-  // Socket.IO et logique principale (inchangée)
+  const handleEdit = (messageId, content) => {
+    setEditingMessageId(messageId);
+    setEditedContent(content);
+    handleCloseContextMenu();
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editedContent.trim()) return;
+    try {
+      socketRef.current.emit('editMessage', { messageId: editingMessageId, content: editedContent });
+      setEditingMessageId(null);
+      setEditedContent('');
+    } catch (error) {
+      console.error('Erreur lors de la modification du message :', error);
+    }
+  };
+
+  const isEditable = (createdAt) => {
+    const now = new Date();
+    const messageTime = new Date(createdAt);
+    const diffInMinutes = (now - messageTime) / (1000 * 60);
+    return diffInMinutes <= 5;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
@@ -185,13 +203,23 @@ const ChatConversation = ({ selectedUser }) => {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         extraHeaders: { Authorization: `Bearer ${token}` },
+        query: {
+          EIO: 4
+        }
       });
       socketRef.current = socket;
-      socket.on('connect', () => socket.emit('authenticate', decoded.userId));
-      socket.on('callInitiated', (call) => {
-        console.log('Call initiated received:', call);
-        setCallData(call);
-      });
+
+     socketRef.current.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
+socketRef.current.on('connect', () => {
+    console.log('Successfully connected to server');
+    socketRef.current.emit('authenticate', decoded.userId);
+  });
+
+      socket.on('callInitiated', (call) => setCallData(call));
+
       socket.on('incomingCall', (data) => {
         if (data.callerId !== currentUserId) {
           setCallType(data.type);
@@ -208,6 +236,7 @@ const ChatConversation = ({ selectedUser }) => {
           return () => clearTimeout(missedCallTimer);
         }
       });
+
       socket.on('callMissed', (data) => {
         setCallStatus(null);
         setCallData(null);
@@ -216,12 +245,13 @@ const ChatConversation = ({ selectedUser }) => {
           setMessages((prev) => (!prev.some((msg) => msg._id === data.message._id) ? [...prev, data.message] : prev));
         }
       });
-      socket.on('callCancelled', (data) => {
-        console.log('Call cancelled received:', data);
+
+      socket.on('callCancelled', () => {
         setCallStatus(null);
         setCallData(null);
         setCallType(null);
       });
+
       socket.on('callStatusUpdate', (data) => {
         setCallStatus(data.status);
         if (data.status === 'rejected' || data.status === 'missed') {
@@ -237,10 +267,55 @@ const ChatConversation = ({ selectedUser }) => {
           return updatedMessages;
         });
       });
+
       socket.on('newMessage', (message) => {
-        setMessages((prev) => (!prev.some((msg) => msg._id === message._id) ? [...prev, message] : prev));
+        setMessages((prev) => {
+          // Vérifier si le message existe déjà pour éviter les doublons
+          if (!prev.some((msg) => msg._id === message._id)) {
+            return [...prev, message];
+          }
+          return prev;
+        });
       });
+
+      socket.on('messageSent', (confirmedMessage) => {
+        setMessages((prev) => {
+          const updatedMessages = prev.map((msg) =>
+            msg.isOptimistic && msg._id === confirmedMessage.tempId
+              ? { ...confirmedMessage, isOptimistic: false }
+              : msg
+          );
+          // Filtrer les messages pour éviter les doublons basés sur _id
+          return updatedMessages.filter(
+            (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
+          );
+        });
+      });
+
+      socket.on('messageDeletedForMe', ({ messageId, userId }) => {
+        if (userId === currentUserId) {
+          setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+        }
+      });
+
+      socket.on('messageDeletedForEveryone', (updatedMessage) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg._id === updatedMessage._id ? { ...updatedMessage } : msg
+          )
+        );
+      });
+
+      socket.on('messageEdited', (updatedMessage) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg._id === updatedMessage._id ? { ...updatedMessage } : msg
+          )
+        );
+      });
+
       socket.on('messageHistory', (history) => setMessages(history));
+
       socket.on('callEnded', (data) => {
         if (callIntervalRef.current) clearInterval(callIntervalRef.current);
         if (data.message) {
@@ -253,6 +328,7 @@ const ChatConversation = ({ selectedUser }) => {
           setCallType(null);
         }, 2000);
       });
+
       socket.on('callOffer', async (data) => {
         if (peerConnectionRef.current && callStatus === 'ongoing') {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -261,33 +337,36 @@ const ChatConversation = ({ selectedUser }) => {
           socket.emit('callAnswer', { answer, callerId: data.callerId, receiverId: decoded.userId });
         }
       });
+
       socket.on('callAnswer', async (data) => {
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
       });
+
       socket.on('iceCandidate', async (data) => {
         if (peerConnectionRef.current && data.candidate) {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       });
+
       if (selectedUser) {
         socket.emit('getMessages', { userId: decoded.userId, otherUserId: selectedUser._id });
       }
+
       return () => {
         socket.disconnect();
         endCall();
       };
     } catch (error) {
-      console.error('Error initializing socket:', error);
+      console.error('Erreur lors de l\'initialisation du socket :', error);
     }
-  }, [selectedUser, currentUserId]);
+  },[selectedUser, currentUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Gestion des émojis et fichiers (inchangée)
   const handleEmojiClick = (emojiData) => {
     const { emoji } = emojiData;
     const ref = document.querySelector('.message-input');
@@ -343,8 +422,8 @@ const ChatConversation = ({ selectedUser }) => {
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Microphone access denied or error occurred');
+      console.error('Erreur au démarrage de l\'enregistrement :', error);
+      alert('Accès au microphone refusé ou erreur survenue');
     }
   };
 
@@ -367,7 +446,7 @@ const ChatConversation = ({ selectedUser }) => {
       body: formData,
       headers: { Authorization: `Bearer ${localStorage.getItem('jwtToken')}` },
     });
-    if (!response.ok) throw new Error('Upload failed');
+    if (!response.ok) throw new Error('Échec de l\'upload');
     return await response.json();
   };
 
@@ -380,7 +459,7 @@ const ChatConversation = ({ selectedUser }) => {
         const fileInfo = await uploadFileToServer(selectedFile);
         attachment = { url: fileInfo.url, fileType: fileInfo.fileType, originalName: fileInfo.originalName };
       }
-      const tempId = Date.now();
+      const tempId = `${currentUserId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Clé temporaire unique
       const optimisticMessage = {
         _id: tempId,
         sender: currentUserId,
@@ -399,10 +478,11 @@ const ChatConversation = ({ selectedUser }) => {
         receiverId: selectedUser._id,
         content: newMessage,
         attachments: attachment ? [attachment] : [],
+        tempId,
       });
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert(`Erreur: ${error.message}`);
+      console.error('Erreur lors de l\'envoi du message :', error);
+      alert(`Erreur : ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -415,7 +495,6 @@ const ChatConversation = ({ selectedUser }) => {
     }
   };
 
-  // Icônes (inchangées)
   const VideoCallIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M23 7l-7 5 7 5V7z"></path>
@@ -429,11 +508,18 @@ const ChatConversation = ({ selectedUser }) => {
     </svg>
   );
 
-  // Rendu
+  const MoreIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9A9A9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="1"></circle>
+      <circle cx="12" cy="5" r="1"></circle>
+      <circle cx="12" cy="19" r="1"></circle>
+    </svg>
+  );
+
   if (!selectedUser) {
     return (
       <div className="chat-area empty-state">
-        <p>Select a user to start chatting</p>
+        <p>Sélectionnez un utilisateur pour commencer à discuter</p>
       </div>
     );
   }
@@ -451,10 +537,9 @@ const ChatConversation = ({ selectedUser }) => {
           </div>
           <div>
             <span className="chat-header-name">{selectedUser.firstName} {selectedUser.lastName}</span>
-            <span className="chat-header-status">Active Now</span>
+            <span className="chat-header-status">Actif maintenant</span>
           </div>
         </div>
-
         <div className="chat-header-actions">
           {!isSelfConversation && (
             <>
@@ -478,20 +563,12 @@ const ChatConversation = ({ selectedUser }) => {
               <line x1="16" y1="16" x2="22" y2="22"></line>
             </svg>
           </div>
-          <div className="chat-header-btn more-menu-container" onClick={toggleMoreMenu}>
+          <div className="chat-header-btn" onClick={onToggleComponent}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06BBCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="1"></circle>
               <circle cx="19" cy="12" r="1"></circle>
               <circle cx="5" cy="12" r="1"></circle>
             </svg>
-            {showMoreMenu && (
-              <div className="more-menu">
-                <button onClick={handleAddPerson}>Ajouter personne à la conversation</button>
-                <button onClick={handleDeleteConversation}>Supprimer conversation</button>
-                <button onClick={handleEnableEmailNotifications}>Recevoir des notifications par email</button>
-                <button onClick={handleDisableNotifications}>Désactiver notifications</button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -500,7 +577,7 @@ const ChatConversation = ({ selectedUser }) => {
         <div className={`call-container ${callStatus}`}>
           {callStatus === 'calling' && (
             <div className="call-modal">
-              <h3>Appel {callType === 'video' ? 'vidéo' : 'vocale'} en cours...</h3>
+              <h3>Appel {callType === 'video' ? 'vidéo' : 'vocal'} en cours...</h3>
               <div className="call-actions">
                 <button onClick={cancelCall} className="end-call-btn">Annuler</button>
               </div>
@@ -508,9 +585,9 @@ const ChatConversation = ({ selectedUser }) => {
           )}
           {callStatus === 'incoming' && callData && (
             <div className="call-modal">
-              <h3>Appel {callData.type === 'video' ? 'vidéo' : 'vocale'} entrant</h3>
+              <h3>Appel {callData.type === 'video' ? 'vidéo' : 'vocal'} entrant</h3>
               <div className="caller-info">
-                <img src={selectedUser.profilePicture || defaultProfileImage} alt="Caller" />
+                <img src={selectedUser.profilePicture || defaultProfileImage} alt="Appelant" />
                 <p>Appel de {selectedUser.firstName}</p>
               </div>
               <div className="call-actions">
@@ -562,13 +639,13 @@ const ChatConversation = ({ selectedUser }) => {
               <img src={selectedUser.profilePicture || defaultProfileImage} alt={`${selectedUser.firstName} ${selectedUser.lastName}`} className="user-profile-image" />
               <div className="user-profile-details">
                 <h2 className="user-full-name">{selectedUser.firstName} {selectedUser.lastName}</h2>
-                <p className="user-job-title">{selectedUser.jobTitle ? selectedUser.jobTitle : 'Engineer'}</p>
-                <p className="user-bio">{selectedUser.bio ? selectedUser.bio : 'I never dream of success. I worked for it...'}</p>
+                <p className="user-job-title">{selectedUser.jobTitle ? selectedUser.jobTitle : 'Ingénieur'}</p>
+                <p className="user-bio">{selectedUser.bio ? selectedUser.bio : 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
                 <button className="view-profile-btn">Voir Profil</button>
                 {isSelfConversation && (
                   <div className="personal-conversation-note">
-                    <p>Your personal conversation space</p>
-                    <small>Messages you send to yourself will appear here</small>
+                    <p>Votre espace de conversation personnel</p>
+                    <small>Les messages que vous vous envoyez apparaîtront ici</small>
                   </div>
                 )}
               </div>
@@ -577,102 +654,144 @@ const ChatConversation = ({ selectedUser }) => {
 
           <div className="messages-list">
             {messages.map((message, index) => {
+            const uniqueKey = message._id || `${message.tempId}-${index}`; // Utiliser tempId si _id n'existe pas             
+             const isSent = typeof message.sender === 'string' ? message.sender === currentUserId : message.sender?._id === currentUserId;            
+              const showAvatar =
+                index === 0 ||
+                !messages[index - 1]?.sender ||
+                !message.sender ||
+                messages[index - 1]?.sender._id !== message.sender._id ||
+                new Date(message.createdAt) - new Date(messages[index - 1]?.createdAt) > 5 * 60 * 1000;
+
               if (message.isCall) {
                 const callData = message.callData;
                 return (
-                  <div key={message._id || `call-${index}`} className={`message-container ${callData.caller === currentUserId ? 'sent' : 'received'}`}>
-                    <div className={`call-message ${callData.callClass}`}>
-                      <div className={`call-icon ${callData.iconColor}`}>
-                        {callData.type === 'video' ? <VideoCallIcon /> : <CallIcon />}
-                      </div>
-                      <div className="call-info">
-                        <div className="call-status">
-                          {message.content}
-                          {callData.status === 'missed' && <span className="missed-call-badge">Manqué</span>}
-                          {callData.status === 'rejected' && <span className="rejected-call-badge">Refusé</span>}
-                          {callData.status === 'ignored' && <span className="ignored-call-badge">Ignoré</span>}
+                  <div key={uniqueKey} className={`message-container ${isSent ? 'sent' : 'received'}`}>
+                    <div className="message-wrapper">
+                      {isSent && (
+                        <span onClick={(e) => handleContextMenuClick(e, uniqueKey, isSent)} className="more-icon">
+                          <MoreIcon />
+                        </span>
+                      )}
+                      <div className={`call-message ${callData.callClass}`}>
+                        <div className={`call-icon ${callData.iconColor}`}>
+                          {callData.type === 'video' ? <VideoCallIcon /> : <CallIcon />}
                         </div>
-                        {callData.duration > 0 && callData.status === 'ended' && (
-                          <div className="call-duration">Durée: {formatDuration(callData.duration)}</div>
-                        )}
-                        <div className="call-time">
-                          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div className="call-info">
+                          <div className="call-status">
+                            {message.content}
+                            {callData.status === 'missed' && <span className="missed-call-badge">Manqué</span>}
+                            {callData.status === 'rejected' && <span className="rejected-call-badge">Refusé</span>}
+                            {callData.status === 'ignored' && <span className="ignored-call-badge">Ignoré</span>}
+                          </div>
+                          {callData.duration > 0 && callData.status === 'ended' && (
+                            <div className="call-duration">Durée : {formatDuration(callData.duration)}</div>
+                          )}
+                          <div className="call-time">
+                            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
                         </div>
                       </div>
+                      {!isSent && (
+                        <span onClick={(e) => handleContextMenuClick(e, uniqueKey, isSent)} className="more-icon">
+                          <MoreIcon />
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
               }
 
-              const isSent = typeof message.sender === 'string' ? message.sender === currentUserId : message.sender._id === currentUserId;
-              const showAvatar =
-                index === 0 ||
-                !messages[index - 1].sender ||
-                !message.sender ||
-                messages[index - 1].sender._id !== message.sender._id ||
-                new Date(message.createdAt) - new Date(messages[index - 1].createdAt) > 5 * 60 * 1000;
-
               return (
-                <div key={message._id || `msg-${index}`} className={`message-container ${isSent ? 'sent' : 'received'}`}>
-                  {!isSent && showAvatar && message.sender && (
-                    <img src={message.sender.profilePicture || defaultProfileImage} alt={`${message.sender.firstName} ${message.sender.lastName}`} className="message-avatar" />
-                  )}
-                  <div className={`message ${isSent ? 'message-sent' : 'message-received'}`}>
-                    {message.attachments && message.attachments.length > 0 && message.attachments[0].fileType === 'image' && (
-                      <div className="message-image-container">
-                        <img
-                          src={message.attachments[0].url}
-                          alt="Attachment"
-                          className="message-image"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/250x250?text=Image+Not+Found';
-                          }}
-                        />
-                      </div>
+            <div key={uniqueKey} className={`message-container ${isSent ? 'sent' : 'received'}`}>              
+                <div className="message-wrapper">
+                    {isSent && (
+                      <span onClick={(e) => handleContextMenuClick(e, uniqueKey, isSent)} className="more-icon">
+                        <MoreIcon />
+                      </span>
                     )}
-                    {message.attachments && message.attachments.length > 0 && message.attachments[0].fileType === 'video' && (
-                      <div className="message-image-container">
-                        <video controls className="message-image" poster="https://via.placeholder.com/250x250?text=Video+Preview">
-                          <source src={message.attachments[0].url} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
+                    {!isSent && showAvatar && message.sender && (
+                      <img src={message.sender.profilePicture || defaultProfileImage} alt={`${message.sender.firstName} ${message.sender.lastName}`} className="message-avatar" />
                     )}
-                    {message.attachments && message.attachments.length > 0 && message.attachments[0].fileType === 'audio' && (
-                      <div className="message-audio-container">
-                        <audio controls ref={audioPlayerRef} className="message-audio-player">
-                          <source src={message.attachments[0].url} type="audio/wav" />
-                          Your browser does not support the audio element.
-                        </audio>
-                        <a href={`${message.attachments[0].url}?fl_attachment`} download target="_blank" rel="noopener noreferrer" className="download-audio-btn">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                          </svg>
-                        </a>
-                      </div>
-                    )}
-                    {message.attachments && message.attachments.length > 0 && (message.attachments[0].fileType === 'document' || message.attachments[0].fileType === 'other') && (
-                      <div className="message-document-container">
-                        <div className="document-icon">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                          </svg>
+                    <div className={`message ${isSent ? 'message-sent' : 'message-received'}`}>
+                      {editingMessageId === message._id ? (
+                        <div className="edit-message-container">
+                          <input
+                            type="text"
+                            value={editedContent}
+                            onChange={(e) => setEditedContent(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit()}
+                          />
+                          <button onClick={handleSaveEdit}>OK</button>
+                          <button onClick={() => setEditingMessageId(null)}>Annuler</button>
                         </div>
-                        <div className="document-info">
-                          <span className="document-name">{message.attachments[0].originalName || 'Document'}</span>
-                          <a href={`${message.attachments[0].url}?fl_attachment`} download target="_blank" rel="noopener noreferrer">Télécharger</a>
-                        </div>
-                      </div>
-                    )}
-                    {message.content && <div className="message-content">{message.content}</div>}
-                    <div className="message-time">
-                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      {message.isOptimistic && <span className="message-status">Sending...</span>}
+                      ) : (
+                        <>
+                          {message.attachments?.length > 0 && message.attachments[0].fileType === 'image' && (
+                            <div className="message-image-container">
+                              <img
+                                src={message.attachments[0].url}
+                                alt="Pièce jointe"
+                                className="message-image"
+                                onError={(e) => (e.target.src = 'https://via.placeholder.com/250x250?text=Image+Non+Trouvée')}
+                              />
+                            </div>
+                          )}
+                          {message.attachments?.length > 0 && message.attachments[0].fileType === 'video' && (
+                            <div className="message-image-container">
+                              <video controls className="message-image" poster="https://via.placeholder.com/250x250?text=Aperçu+Vidéo">
+                                <source src={message.attachments[0].url} type="video/mp4" />
+                                Votre navigateur ne prend pas en charge la balise vidéo.
+                              </video>
+                            </div>
+                          )}
+                          {message.attachments?.length > 0 && message.attachments[0].fileType === 'audio' && (
+                            <div className="message-audio-container">
+                              <audio controls ref={audioPlayerRef} className="message-audio-player">
+                                <source src={message.attachments[0].url} type="audio/wav" />
+                                Votre navigateur ne prend pas en charge l'élément audio.
+                              </audio>
+                              <a href={`${message.attachments[0].url}?fl_attachment`} download target="_blank" rel="noopener noreferrer" className="download-audio-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                  <polyline points="7 10 12 15 17 10"></polyline>
+                                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                              </a>
+                            </div>
+                          )}
+                          {message.attachments?.length > 0 && (message.attachments[0].fileType === 'document' || message.attachments[0].fileType === 'other') && (
+                            <div className="message-document-container">
+                              <div className="document-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                  <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                              </div>
+                              <div className="document-info">
+                                <span className="document-name">{message.attachments[0].originalName || 'Document'}</span>
+                                <a href={`${message.attachments[0].url}?fl_attachment`} download target="_blank" rel="noopener noreferrer">Télécharger</a>
+                              </div>
+                            </div>
+                          )}
+                          {message.content && (
+                            <div className="message-content" style={{ fontStyle: message.isDeleted ? 'italic' : 'normal' }}>
+                              {message.content}
+                            </div>
+                          )}
+                          <div className="message-time">
+                            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {message.edited && <span className="message-status"> (modifié)</span>}
+                            {message.isOptimistic && <span className="message-status">Envoi...</span>}
+                          </div>
+                        </>
+                      )}
                     </div>
+                    {!isSent && (
+                      <span onClick={(e) => handleContextMenuClick(e, uniqueKey, isSent)} className="more-icon">
+                        <MoreIcon />
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -681,6 +800,38 @@ const ChatConversation = ({ selectedUser }) => {
           </div>
         </div>
       </div>
+
+      {contextMenu.messageId && (
+        <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} onMouseLeave={handleCloseContextMenu}>
+          <ul>
+            {(() => {
+              const message = messages.find((m) => m._id === contextMenu.messageId);
+              const isSent = message?.sender === currentUserId || message?.sender?._id === currentUserId;
+              const isTextMessage = message && !message.isCall && (!message.attachments || message.attachments.length === 0);
+
+              if (isSent) {
+                return (
+                  <>
+                    {isTextMessage && <li onClick={() => handleCopy(message.content)}>Copier</li>}
+                    <li onClick={() => handleDeleteForMe(contextMenu.messageId)}>Supprimer pour moi</li>
+                    {!message.isCall && <li onClick={() => handleDeleteForEveryone(contextMenu.messageId)}>Supprimer pour tous</li>}
+                    {isTextMessage && isEditable(message.createdAt) && (
+                      <li onClick={() => handleEdit(contextMenu.messageId, message.content)}>Modifier</li>
+                    )}
+                  </>
+                );
+              } else {
+                return (
+                  <>
+                    {isTextMessage && <li onClick={() => handleCopy(message.content)}>Copier</li>}
+                    <li onClick={() => handleDeleteForMe(contextMenu.messageId)}>Supprimer pour moi</li>
+                  </>
+                );
+              }
+            })()}
+          </ul>
+        </div>
+      )}
 
       {filePreview && selectedFile?.type.startsWith('audio/') && (
         <div className="audio-preview-container">
@@ -691,14 +842,14 @@ const ChatConversation = ({ selectedUser }) => {
 
       <div className="input-area">
         <div className="input-actions">
-          <div className="input-action-btn" onClick={handleUploadClick} title="Upload image or video">
+          <div className="input-action-btn" onClick={handleUploadClick} title="Télécharger une image ou une vidéo">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <circle cx="8.5" cy="8.5" r="1.5"></circle>
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
           </div>
-          <div className="input-action-btn" onClick={handleDocUploadClick} title="Upload document">
+          <div className="input-action-btn" onClick={handleDocUploadClick} title="Télécharger un document">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -718,7 +869,14 @@ const ChatConversation = ({ selectedUser }) => {
             </button>
             {showEmojiPicker && (
               <div className="emoji-picker-wrapper">
-                <EmojiPicker onEmojiClick={handleEmojiClick} width={300} height={350} previewConfig={{ showPreview: false }} searchDisabled={false} skinTonesDisabled />
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  width={300}
+                  height={350}
+                  previewConfig={{ showPreview: false }}
+                  searchDisabled={false}
+                  skinTonesDisabled
+                />
               </div>
             )}
           </div>
@@ -738,7 +896,7 @@ const ChatConversation = ({ selectedUser }) => {
           onKeyUp={handleInputClick}
         />
 
-        <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Stop recording' : 'Record audio'}>
+        <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Arrêter l\'enregistrement' : 'Enregistrer un audio'}>
           {isRecording ? (
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"></circle>

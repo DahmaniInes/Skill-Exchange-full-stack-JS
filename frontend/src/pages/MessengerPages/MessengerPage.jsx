@@ -2,12 +2,19 @@ import React, { useState } from 'react';
 import './MessengerStyles.css';
 import ConversationsList from './ConversationsComponent';
 import ChatConversation from './ChatConversationComponet';
+import SecondComponent from './SecondComponent';
 
 const MessengerPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
+    const [showSecondComponent, setShowSecondComponent] = useState(false);
 
     const handleUserSelect = (user) => {
         setSelectedUser(user);
+        setShowSecondComponent(false); // Revenir à ChatConversation lors de la sélection d'un nouvel utilisateur
+    };
+
+    const handleToggleComponent = () => {
+        setShowSecondComponent(!showSecondComponent);
     };
 
     return (
@@ -17,7 +24,14 @@ const MessengerPage = () => {
                     <ConversationsList onUserSelect={handleUserSelect} />
                 </div>
                 <div className="chat-panel">
-                    <ChatConversation selectedUser={selectedUser} />
+                    {showSecondComponent ? (
+                        <SecondComponent selectedUser={selectedUser} />
+                    ) : (
+                        <ChatConversation 
+                            selectedUser={selectedUser} 
+                            onToggleComponent={handleToggleComponent} // Passer la fonction
+                        />
+                    )}
                 </div>
             </div>
         </div>

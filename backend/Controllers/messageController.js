@@ -1,8 +1,9 @@
+const mongoose = require('mongoose'); // Ajoutez cette ligne
 const { Conversation, Message } = require('../Models/MessageSchema');
 const { upload } = require('../Config/cloudinaryMessenger');
 const { v4: uuidv4 } = require('uuid');
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const  Call  = require('../Models/CallSchema');
-
 module.exports = {
   // Uploader un fichier
    uploadFile : async (req, res) => {
@@ -47,29 +48,27 @@ module.exports = {
   
 
   // Envoyer un message
-  sendMessage : async (socket, data) =>{
+  sendMessage: async (socket, data) => {
     try {
-      const { senderId, receiverId, content = '', attachments = [] } = data;
-      
+      const { senderId, receiverId, content = '', attachments = [], tempId } = data;
+  
       const isSelfConversation = senderId === receiverId;
-
-      // Trouver ou créer une conversation
+  
       let conversation = await Conversation.findOne({
         participants: isSelfConversation ? [senderId] : { $all: [senderId, receiverId] },
         isGroup: false,
-        isSelfConversation: isSelfConversation
+        isSelfConversation: isSelfConversation,
       });
-
+  
       if (!conversation) {
         conversation = new Conversation({
           participants: isSelfConversation ? [senderId] : [senderId, receiverId],
           messages: [],
           isGroup: false,
-          isSelfConversation: isSelfConversation
+          isSelfConversation: isSelfConversation,
         });
       }
-
-      // Créer le nouveau message
+  
       const newMessage = new Message({
         sender: senderId,
         receiver: receiverId,
@@ -79,25 +78,23 @@ module.exports = {
         attachments: attachments.map(file => ({
           url: file.url,
           fileType: file.fileType,
-          originalName: file.originalName
-        }))
+          originalName: file.originalName,
+        })),
+        tempId: tempId, // Ajouter le champ tempId pour les messages optimistes
       });
-
-      // Ajouter le message à la conversation
+  
       conversation.messages.push(newMessage);
       conversation.lastMessage = newMessage._id;
-      
+  
       await Promise.all([newMessage.save(), conversation.save()]);
-
-      // Populer les informations avant d'émettre
+  
       const populatedMessage = await Message.findById(newMessage._id)
         .populate('sender', 'firstName lastName profilePicture')
         .populate('receiver', 'firstName lastName profilePicture');
-
-      // Émettre le message
+  
       socket.to(receiverId).emit('newMessage', populatedMessage);
-      socket.emit('messageSent', populatedMessage);
-
+      socket.emit('messageSent', { ...populatedMessage.toObject(), tempId }); // Renvoyer tempId avec le message confirmé
+  
       return populatedMessage;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -126,30 +123,30 @@ module.exports = {
 
 
   // Récupérer l'historique des messages
-  getMessages : async (socket, userId, otherUserId) => {
+  getMessages: async (socket, userId, otherUserId) => {
     try {
       const isSelfConversation = userId === otherUserId;
       const conversation = await Conversation.findOne({
         participants: isSelfConversation ? [userId] : { $all: [userId, otherUserId] },
         isGroup: false,
-        isSelfConversation: isSelfConversation
-      })
-      .populate({
+        isSelfConversation: isSelfConversation,
+      }).populate({
         path: 'messages',
+        match: { deletedFor: { $ne: userId } }, // Exclure les messages supprimés pour cet utilisateur
         populate: [
           { path: 'sender', select: 'firstName lastName profilePicture' },
-          { path: 'receiver', select: 'firstName lastName profilePicture' }
-        ]
+          { path: 'receiver', select: 'firstName lastName profilePicture' },
+        ],
       });
-
+  
       if (conversation) {
         socket.emit('messageHistory', conversation.messages);
       } else {
         socket.emit('messageHistory', []);
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      socket.emit('error', { message: 'Failed to load messages' });
+      console.error('Erreur lors de la récupération des messages :', error);
+      socket.emit('error', { message: 'Échec du chargement des messages' });
     }
   },
 
@@ -700,5 +697,120 @@ handleIgnoredCall: async (socket, data) => {
     console.error('Error handling ignored call:', error);
     throw error;
   }
-}
+},
+
+deleteMessageForMe: async (socket, data) => {
+  try {
+    const { messageId, userId } = data;
+
+    // Vérifier si messageId est un ObjectId valide
+    if (!isValidObjectId(messageId)) {
+      // Si ce n'est pas un ObjectId, chercher par tempId (champ personnalisé)
+      const message = await Message.findOne({ tempId: messageId });
+      if (!message) throw new Error('Message non trouvé avec ce tempId');
+      if (!message.deletedFor) message.deletedFor = [];
+      if (!message.deletedFor.includes(userId)) {
+        message.deletedFor.push(userId);
+        await message.save();
+      }
+    } else {
+      // Si c'est un ObjectId, utiliser findById
+      const message = await Message.findById(messageId);
+      if (!message) throw new Error('Message non trouvé');
+      if (!message.deletedFor) message.deletedFor = [];
+      if (!message.deletedFor.includes(userId)) {
+        message.deletedFor.push(userId);
+        await message.save();
+      }
+    }
+
+    const conversation = await Conversation.findOne({ messages: messageId });
+    if (conversation) {
+      conversation.participants.forEach((participant) => {
+        socket.to(participant.toString()).emit('messageDeletedForMe', { messageId, userId });
+      });
+      socket.emit('messageDeletedForMe', { messageId, userId });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la suppression pour moi :', error);
+    socket.emit('error', { message: 'Échec de la suppression pour moi' });
+  }
+},
+
+
+deleteMessageForEveryone: async (socket, data) => {
+  try {
+    const { messageId } = data;
+
+    let message;
+    if (!isValidObjectId(messageId)) {
+      message = await Message.findOne({ tempId: messageId });
+      if (!message) throw new Error('Message non trouvé avec ce tempId');
+    } else {
+      message = await Message.findById(messageId);
+      if (!message) throw new Error('Message non trouvé');
+    }
+
+    message.content = '*Message supprimé*';
+    message.isDeleted = true;
+    message.attachments = [];
+    await message.save();
+
+    const conversation = await Conversation.findOne({ messages: messageId });
+    if (conversation) {
+      const populatedMessage = await Message.findById(message._id)
+        .populate('sender', 'firstName lastName profilePicture')
+        .populate('receiver', 'firstName lastName profilePicture');
+      conversation.participants.forEach((participant) => {
+        socket.to(participant.toString()).emit('messageDeletedForEveryone', populatedMessage);
+      });
+      socket.emit('messageDeletedForEveryone', populatedMessage);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la suppression pour tous :', error);
+    socket.emit('error', { message: 'Échec de la suppression pour tous' });
+  }
+},
+
+
+
+editMessage: async (socket, data) => {
+  try {
+    const { messageId, content } = data;
+
+    let message;
+    if (!isValidObjectId(messageId)) {
+      message = await Message.findOne({ tempId: messageId });
+      if (!message) throw new Error('Message non trouvé avec ce tempId');
+    } else {
+      message = await Message.findById(messageId);
+      if (!message) throw new Error('Message non trouvé');
+    }
+
+    const now = new Date();
+    const messageTime = new Date(message.createdAt);
+    const diffInMinutes = (now - messageTime) / (1000 * 60);
+    if (diffInMinutes > 5) throw new Error('Délai de modification du message dépassé');
+
+    message.content = content;
+    message.edited = true;
+    message.updatedAt = new Date();
+    await message.save();
+
+    const conversation = await Conversation.findOne({ messages: message._id });
+    if (conversation) {
+      const populatedMessage = await Message.findById(message._id)
+        .populate('sender', 'firstName lastName profilePicture')
+        .populate('receiver', 'firstName lastName profilePicture');
+      conversation.participants.forEach((participant) => {
+        socket.to(participant.toString()).emit('messageEdited', populatedMessage);
+      });
+      socket.emit('messageEdited', populatedMessage);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la modification du message :', error);
+    socket.emit('error', { message: 'Échec de la modification du message' });
+  }
+},
+
 };

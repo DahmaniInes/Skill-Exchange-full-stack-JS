@@ -3,6 +3,7 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
+    margin-top: 40px;
 }
 
 /* Conteneur principal */
@@ -1122,43 +1123,113 @@
 
 
 
-
-
-
-
-
-
-
-
-.more-menu-container {
-  position: relative;
+.message-actions {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
 }
 
-.more-menu {
+.more-icon {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.context-menu {
   position: absolute;
-  top: 100%;
-  right: 0;
   background-color: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  min-width: 200px;
   padding: 5px 0;
 }
 
-.more-menu button {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  color: #333;
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.more-menu button:hover {
-  background-color: #f5f5f5;
+.context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+
+
+
+
+
+
+
+.message-container {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.message-container.sent {
+  justify-content: flex-end;
+}
+
+.message-container.received {
+  justify-content: flex-start;
+}
+
+.message-wrapper {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+}
+
+.message-container.sent .message-wrapper {
+  flex-direction: row; /* Trois points à droite pour les messages envoyés */
+}
+
+.message-container.received .message-wrapper {
+  flex-direction: row; /* Avatar à gauche, message au centre, trois points à droite pour les messages reçus */
+}
+
+.more-icon {
+  cursor: pointer;
+  margin: 0 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 5px 0;
+  width: 150px; /* Largeur fixe pour le menu */
+}
+
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+
+.message-sent, .message-received, .call-message {
+  position: relative;
+  display: inline-block;
 }

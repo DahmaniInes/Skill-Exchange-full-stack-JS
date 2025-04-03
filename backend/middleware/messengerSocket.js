@@ -68,5 +68,52 @@ socket.on('callMissed', async (data) => {
   await messageController.handleMissedCall(socket, data);
 });
 
+socket.on('messageDeletedForMe', ({ messageId, userId }) => {
+  setMessages(prev => prev.filter(msg => msg._id !== messageId));
+});
+
+socket.on('messageDeletedForEveryone', (updatedMessage) => {
+  setMessages(prev => prev.map(msg => 
+    msg._id === updatedMessage._id ? updatedMessage : msg
+  ));
+});
+socket.on('newMessage', (message) => {
+  setMessages(prev => {
+    // Éviter les doublons
+    const exists = prev.some(m => m._id === message._id || 
+      (m.tempId && m.tempId === message.tempId));
+    return exists ? prev : [...prev, message];
+  });
+});
+
+
+socket.on('deleteMessageForMe', async (data) => {
+  try {
+    await messageController.deleteMessageForMe(socket, data);
+  } catch (error) {
+    console.error('Socket deleteForMe error:', error);
+    socket.emit('error', {
+      event: 'deleteMessageForMe',
+      error: error.message
+    });
+  }
+});
+
+socket.on('deleteMessageForEveryone', async (data) => {
+  try {
+    await messageController.deleteMessageForEveryone(socket, data);
+  } catch (error) {
+    console.error('Socket deleteForEveryone error:', error);
+    socket.emit('error', {
+      event: 'deleteMessageForEveryone',
+      error: error.message
+    });
+  }
+});
+    socket.on('editMessage', async (data) => {
+      await messageController.editMessage(socket, data);
+    });
+
+
   });
 };
