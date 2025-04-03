@@ -68,10 +68,37 @@ const audioStorage = new CloudinaryStorage({
       }
     }
   });
+
+
+  const callRecordingStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'messenger-app/call-recordings',
+      resource_type: 'video',
+      format: 'mp3', // Format audio même pour les vidéos
+      allowed_formats: ['mp3', 'wav', 'ogg'],
+      public_id: (req, file) => {
+        const callId = req.body.callId || 'unknown';
+        return `call-${callId}-${Date.now()}`;
+      },
+      audio_codec: 'aac',
+      audio_bitrate: '128k',
+      audio_sample_rate: 44100
+    }
+  });
+  
+  const callRecordingUpload = multer({ 
+    storage: callRecordingStorage,
+    limits: {
+      fileSize: 100 * 1024 * 1024 // 100MB
+    }
+  });
+
 const upload = multer({ storage });
 
 module.exports = {
   cloudinary,
   upload,
-  audioUpload
+  audioUpload,
+  callRecordingUpload
 };
