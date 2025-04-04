@@ -5,7 +5,8 @@ import { jwtDecode } from 'jwt-decode';
 import EmojiPicker from 'emoji-picker-react';
 import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
 
-const ChatConversation = ({ selectedUser, onToggleComponent }) => {
+// Ajout de hasOnlineUser dans les props
+const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser }) => {
   const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
   const [callData, setCallData] = useState(null);
@@ -13,13 +14,13 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(initialMessages || []);
   const [newMessage, setNewMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const socketRef = useRef();
+  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -39,6 +40,25 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedContent, setEditedContent] = useState('');
 
+  const getOtherParticipant = () => {
+    if (!conversation || !currentUserId) {
+      console.log('getOtherParticipant : conversation ou currentUserId manquant', { conversation, currentUserId });
+      return null;
+    }
+    const participants = conversation.participants || [];
+    if (conversation.isSelfConversation) {
+      const selfParticipant = participants.find((p) => p._id === currentUserId);
+      console.log('getOtherParticipant : Conversation personnelle, participant = utilisateur actuel', selfParticipant);
+      return selfParticipant;
+    }
+    const otherParticipant = participants.find((p) => p._id !== currentUserId) || participants[0];
+    console.log('getOtherParticipant : Autre participant trouvé', otherParticipant);
+    return otherParticipant;
+  };
+
+  const otherParticipant = getOtherParticipant();
+  const isSelfConversation = conversation?.isSelfConversation || false;
+  console.log('ChatConversation props:', { conversation, hasOnlineUser, isSelfConversation });
   const formatDuration = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -46,8 +66,9 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   };
 
   const cancelCall = () => {
-    if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming')) {
-      socketRef.current.emit('cancelCall', { callId: callData._id, receiverId: selectedUser._id });
+    if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming') && socketRef.current) {
+      console.log('cancelCall : Annulation de l’appel', { callId: callData._id, receiverId: otherParticipant?._id });
+      socketRef.current.emit('cancelCall', { callId: callData._id, receiverId: otherParticipant?._id });
       setCallStatus(null);
       setCallData(null);
       setCallType(null);
@@ -55,8 +76,12 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   };
 
   const handleVoiceCall = () => {
-    if (!selectedUser || !socketRef.current) return;
-    const callData = { callerId: currentUserId, receiverId: selectedUser._id, startTime: new Date(), type: 'audio' };
+    if (!otherParticipant || !socketRef.current) {
+      console.log('handleVoiceCall : otherParticipant ou socket manquant', { otherParticipant, socket: socketRef.current });
+      return;
+    }
+    const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'audio' };
+    console.log('handleVoiceCall : Début d’un appel vocal', callData);
     setCallType('audio');
     setCallStatus('calling');
     setCallData(callData);
@@ -64,8 +89,12 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   };
 
   const handleVideoCall = () => {
-    if (!selectedUser || !socketRef.current) return;
-    const callData = { callerId: currentUserId, receiverId: selectedUser._id, startTime: new Date(), type: 'video' };
+    if (!otherParticipant || !socketRef.current) {
+      console.log('handleVideoCall : otherParticipant ou socket manquant', { otherParticipant, socket: socketRef.current });
+      return;
+    }
+    const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'video' };
+    console.log('handleVideoCall : Début d’un appel vidéo', callData);
     setCallType('video');
     setCallStatus('calling');
     setCallData(callData);
@@ -73,8 +102,12 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   };
 
   const handleCallResponse = (accepted) => {
-    if (!callData) return;
+    if (!callData || !socketRef.current) {
+      console.log('handleCallResponse : callData ou socket manquant', { callData, socket: socketRef.current });
+      return;
+    }
     const responseData = { callId: callData._id, accepted, receiverId: currentUserId };
+    console.log('handleCallResponse : Réponse à l’appel', responseData);
     if (accepted) {
       setCallStatus('ongoing');
       startCall();
@@ -88,16 +121,17 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
 
   const endCall = async () => {
     try {
+      console.log('endCall : Fin de l’appel en cours', { callId: callData?._id, duration: callDurationRef.current });
       setCallStatus('ended');
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach((track) => track.stop());
       if (peerConnectionRef.current) peerConnectionRef.current.close();
       if (callIntervalRef.current) clearInterval(callIntervalRef.current);
       const duration = callDurationRef.current;
-      if (callData?._id) {
+      if (callData?._id && socketRef.current) {
         socketRef.current.emit('endCall', { callId: callData._id, duration, type: callType });
       }
     } catch (error) {
-      console.error('Erreur lors de la fin de l\'appel :', error);
+      console.error('Erreur lors de la fin de l’appel :', error);
     } finally {
       setTimeout(() => {
         setCallStatus(null);
@@ -111,6 +145,7 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
 
   const startCall = async () => {
     try {
+      console.log('startCall : Démarrage de l’appel', { callType });
       callIntervalRef.current = setInterval(() => {
         callDurationRef.current += 1;
         setCallDuration(callDurationRef.current);
@@ -124,18 +159,23 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
       peerConnectionRef.current = new RTCPeerConnection(configuration);
       stream.getTracks().forEach((track) => peerConnectionRef.current.addTrack(track, stream));
       peerConnectionRef.current.onicecandidate = (event) => {
-        if (event.candidate) {
-          socketRef.current.emit('iceCandidate', { candidate: event.candidate, receiverId: selectedUser._id });
+        if (event.candidate && socketRef.current) {
+          console.log('startCall : Envoi d’un ICE candidate', event.candidate);
+          socketRef.current.emit('iceCandidate', { candidate: event.candidate, receiverId: otherParticipant?._id });
         }
       };
       peerConnectionRef.current.ontrack = (event) => {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('startCall : Réception d’un flux distant');
       };
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
-      socketRef.current.emit('callOffer', { offer, callerId: currentUserId, receiverId: selectedUser._id });
+      if (socketRef.current) {
+        console.log('startCall : Envoi de l’offre WebRTC', { offer });
+        socketRef.current.emit('callOffer', { offer, callerId: currentUserId, receiverId: otherParticipant?._id });
+      }
     } catch (error) {
-      console.error('Erreur au démarrage de l\'appel :', error);
+      console.error('Erreur au démarrage de l’appel :', error);
       endCall();
     }
   };
@@ -145,37 +185,51 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
     const rect = e.target.getBoundingClientRect();
     let x = isSent ? rect.left - 100 : rect.right + 5;
     let y = rect.top;
+    console.log('handleContextMenuClick : Ouverture du menu contextuel', { messageId, x, y });
     setContextMenu({ messageId, x, y });
   };
 
   const handleCloseContextMenu = () => {
+    console.log('handleCloseContextMenu : Fermeture du menu contextuel');
     setContextMenu({ messageId: null, x: 0, y: 0 });
   };
 
   const handleCopy = (content) => {
+    console.log('handleCopy : Copie du contenu', content);
     navigator.clipboard.writeText(content);
     handleCloseContextMenu();
   };
 
   const handleDeleteForMe = (messageId) => {
-    socketRef.current.emit('deleteMessageForMe', { messageId, userId: currentUserId });
+    if (socketRef.current) {
+      console.log('handleDeleteForMe : Suppression pour moi', { messageId, userId: currentUserId });
+      socketRef.current.emit('deleteMessageForMe', { messageId, userId: currentUserId });
+    }
     handleCloseContextMenu();
   };
 
   const handleDeleteForEveryone = (messageId) => {
-    socketRef.current.emit('deleteMessageForEveryone', { messageId });
+    if (socketRef.current) {
+      console.log('handleDeleteForEveryone : Suppression pour tous', { messageId });
+      socketRef.current.emit('deleteMessageForEveryone', { messageId });
+    }
     handleCloseContextMenu();
   };
 
   const handleEdit = (messageId, content) => {
+    console.log('handleEdit : Édition du message', { messageId, content });
     setEditingMessageId(messageId);
     setEditedContent(content);
     handleCloseContextMenu();
   };
 
   const handleSaveEdit = async () => {
-    if (!editedContent.trim()) return;
+    if (!editedContent.trim() || !socketRef.current) {
+      console.log('handleSaveEdit : Contenu vide ou socket manquant');
+      return;
+    }
     try {
+      console.log('handleSaveEdit : Sauvegarde de l’édition', { messageId: editingMessageId, content: editedContent });
       socketRef.current.emit('editMessage', { messageId: editingMessageId, content: editedContent });
       setEditingMessageId(null);
       setEditedContent('');
@@ -192,42 +246,49 @@ const ChatConversation = ({ selectedUser, onToggleComponent }) => {
   };
 
   useEffect(() => {
+    console.log('useEffect : Initialisation du socket', { conversationId: conversation?._id });
     const token = localStorage.getItem('jwtToken');
-    if (!token) return;
+    if (!token) {
+      console.log('useEffect : Aucun token JWT trouvé');
+      return;
+    }
+
     try {
       const decoded = jwtDecode(token);
       setCurrentUserId(decoded.userId);
-      const socket = io('http://localhost:5000', {
-        withCredentials: true,
+      console.log('useEffect : Utilisateur décodé', { userId: decoded.userId });
+
+      socketRef.current = io('http://localhost:5000', {
+        auth: { token: `Bearer ${token}` },
         transports: ['websocket'],
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        extraHeaders: { Authorization: `Bearer ${token}` },
-        query: {
-          EIO: 4
-        }
       });
-      socketRef.current = socket;
 
-     socketRef.current.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-    });
+      socketRef.current.on('connect', () => {
+        console.log('Socket : Connexion réussie au serveur avec userId', decoded.userId);
+        socketRef.current.emit('authenticate', decoded.userId);
+      });
 
-socketRef.current.on('connect', () => {
-    console.log('Successfully connected to server');
-    socketRef.current.emit('authenticate', decoded.userId);
-  });
+      socketRef.current.on('connect_error', (error) => {
+        console.error('Socket : Erreur de connexion', error.message);
+      });
 
-      socket.on('callInitiated', (call) => setCallData(call));
+      socketRef.current.on('callInitiated', (call) => {
+        console.log('Socket : Appel initié reçu', call);
+        setCallData(call);
+      });
 
-      socket.on('incomingCall', (data) => {
-        if (data.callerId !== currentUserId) {
+      socketRef.current.on('incomingCall', (data) => {
+        console.log('Socket : Appel entrant reçu', data);
+        if (data.callerId !== decoded.userId) {
           setCallType(data.type);
           setCallStatus('incoming');
           setCallData(data);
           const missedCallTimer = setTimeout(() => {
             if (callStatus === 'incoming') {
-              socketRef.current.emit('callMissed', { callId: data._id, receiverId: currentUserId });
+              console.log('Socket : Appel manqué après 30s', { callId: data._id });
+              socketRef.current.emit('callMissed', { callId: data._id, receiverId: decoded.userId });
               setCallStatus(null);
               setCallData(null);
               setCallType(null);
@@ -237,89 +298,97 @@ socketRef.current.on('connect', () => {
         }
       });
 
-      socket.on('callMissed', (data) => {
+      socketRef.current.on('callMissed', (data) => {
+        console.log('Socket : Appel manqué', data);
         setCallStatus(null);
         setCallData(null);
         setCallType(null);
         if (data.message) {
-          setMessages((prev) => (!prev.some((msg) => msg._id === data.message._id) ? [...prev, data.message] : prev));
+          setMessages((prev) =>
+            prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]
+          );
         }
       });
 
-      socket.on('callCancelled', () => {
+      socketRef.current.on('callCancelled', () => {
+        console.log('Socket : Appel annulé');
         setCallStatus(null);
         setCallData(null);
         setCallType(null);
       });
 
-      socket.on('callStatusUpdate', (data) => {
+      socketRef.current.on('callStatusUpdate', (data) => {
+        console.log('Socket : Mise à jour du statut de l’appel', data);
         setCallStatus(data.status);
         if (data.status === 'rejected' || data.status === 'missed') {
           setCallStatus(null);
           setCallData(null);
           setCallType(null);
         }
-        setMessages((prev) => {
-          const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
-          if (data.message && !updatedMessages.some((msg) => msg._id === data.message._id)) {
-            updatedMessages.push(data.message);
-          }
-          return updatedMessages;
-        });
-      });
-
-      socket.on('newMessage', (message) => {
-        setMessages((prev) => {
-          // Vérifier si le message existe déjà pour éviter les doublons
-          if (!prev.some((msg) => msg._id === message._id)) {
-            return [...prev, message];
-          }
-          return prev;
-        });
-      });
-
-      socket.on('messageSent', (confirmedMessage) => {
-        setMessages((prev) => {
-          const updatedMessages = prev.map((msg) =>
-            msg.isOptimistic && msg._id === confirmedMessage.tempId
-              ? { ...confirmedMessage, isOptimistic: false }
-              : msg
-          );
-          // Filtrer les messages pour éviter les doublons basés sur _id
-          return updatedMessages.filter(
-            (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
-          );
-        });
-      });
-
-      socket.on('messageDeletedForMe', ({ messageId, userId }) => {
-        if (userId === currentUserId) {
-          setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+        if (data.message) {
+          setMessages((prev) => {
+            const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
+            if (!updatedMessages.some((msg) => msg._id === data.message._id)) {
+              updatedMessages.push(data.message);
+            }
+            return updatedMessages;
+          });
         }
       });
 
-      socket.on('messageDeletedForEveryone', (updatedMessage) => {
+      socketRef.current.on('newMessage', (message) => {
+        console.log('Socket : Nouveau message reçu', message);
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === updatedMessage._id ? { ...updatedMessage } : msg
-          )
+          prev.some((msg) => msg._id === message._id) ? prev : [...prev, message]
         );
       });
 
-      socket.on('messageEdited', (updatedMessage) => {
+      socketRef.current.on('messageSent', (confirmedMessage) => {
+        console.log('Socket : Message envoyé confirmé', confirmedMessage);
         setMessages((prev) =>
           prev.map((msg) =>
-            msg._id === updatedMessage._id ? { ...updatedMessage } : msg
-          )
+            msg.isOptimistic && msg._id === confirmedMessage.tempId
+              ? { ...confirmedMessage, isOptimistic: false }
+              : msg
+          ).filter((msg, index, self) => index === self.findIndex((m) => m._id === msg._id))
         );
       });
 
-      socket.on('messageHistory', (history) => setMessages(history));
+      socketRef.current.on('messageDeletedForMe', ({ messageId, userId }) => {
+        console.log('Socket : Message supprimé pour moi', { messageId, userId });
+        if (userId === decoded.userId) {
+          setMessages((prev) => {
+            const updatedMessages = prev.filter((msg) => {
+              const msgId = msg._id || msg.tempId;
+              return msgId !== messageId;
+            });
+            console.log('Messages mis à jour après suppression', updatedMessages);
+            return updatedMessages;
+          });
+        }
+      });
 
-      socket.on('callEnded', (data) => {
+      socketRef.current.on('messageDeletedForEveryone', (updatedMessage) => {
+        console.log('Socket : Message supprimé pour tous', updatedMessage);
+        setMessages((prev) =>
+          prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
+        );
+      });
+
+      socketRef.current.on('messageEdited', (updatedMessage) => {
+        console.log('Socket : Message édité', updatedMessage);
+        setMessages((prev) =>
+          prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
+        );
+      });
+
+      socketRef.current.on('callEnded', (data) => {
+        console.log('Socket : Appel terminé', data);
         if (callIntervalRef.current) clearInterval(callIntervalRef.current);
         if (data.message) {
-          setMessages((prev) => (!prev.some((msg) => msg._id === data.message._id) ? [...prev, data.message] : prev));
+          setMessages((prev) =>
+            prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]
+          );
         }
         setCallStatus('ended');
         setTimeout(() => {
@@ -329,91 +398,132 @@ socketRef.current.on('connect', () => {
         }, 2000);
       });
 
-      socket.on('callOffer', async (data) => {
+      socketRef.current.on('callOffer', async (data) => {
+        console.log('Socket : Offre d’appel reçue', data);
         if (peerConnectionRef.current && callStatus === 'ongoing') {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await peerConnectionRef.current.createAnswer();
           await peerConnectionRef.current.setLocalDescription(answer);
-          socket.emit('callAnswer', { answer, callerId: data.callerId, receiverId: decoded.userId });
+          console.log('Socket : Envoi de la réponse WebRTC', { answer });
+          socketRef.current.emit('callAnswer', { answer, callerId: data.callerId, receiverId: decoded.userId });
         }
       });
 
-      socket.on('callAnswer', async (data) => {
+      socketRef.current.on('callAnswer', async (data) => {
+        console.log('Socket : Réponse d’appel reçue', data);
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
       });
 
-      socket.on('iceCandidate', async (data) => {
+      socketRef.current.on('iceCandidate', async (data) => {
+        console.log('Socket : ICE candidate reçu', data);
         if (peerConnectionRef.current && data.candidate) {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       });
-
-      if (selectedUser) {
-        socket.emit('getMessages', { userId: decoded.userId, otherUserId: selectedUser._id });
-      }
-
-      return () => {
-        socket.disconnect();
-        endCall();
-      };
     } catch (error) {
-      console.error('Erreur lors de l\'initialisation du socket :', error);
+      console.error('Erreur lors de l’initialisation du socket :', error);
     }
-  },[selectedUser, currentUserId]);
+
+    return () => {
+      console.log('useEffect : Déconnexion du socket');
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [conversation?._id]);
 
   useEffect(() => {
+    if (Array.isArray(initialMessages)) {
+      setMessages(initialMessages || []);
+    } else {
+      console.warn('initialMessages n’est pas un tableau', initialMessages);
+      setMessages([]);
+    }
+  }, [initialMessages]);
+
+  useEffect(() => {
+    console.log('useEffect : Défilement vers le dernier message', { messagesLength: messages.length });
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleEmojiClick = (emojiData) => {
     const { emoji } = emojiData;
+    console.log('handleEmojiClick : Emoji sélectionné', emoji);
     const ref = document.querySelector('.message-input');
     const newText = newMessage.substring(0, cursorPosition) + emoji + newMessage.substring(cursorPosition);
     setNewMessage(newText);
     setShowEmojiPicker(false);
     setTimeout(() => {
-      ref.selectionStart = ref.selectionEnd = cursorPosition + emoji.length;
+      if (ref) ref.selectionStart = ref.selectionEnd = cursorPosition + emoji.length;
     }, 0);
   };
 
   const handleInputClick = () => {
     const ref = document.querySelector('.message-input');
-    setCursorPosition(ref.selectionStart || 0);
+    if (ref) {
+      const position = ref.selectionStart || 0;
+      console.log('handleInputClick : Position du curseur', position);
+      setCursorPosition(position);
+    }
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file) {
+      console.log('handleFileChange : Aucun fichier sélectionné');
+      return;
+    }
+    console.log('handleFileChange : Fichier sélectionné', { name: file.name, type: file.type });
     if (file.type.match('image.*')) {
       setSelectedFile(file);
       const reader = new FileReader();
-      reader.onload = (event) => setFilePreview(event.target.result);
+      reader.onload = (event) => {
+        console.log('handleFileChange : Aperçu de l’image généré');
+        setFilePreview(event.target.result);
+      };
       reader.readAsDataURL(file);
     } else if (file.type.match('video.*')) {
       setSelectedFile(file);
       setFilePreview(URL.createObjectURL(file));
+      console.log('handleFileChange : Aperçu de la vidéo généré');
     } else {
       setSelectedFile(file);
       setFilePreview(null);
+      console.log('handleFileChange : Fichier sans aperçu');
     }
   };
 
-  const handleDocUploadClick = () => docInputRef.current.click();
-  const handleUploadClick = () => fileInputRef.current.click();
-  const handleAudioUploadClick = () => audioInputRef.current.click();
+  const handleDocUploadClick = () => {
+    console.log('handleDocUploadClick : Clic sur téléchargement de document');
+    docInputRef.current?.click();
+  };
+
+  const handleUploadClick = () => {
+    console.log('handleUploadClick : Clic sur téléchargement d’image/vidéo');
+    fileInputRef.current?.click();
+  };
+
+  const handleAudioUploadClick = () => {
+    console.log('handleAudioUploadClick : Clic sur téléchargement d’audio');
+    audioInputRef.current?.click();
+  };
 
   const startRecording = async () => {
     try {
+      console.log('startRecording : Début de l’enregistrement audio');
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        console.log('startRecording : Données audio disponibles', e.data.size);
       };
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        console.log('startRecording : Enregistrement arrêté, blob créé');
         setAudioBlob(audioBlob);
         const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
         setSelectedFile(audioFile);
@@ -422,22 +532,27 @@ socketRef.current.on('connect', () => {
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      console.error('Erreur au démarrage de l\'enregistrement :', error);
+      console.error('Erreur au démarrage de l’enregistrement :', error);
       alert('Accès au microphone refusé ou erreur survenue');
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log('stopRecording : Arrêt de l’enregistrement');
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
     }
   };
 
-  const toggleRecording = () => (isRecording ? stopRecording() : startRecording());
+  const toggleRecording = () => {
+    console.log('toggleRecording : Changement d’état de l’enregistrement', { isRecording });
+    isRecording ? stopRecording() : startRecording();
+  };
 
   const uploadFileToServer = async (file) => {
+    console.log('uploadFileToServer : Début de l’upload', { fileName: file.name, fileType: file.type });
     const formData = new FormData();
     formData.append('file', file);
     const endpoint = file.type.startsWith('audio/') ? '/upload-audio' : '/upload';
@@ -446,42 +561,55 @@ socketRef.current.on('connect', () => {
       body: formData,
       headers: { Authorization: `Bearer ${localStorage.getItem('jwtToken')}` },
     });
-    if (!response.ok) throw new Error('Échec de l\'upload');
-    return await response.json();
+    if (!response.ok) throw new Error('Échec de l’upload');
+    const result = await response.json();
+    console.log('uploadFileToServer : Upload réussi', result);
+    return result;
   };
 
   const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !selectedFile) || !currentUserId || !selectedUser) return;
+    if ((!newMessage.trim() && !selectedFile) || !currentUserId || !socketRef.current) {
+      console.log('handleSendMessage : Conditions de base non remplies', {
+        newMessage,
+        selectedFile,
+        currentUserId,
+        socket: socketRef.current,
+      });
+      return;
+    }
     try {
+      console.log('handleSendMessage : Envoi du message');
       setIsUploading(true);
       let attachment = null;
       if (selectedFile) {
         const fileInfo = await uploadFileToServer(selectedFile);
         attachment = { url: fileInfo.url, fileType: fileInfo.fileType, originalName: fileInfo.originalName };
       }
-      const tempId = `${currentUserId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Clé temporaire unique
+      const tempId = `${currentUserId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const receiverId = isSelfConversation ? currentUserId : otherParticipant._id;
       const optimisticMessage = {
         _id: tempId,
         sender: currentUserId,
-        receiver: selectedUser._id,
+        receiver: receiverId,
         content: newMessage,
         attachments: attachment ? [attachment] : [],
         createdAt: new Date(),
         isOptimistic: true,
       };
+      console.log('handleSendMessage : Message optimiste ajouté', optimisticMessage);
       setMessages((prev) => [...prev, optimisticMessage]);
       setNewMessage('');
       setSelectedFile(null);
       setFilePreview(null);
       socketRef.current.emit('sendMessage', {
         senderId: currentUserId,
-        receiverId: selectedUser._id,
+        receiverId: receiverId,
         content: newMessage,
         attachments: attachment ? [attachment] : [],
         tempId,
       });
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du message :', error);
+      console.error('Erreur lors de l’envoi du message :', error);
       alert(`Erreur : ${error.message}`);
     } finally {
       setIsUploading(false);
@@ -490,6 +618,7 @@ socketRef.current.on('connect', () => {
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      console.log('handleKeyPress : Touche Enter pressée, envoi du message');
       e.preventDefault();
       handleSendMessage();
     }
@@ -516,28 +645,33 @@ socketRef.current.on('connect', () => {
     </svg>
   );
 
-  if (!selectedUser) {
+  const defaultProfileImage = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
+
+  console.log('ChatConversation : Rendu du composant', { conversation, messagesLength: messages.length });
+
+  if (!conversation) {
+    console.log('ChatConversation : Aucune conversation sélectionnée');
     return (
       <div className="chat-area empty-state">
-        <p>Sélectionnez un utilisateur pour commencer à discuter</p>
+        <p>Sélectionnez une conversation pour commencer à discuter</p>
       </div>
     );
   }
-
-  const isSelfConversation = currentUserId === selectedUser._id;
-  const defaultProfileImage = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
 
   return (
     <div className="chat-area">
       <div className="chat-header">
         <div className="chat-header-info">
           <div className="chat-avatar">
-            <img src={selectedUser.profilePicture || defaultProfileImage} alt={`${selectedUser.firstName} ${selectedUser.lastName}`} />
+            <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={`${otherParticipant?.firstName} ${otherParticipant?.lastName}`} />
             <span className="online-indicator"></span>
           </div>
           <div>
-            <span className="chat-header-name">{selectedUser.firstName} {selectedUser.lastName}</span>
-            <span className="chat-header-status">Actif maintenant</span>
+            <span className="chat-header-name">{otherParticipant?.firstName} {otherParticipant?.lastName}</span>
+            {/* Affichage conditionnel basé sur hasOnlineUser */}
+            {hasOnlineUser && !isSelfConversation && (
+              <span className="chat-header-status">Actif maintenant</span>
+            )}
           </div>
         </div>
         <div className="chat-header-actions">
@@ -587,8 +721,8 @@ socketRef.current.on('connect', () => {
             <div className="call-modal">
               <h3>Appel {callData.type === 'video' ? 'vidéo' : 'vocal'} entrant</h3>
               <div className="caller-info">
-                <img src={selectedUser.profilePicture || defaultProfileImage} alt="Appelant" />
-                <p>Appel de {selectedUser.firstName}</p>
+                <img src={otherParticipant?.profilePicture || defaultProfileImage} alt="Appelant" />
+                <p>Appel de {otherParticipant?.firstName}</p>
               </div>
               <div className="call-actions">
                 <button onClick={() => handleCallResponse(true)} className="accept-call-btn">
@@ -612,9 +746,9 @@ socketRef.current.on('connect', () => {
                 {callType === 'audio' && (
                   <div className="audio-call-ui">
                     <div className="user-avatar">
-                      <img src={selectedUser.profilePicture || defaultProfileImage} alt={selectedUser.firstName} />
+                      <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={otherParticipant?.firstName} />
                     </div>
-                    <h3>{selectedUser.firstName} {selectedUser.lastName}</h3>
+                    <h3>{otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
                     <p>Appel en cours... {formatDuration(callDuration)}</p>
                   </div>
                 )}
@@ -636,11 +770,11 @@ socketRef.current.on('connect', () => {
         <div className="scrollable-content">
           <div className="user-profile-section">
             <div className="user-profile-content">
-              <img src={selectedUser.profilePicture || defaultProfileImage} alt={`${selectedUser.firstName} ${selectedUser.lastName}`} className="user-profile-image" />
+              <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={`${otherParticipant?.firstName} ${otherParticipant?.lastName}`} className="user-profile-image" />
               <div className="user-profile-details">
-                <h2 className="user-full-name">{selectedUser.firstName} {selectedUser.lastName}</h2>
-                <p className="user-job-title">{selectedUser.jobTitle ? selectedUser.jobTitle : 'Ingénieur'}</p>
-                <p className="user-bio">{selectedUser.bio ? selectedUser.bio : 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
+                <h2 className="user-full-name">{otherParticipant?.firstName} {otherParticipant?.lastName}</h2>
+                <p className="user-job-title">{otherParticipant?.jobTitle || 'Ingénieur'}</p>
+                <p className="user-bio">{otherParticipant?.bio || 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
                 <button className="view-profile-btn">Voir Profil</button>
                 {isSelfConversation && (
                   <div className="personal-conversation-note">
@@ -654,8 +788,8 @@ socketRef.current.on('connect', () => {
 
           <div className="messages-list">
             {messages.map((message, index) => {
-            const uniqueKey = message._id || `${message.tempId}-${index}`; // Utiliser tempId si _id n'existe pas             
-             const isSent = typeof message.sender === 'string' ? message.sender === currentUserId : message.sender?._id === currentUserId;            
+              const uniqueKey = message._id || `${message.tempId}-${index}`;
+              const isSent = typeof message.sender === 'string' ? message.sender === currentUserId : message.sender?._id === currentUserId;
               const showAvatar =
                 index === 0 ||
                 !messages[index - 1]?.sender ||
@@ -703,8 +837,8 @@ socketRef.current.on('connect', () => {
               }
 
               return (
-            <div key={uniqueKey} className={`message-container ${isSent ? 'sent' : 'received'}`}>              
-                <div className="message-wrapper">
+                <div key={uniqueKey} className={`message-container ${isSent ? 'sent' : 'received'}`}>
+                  <div className="message-wrapper">
                     {isSent && (
                       <span onClick={(e) => handleContextMenuClick(e, uniqueKey, isSent)} className="more-icon">
                         <MoreIcon />
@@ -749,7 +883,7 @@ socketRef.current.on('connect', () => {
                             <div className="message-audio-container">
                               <audio controls ref={audioPlayerRef} className="message-audio-player">
                                 <source src={message.attachments[0].url} type="audio/wav" />
-                                Votre navigateur ne prend pas en charge l'élément audio.
+                                Votre navigateur ne prend pas en charge l’élément audio.
                               </audio>
                               <a href={`${message.attachments[0].url}?fl_attachment`} download target="_blank" rel="noopener noreferrer" className="download-audio-btn">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -896,7 +1030,7 @@ socketRef.current.on('connect', () => {
           onKeyUp={handleInputClick}
         />
 
-        <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Arrêter l\'enregistrement' : 'Enregistrer un audio'}>
+        <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Arrêter l’enregistrement' : 'Enregistrer un audio'}>
           {isRecording ? (
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"></circle>

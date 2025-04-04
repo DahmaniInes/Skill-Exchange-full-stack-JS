@@ -19,6 +19,10 @@ const verifyToken = (req, res, next) => {
     req.userId = decoded.userId; // Attach user ID to request
     next();
   });
+
+
+
+  
 };
 
 module.exports = verifyToken;

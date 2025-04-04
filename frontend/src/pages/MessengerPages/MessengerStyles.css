@@ -454,6 +454,7 @@
   background-color: #06BBCC;
   color: #fff;
   border-top-right-radius: 0;
+
 }
 
 .message-received .message-content {
@@ -541,45 +542,13 @@
   object-fit: contain;
 }
 
-/* Styles pour les documents */
-.message-document-container {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  max-width: 250px;
-}
 
-.document-icon {
-  margin-right: 10px;
-}
 
-.document-info {
-  display: flex;
-  flex-direction: column;
-}
 
-.document-name {
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
-}
 
-.download-btn {
-  font-size: 12px;
-  color: #06BBCC;
-  text-decoration: none;
-  margin-top: 4px;
-}
 
-.download-btn:hover {
-  text-decoration: underline;
-}
+
+
 
 /* Styles communs pour les boutons d'action */
 .input-action-btn {
@@ -621,7 +590,8 @@
   background-color: #f5f5f5;
   border-radius: 8px;
   margin-bottom: 8px;
-  max-width: 250px;
+  max-width: 500px; /* Limiter la largeur */
+
 }
 
 .document-icon {
@@ -631,6 +601,7 @@
 .document-info {
   display: flex;
   flex-direction: column;
+
 }
 
 .document-name {
@@ -640,6 +611,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
+  max-width: 100%; /* Limiter la largeur */
 }
 
 .download-btn {
@@ -1175,6 +1147,7 @@
 
 .message-container.sent {
   justify-content: flex-end;
+  
 }
 
 .message-container.received {
@@ -1232,4 +1205,179 @@
 .message-sent, .message-received, .call-message {
   position: relative;
   display: inline-block;
+}
+
+
+.chat-message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #666;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-message-date {
+  margin-left: 5px;
+  color: #999;
+  font-size: 0.8em;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.chat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.chat-item:hover {
+  background-color: #f5f5f5;
+}
+
+.chat-avatar {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+}
+
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chat-details {
+  flex: 1;
+  min-width: 0; /* Permet au contenu de ne pas déborder */
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-name {
+  font-weight: 500;
+  font-size: 1em;
+  color: #333;
+}
+
+.chat-time {
+  font-size: 0.8em;
+  color: #999;
+}
+
+.chat-message {
+  display: flex;
+  align-items: center;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.chat-message-text {
+  flex: 1; /* Prend tout l'espace disponible */
+  white-space: nowrap; /* Empêche le texte de passer à la ligne */
+  overflow: hidden; /* Cache le texte qui dépasse */
+  text-overflow: ellipsis; /* Ajoute "..." automatiquement (redondance avec truncateMessage) */
+}
+
+.chat-message-date {
+  margin-left: 5px;
+  color: #999;
+  font-size: 0.8em;
+  white-space: nowrap; /* Garde la date sur une seule ligne */
+}
+
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #0084ff;
+  border-radius: 50%;
+  margin-left: 10px;
+  visibility: hidden; /* À activer si vous ajoutez une logique pour les messages non lus */
+}
+
+.chat-item.selected {
+  background-color: #e6f0fa;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #0084ff;
+  border-radius: 50%;
+  margin-left: 10px;
+  visibility: hidden;
+}
+
+.unread-indicator.online {
+  visibility: visible;
+}
+
+
+
+
+.chat-header-status {
+  display: inline;
+  color: #00ff00; /* Couleur temporaire pour tester */
+  font-size: 12px;
+  margin-left: 5px;
 }

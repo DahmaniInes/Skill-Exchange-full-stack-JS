@@ -6,6 +6,73 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const  Call  = require('../Models/CallSchema');
 module.exports = {
   // Uploader un fichier
+
+
+
+
+
+  selectConversation: async (req, res) => {
+    try {
+      const { conversationId, userId } = req.body;
+  
+      if (!conversationId || !userId) {
+        return res.status(400).json({ message: 'Missing parameters' });
+      }
+  
+      if (!isValidObjectId(conversationId) || !isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'Invalid conversationId or userId' });
+      }
+  
+      // Vérifier que l'utilisateur fait partie de la conversation
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: userId,
+      }).populate({
+        path: 'messages',
+        match: {
+          $or: [
+            { deletedFor: { $ne: userId } },
+            { deletedFor: { $exists: false } },
+          ],
+        },
+        options: { sort: { createdAt: 1 } },
+        populate: [
+          { path: 'sender', select: 'firstName lastName profilePicture' },
+          { path: 'receiver', select: 'firstName lastName profilePicture' },
+        ],
+      });
+  
+      if (!conversation) {
+        return res.status(404).json({ message: 'Conversation not found or user not a participant' });
+      }
+  
+      console.log(`Conversation ${conversationId} selected by user ${userId}`);
+  
+      // Renvoyer les messages de la conversation
+      res.status(200).json({
+        success: true,
+        conversationId: conversation._id,
+        messages: conversation.messages,
+      });
+    } catch (error) {
+      console.error('Error in selectConversation:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to select conversation',
+        error: error.message,
+      });
+    }
+  },
+
+
+
+
+
+
+
+
+
+
    uploadFile : async (req, res) => {
     try {
       if (!req.file) {
@@ -123,30 +190,58 @@ module.exports = {
 
 
   // Récupérer l'historique des messages
-  getMessages: async (socket, userId, otherUserId) => {
+  getMessages: async (socket, { conversationId, userId }) => {
     try {
-      const isSelfConversation = userId === otherUserId;
+      console.log('getMessages request received', { conversationId, userId });
+  
+      if (!conversationId || !userId) {
+        console.error('Missing parameters', { conversationId, userId });
+        return socket.emit('error', { message: 'Missing parameters' });
+      }
+  
       const conversation = await Conversation.findOne({
-        participants: isSelfConversation ? [userId] : { $all: [userId, otherUserId] },
-        isGroup: false,
-        isSelfConversation: isSelfConversation,
+        _id: conversationId,
+        participants: userId
       }).populate({
         path: 'messages',
-        match: { deletedFor: { $ne: userId } }, // Exclure les messages supprimés pour cet utilisateur
+        match: { 
+          $or: [
+            { deletedFor: { $ne: userId } },
+            { deletedFor: { $exists: false } }
+          ]
+        },
+        options: { sort: { createdAt: 1 } },
         populate: [
-          { path: 'sender', select: 'firstName lastName profilePicture' },
-          { path: 'receiver', select: 'firstName lastName profilePicture' },
-        ],
+          { 
+            path: 'sender', 
+            select: 'firstName lastName profilePicture' 
+          },
+          { 
+            path: 'receiver', 
+            select: 'firstName lastName profilePicture' 
+          }
+        ]
       });
   
-      if (conversation) {
-        socket.emit('messageHistory', conversation.messages);
-      } else {
-        socket.emit('messageHistory', []);
+      if (!conversation) {
+        console.log('No conversation found, sending empty array');
+        return socket.emit('messageHistory', []);
       }
+  
+      console.log(`Found ${conversation.messages.length} messages for conversation ${conversationId}`);
+      
+      // Émettre directement au socket concerné
+      socket.emit('messageHistory', conversation.messages);
+      
+      // Alternative si besoin d'émettre à une room spécifique
+      // socket.to(userId).emit('messageHistory', conversation.messages);
+  
     } catch (error) {
-      console.error('Erreur lors de la récupération des messages :', error);
-      socket.emit('error', { message: 'Échec du chargement des messages' });
+      console.error('Error in getMessages:', error);
+      socket.emit('error', { 
+        message: 'Failed to load messages',
+        error: error.message 
+      });
     }
   },
 
@@ -703,33 +798,29 @@ deleteMessageForMe: async (socket, data) => {
   try {
     const { messageId, userId } = data;
 
-    // Vérifier si messageId est un ObjectId valide
+    let message;
     if (!isValidObjectId(messageId)) {
-      // Si ce n'est pas un ObjectId, chercher par tempId (champ personnalisé)
-      const message = await Message.findOne({ tempId: messageId });
+      message = await Message.findOne({ tempId: messageId });
       if (!message) throw new Error('Message non trouvé avec ce tempId');
-      if (!message.deletedFor) message.deletedFor = [];
-      if (!message.deletedFor.includes(userId)) {
-        message.deletedFor.push(userId);
-        await message.save();
-      }
     } else {
-      // Si c'est un ObjectId, utiliser findById
-      const message = await Message.findById(messageId);
+      message = await Message.findById(messageId);
       if (!message) throw new Error('Message non trouvé');
-      if (!message.deletedFor) message.deletedFor = [];
-      if (!message.deletedFor.includes(userId)) {
-        message.deletedFor.push(userId);
-        await message.save();
-      }
     }
 
-    const conversation = await Conversation.findOne({ messages: messageId });
+    if (!message.deletedFor) message.deletedFor = [];
+    if (!message.deletedFor.includes(userId)) {
+      message.deletedFor.push(userId);
+      await message.save();
+    }
+
+    const conversation = await Conversation.findOne({ messages: message._id });
     if (conversation) {
+      // Émettre l'événement avec l'identifiant utilisé par le client
+      const emittedMessageId = message.tempId || message._id;
       conversation.participants.forEach((participant) => {
-        socket.to(participant.toString()).emit('messageDeletedForMe', { messageId, userId });
+        socket.to(participant.toString()).emit('messageDeletedForMe', { messageId: emittedMessageId, userId });
       });
-      socket.emit('messageDeletedForMe', { messageId, userId });
+      socket.emit('messageDeletedForMe', { messageId: emittedMessageId, userId });
     }
   } catch (error) {
     console.error('Erreur lors de la suppression pour moi :', error);
