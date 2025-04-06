@@ -40,6 +40,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
                                                                onPageChange,
                                                                sx
                                                            }) => {
+
     return (
         <Stack
             spacing={2}
@@ -52,7 +53,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             }}
         >
             <Pagination
-                shape="outlined"
+                shape="circular"
                 page={page}
                 count={pageCount}
                 onChange={onPageChange}
