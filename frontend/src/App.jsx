@@ -1,15 +1,13 @@
 // src/App.jsx
 import React, { useEffect } from 'react';
-import axios from 'axios'; // Import manquant
+import axios from 'axios';
 
 import './index.css';
 
-
 import Login from "./pages/login/login";
 import Signup from "./pages/signup/SignUp";
-    
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { WOW } from 'wowjs';
 
 import MainLayout from './layouts/MainLayout';
@@ -18,39 +16,37 @@ import Contact from './pages/Contact';
 import About from './pages/About';
 import Courses from './pages/Courses';
 import NotFound from './pages/NotFound';
-//import "https://code.jquery.com/jquery-3.6.0.min.js";
-//import "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js";
 import TotpStup from './pages/TotpSetup';
-import ProfileForm from './pages/profile/ProfileForm'; // Ton composant de modification de profil // Exemple d'un autre composant
-import SecuritySettings from './pages/profile/SecuritySettings'; // Exemple d'un autre composant
-import Profile from './pages/profile/ProfilePage'; // Composanticher le profil pour aff
+import ProfileForm from './pages/profile/ProfileForm';
+import SecuritySettings from './pages/profile/SecuritySettings';
+import Profile from './pages/profile/ProfilePage';
 import MessengerPage from './pages/MessengerPages/MessengerPage';
 
-// Styles
+import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
+
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
 import 'animate.css';
 import 'wowjs/css/libs/animate.css';
 
 function App() {
-    // Configuration de l'intercepteur Axios
-    useEffect(() => {
-      axios.interceptors.request.use(config => {
+  useEffect(() => {
+    axios.interceptors.request.use(
+      (config) => {
         console.log('Intercepteur appelé, headers:', config.headers);
-
         const token = localStorage.getItem('jwtToken');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
-        }else{
+        } else {
           delete config.headers.Authorization;
-
         }
         return config;
-      }, error => {
+      },
+      (error) => {
         return Promise.reject(error);
-      });
+      }
+    );
 
-    // Attendre que le DOM soit complètement chargé
     document.addEventListener('DOMContentLoaded', () => {
       const wow = new WOW({
         boxClass: 'wow',
@@ -58,46 +54,37 @@ function App() {
         offset: 0,
         mobile: true,
         live: true,
-        callback: function(box) {
-          // Callback optionnel
-        },
+        callback: function (box) {},
         scrollContainer: null,
-        resetAnimation: true
+        resetAnimation: true,
       });
       wow.init();
     });
 
-    // Cleanup
     return () => {
       document.removeEventListener('DOMContentLoaded', () => {});
     };
   }, []);
 
-
-
- 
-
-
   return (
-
+    <ConversationProvider>
       <Routes>
         <Route path="/" element={<MainLayout />}>
-          <Route path='/home' element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="contact" element={<Contact />} />
           <Route path="about" element={<About />} />
           <Route path="courses" element={<Courses />} />
           <Route path="/login" element={<Login />} />
-         <Route path="/signup" element={<Signup />} />
-         <Route path="/auth" element={<TotpStup />} />
-           <Route path="profileForm" element={<ProfileForm />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/auth" element={<TotpStup />} />
+          <Route path="profileForm" element={<ProfileForm />} />
           <Route path="SecuritySettings" element={<SecuritySettings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="MessengerPage" element={<MessengerPage />} />
-
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
-
+    </ConversationProvider>
   );
 }
 

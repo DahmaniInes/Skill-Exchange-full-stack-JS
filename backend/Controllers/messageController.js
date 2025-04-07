@@ -115,77 +115,73 @@ module.exports = {
   
 
   // Envoyer un message
-  sendMessage: async (socket, data) => {
+   sendMessage : async (socket, io, data) => {
+    const { senderId, content, attachments, tempId, conversationId, isGroup } = data;
+  
     try {
-      const { senderId, receiverId, content = '', attachments = [], tempId } = data;
+      // Vérifier que l'utilisateur est authentifié
+      if (!socket.userId || socket.userId !== senderId) {
+        throw new Error("Utilisateur non authentifié ou non autorisé");
+      }
   
-      const isSelfConversation = senderId === receiverId;
-  
-      let conversation = await Conversation.findOne({
-        participants: isSelfConversation ? [senderId] : { $all: [senderId, receiverId] },
-        isGroup: false,
-        isSelfConversation: isSelfConversation,
-      });
-  
+      // Trouver la conversation
+      const conversation = await Conversation.findById(conversationId).populate("participants");
       if (!conversation) {
-        conversation = new Conversation({
-          participants: isSelfConversation ? [senderId] : [senderId, receiverId],
-          messages: [],
-          isGroup: false,
-          isSelfConversation: isSelfConversation,
-        });
+        throw new Error("Conversation non trouvée");
       }
   
+      // Vérifier que l'utilisateur fait partie de la conversation
+      const isParticipant = conversation.participants.some(
+        (participant) => participant._id.toString() === senderId
+      );
+      if (!isParticipant) {
+        throw new Error("Utilisateur non autorisé dans cette conversation");
+      }
+  
+      // Créer un nouveau message
       const newMessage = new Message({
+        conversation: conversationId,
         sender: senderId,
-        receiver: receiverId,
-        content: content || '',
-        read: false,
-        isSelfMessage: isSelfConversation,
-        attachments: attachments.map(file => ({
-          url: file.url,
-          fileType: file.fileType,
-          originalName: file.originalName,
-        })),
-        tempId: tempId, // Ajouter le champ tempId pour les messages optimistes
+        content,
+        attachments,
+        createdAt: new Date(),
       });
   
-      conversation.messages.push(newMessage);
+      // Sauvegarder le message dans la base de données
+      await newMessage.save();
+  
+      // Mettre à jour la conversation avec le dernier message
       conversation.lastMessage = newMessage._id;
+      conversation.updatedAt = new Date();
+      await conversation.save();
   
-      await Promise.all([newMessage.save(), conversation.save()]);
-  
+      // Peupler les informations du sender pour l'envoi aux clients
       const populatedMessage = await Message.findById(newMessage._id)
-        .populate('sender', 'firstName lastName profilePicture')
-        .populate('receiver', 'firstName lastName profilePicture');
+        .populate("sender", "firstName lastName profilePicture")
+        .populate("conversation");
   
-      socket.to(receiverId).emit('newMessage', populatedMessage);
-      socket.emit('messageSent', { ...populatedMessage.toObject(), tempId }); // Renvoyer tempId avec le message confirmé
-  
-      return populatedMessage;
-    } catch (error) {
-      console.error('Error sending message:', error);
-      socket.emit('error', { message: 'Failed to send message' });
-    }
-  },
-
-  // Marquer un message comme lu
-  markAsRead :async (socket, messageId, userId) => {
-    try {
-      const message = await Message.findByIdAndUpdate(
-        messageId,
-        { read: true },
-        { new: true }
-      );
-
-      if (message) {
-        socket.emit('messageRead', messageId);
+      // Émettre le message à tous les participants
+      if (isGroup) {
+        conversation.participants.forEach((participant) => {
+          io.to(participant._id.toString()).emit("newMessage", populatedMessage);
+        });
+      } else {
+        const otherParticipant = conversation.participants.find(
+          (p) => p._id.toString() !== senderId
+        );
+        io.to(senderId).emit("newMessage", populatedMessage);
+        if (otherParticipant) {
+          io.to(otherParticipant._id.toString()).emit("newMessage", populatedMessage);
+        }
       }
+  
+      // Confirmer l'envoi à l'expéditeur
+      socket.emit("messageSent", { ...populatedMessage.toObject(), tempId });
     } catch (error) {
-      console.error('Error marking message as read:', error);
+      console.error("Erreur lors de l’envoi du message:", error);
+      socket.emit("error", { message: error.message });
     }
   },
-
 
 
 

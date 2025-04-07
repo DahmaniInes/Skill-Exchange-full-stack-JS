@@ -1,15 +1,22 @@
 const mongoose = require("mongoose");
-
+const Schema = mongoose.Schema;
 const MessageSchema = new mongoose.Schema({
+  conversation: {
+    type: Schema.Types.ObjectId,
+    ref: 'Conversation', // Référence au modèle Conversation
+    required: true,
+  },
   sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: function () {
+      return !this.isSystemMessage; // `sender` est requis uniquement si ce n'est pas un message système
+    },
   },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true
+   // required: true
   },
   content: {
     type: String,
@@ -72,8 +79,38 @@ const MessageSchema = new mongoose.Schema({
     },
     emoji: String,
     _id: false
-  }]
-}, { 
+  }],
+  isSystemMessage: { // Nouveau champ pour identifier les messages système
+    type: Boolean,
+    default: false,
+  },
+
+  systemData: {
+    action: {
+      type: String,
+      enum: [
+        'group_name_updated',    // Ajouté pour updateGroupName
+        'group_photo_updated',   // Ajouté pour updateGroupPhoto
+        'participant_added',     // Exemple d'autres actions possibles
+        'participant_removed',   // Exemple d'autres actions possibles
+      ],
+      required: function () {
+        return this.isSystemMessage; // `systemData.action` est requis pour les messages système
+      },
+    },
+    actionBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: function () {
+        return this.isSystemMessage; // `actionBy` est requis pour les messages système
+      },
+    },
+    actionTarget: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  },
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -93,10 +130,14 @@ const ConversationSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  groupName: String,
+  groupName:{
+    type:String,
+    default: "Groupe sans nom"
+  } ,
   groupPhoto: {
     type: String,
-    default: "https://res.cloudinary.com/diahyrchf/group-default.png"
+    default: 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
+  
   },
   groupAdmin: {
     type: mongoose.Schema.Types.ObjectId,

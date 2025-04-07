@@ -17,8 +17,28 @@ var MessengerRoute = require('./Routes/MessengerRoute');
 const app = express();
 const cors = require("cors");
 
-var authOATH = require('./Routes/oath-totp');
+// Socket.IO Setup
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
+const onlineUsers = require("./Utils/onlineUsers");
+
+// Configurer Socket.IO avec onlineUsers
+require("./middleware/messengerSocket")(io, onlineUsers);
+
+// Middleware pour ajouter io à req (déplacé avant les routes)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 app.use(cors({
   origin: 'http://localhost:5173', // Your frontend URL
@@ -27,18 +47,14 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
 }));
 
+// Middleware Setup
+app.use(logger("dev"));
+app.use(express.json()); // Utilisation unique de express.json() (suppression de la redondance)
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, "public")));
 
-app.use(express.json());
-
-
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI);
-app.use("/api", authRoutes);
-
-
-
-
+// Session Setup
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -54,45 +70,18 @@ app.use(
   })
 );
 
-
-
-const http = require('http');
-const server = http.createServer(app);
-const { Server } = require('socket.io');
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
-
-
-const onlineUsers = require("./Utils/onlineUsers"); // Importer depuis le nouveau fichier
-
-// Configurer Socket.IO avec onlineUsers
-require("./middleware/messengerSocket")(io, onlineUsers);
-
-
-// Middleware Setup
-app.use(logger("dev"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
-
+// Routes
+app.use("/api", authRoutes);
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
 app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
-app.use("/auth",authOATH);
-app.use("/MessengerRoute",MessengerRoute);
-
+app.use("/auth", require('./Routes/oath-totp'));
+app.use("/MessengerRoute", MessengerRoute);
 
 // 📌 Routes API de test
 const profileRoutes = require("./Routes/profileRoutes");
-app.use("/api", profileRoutes); // Assure-toi que ce middleware est bien ajouté
-
+app.use("/api", profileRoutes);
 
 // 📌 Gestion des fichiers statiques en production
 if (process.env.NODE_ENV === "production") {
@@ -116,20 +105,30 @@ app.use(function (err, req, res, next) {
   res.status(err.status || 500);
   res.render("error");
 });
+
 // Set EJS as the template engine
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views')); // specify the directory for views
+app.set('views', path.join(__dirname, 'views'));
 
 // Example route to render a view
 app.get('/', (req, res) => {
-  res.render('index'); // Ensure there is an index.ejs file in the views folder
+  res.render('index');
 });
 
-server.listen(5000, () => console.log("Server running on port 5000"));
+// Connect to MongoDB and start the server only after successful connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("Successfully connected to MongoDB"); // Log pour confirmer la connexion
+    startServer(); // Démarrer le serveur après la connexion réussie
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1); // Arrêter le processus si la connexion échoue
+  });
 
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
+// Fonction pour démarrer le serveur après la connexion MongoDB
+function startServer() {
+  server.listen(5000, () => console.log("Server running on port 5000"));
+}
 
-module.exports = app ;
+module.exports = app;

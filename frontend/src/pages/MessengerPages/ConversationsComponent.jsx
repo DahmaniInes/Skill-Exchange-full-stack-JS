@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import './MessengerApplicationStyles.css';
+import io from 'socket.io-client';
 
 const ConversationsComponent = ({ onConversationSelect }) => {
   const [conversations, setConversations] = useState([]);
@@ -9,6 +10,7 @@ const ConversationsComponent = ({ onConversationSelect }) => {
   const [error, setError] = useState(null);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const socketRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
@@ -21,11 +23,64 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       }
     }
 
+    socketRef.current = io('http://localhost:5000', {
+      auth: { token: `Bearer ${token}` },
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket : Connexion réussie au serveur avec userId', currentUserId);
+      socketRef.current.emit('authenticate', currentUserId);
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket : Erreur de connexion', error.message);
+    });
+
+    socketRef.current.on('newMessage', (message) => {
+      console.log('Nouveau message reçu dans ConversationsComponent', message);
+      setConversations((prevConversations) => {
+        const updatedConversations = prevConversations.map((conv) => {
+          if (conv._id === message.conversation?._id) {
+            return {
+              ...conv,
+              lastMessage: {
+                _id: message._id,
+                content: message.content,
+                createdAt: message.createdAt,
+                sender: message.sender,
+              },
+              messages: [...(conv.messages || []), message],
+            };
+          }
+          return conv;
+        });
+        return updatedConversations.sort((a, b) => {
+          const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
+          const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
+          return dateB - dateA;
+        });
+      });
+    });
+
+    socketRef.current.on('groupUpdated', (data) => {
+      console.log('Mise à jour du groupe reçue dans ConversationsComponent', data);
+      setConversations((prevConversations) =>
+        prevConversations.map((conv) =>
+          conv._id === data.conversationId
+            ? { ...conv, name: data.groupName, image: data.groupPhoto }
+            : conv
+        )
+      );
+    });
+
     const fetchConversations = async () => {
       try {
         const response = await axios.get('http://localhost:5000/MessengerRoute/conversations', {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('jwtToken')}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -50,11 +105,18 @@ const ConversationsComponent = ({ onConversationSelect }) => {
     };
 
     fetchConversations();
-  }, []);
+    const intervalId = setInterval(fetchConversations, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [currentUserId]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
@@ -62,11 +124,7 @@ const ConversationsComponent = ({ onConversationSelect }) => {
     if (diffInMinutes < 1) return "À l'instant";
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
-
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-    });
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
   const formatFullDate = (dateString) => {
@@ -112,27 +170,78 @@ const ConversationsComponent = ({ onConversationSelect }) => {
 
       console.log('Réponse du serveur:', response.data);
 
-      const otherParticipant = conversation.isSelfConversation
-        ? conversation.participants.find((p) => p._id === currentUserId)
-        : conversation.participants.find((p) => p._id !== currentUserId);
-
       const hasOnlineUser = conversation.participants.some(
         (p) => p._id !== currentUserId && p.isOnline
       );
-      console.log('Conversation sélectionnée:', { conversationId: conversation._id, hasOnlineUser, participants: conversation.participants });
 
-      if (onConversationSelect) {
-        onConversationSelect({
+      const updatedConversation = conversations.find((conv) => conv._id === conversation._id);
+      const mergedMessages = [
+        ...(updatedConversation?.messages || []),
+        ...(response.data.messages || []),
+      ].filter(
+        (msg, index, self) =>
+          index === self.findIndex((m) => m._id === msg._id)
+      );
+
+      if (conversation.isGroup) {
+        const groupInfo = {
+          name: conversation.name || generateGroupName(conversation.participants),
+          image: conversation.image || 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
+        };
+
+        console.log('Données passées à ChatConversation (groupe):', {
+          conversation,
+          conversationId: conversation._id,
+          groupInfo,
+          messages: mergedMessages,
+          hasOnlineUser,
+        });
+
+        if (onConversationSelect) {
+          onConversationSelect({
+            conversation,
+            conversationId: conversation._id,
+            groupInfo,
+            messages: mergedMessages,
+            hasOnlineUser,
+          });
+        }
+      } else {
+        const otherParticipant = conversation.isSelfConversation
+          ? conversation.participants.find((p) => p._id === currentUserId)
+          : conversation.participants.find((p) => p._id !== currentUserId);
+
+        console.log('Données passées à ChatConversation (individuel):', {
           conversation,
           conversationId: conversation._id,
           otherParticipant,
-          messages: response.data.messages,
+          messages: mergedMessages,
           hasOnlineUser,
         });
+
+        if (onConversationSelect) {
+          onConversationSelect({
+            conversation,
+            conversationId: conversation._id,
+            otherParticipant,
+            messages: mergedMessages,
+            hasOnlineUser,
+          });
+        }
       }
     } catch (error) {
       console.error('Erreur lors de l’envoi des données au serveur:', error.message);
     }
+  };
+
+  const generateGroupName = (participants) => {
+    if (!participants || participants.length === 0) return 'Groupe sans nom';
+    const participantNames = participants
+      .filter((p) => p._id !== currentUserId)
+      .map((p) => p.firstName);
+    if (participantNames.length === 0) return 'Groupe vide';
+    if (participantNames.length <= 2) return participantNames.join(', ');
+    return `${participantNames.slice(0, 2).join(', ')}...`;
   };
 
   const getDisplayInfo = (conversation) => {
@@ -155,9 +264,10 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       : 'Nouveau message';
 
     if (conversation.isGroup) {
+      const groupName = conversation.name || generateGroupName(conversation.participants);
       return {
-        name: conversation.name || 'Groupe sans nom',
-        image: conversation.image || 'https://example.com/group-default.png',
+        name: groupName,
+        image: conversation.image || 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
         lastMessage: conversation.lastMessage?.content || defaultMessage,
         time: formatDate(conversation.lastMessage?.createdAt),
         fullDate: formatFullDate(conversation.lastMessage?.createdAt),
@@ -171,9 +281,10 @@ const ConversationsComponent = ({ onConversationSelect }) => {
         name: selfParticipant
           ? `${selfParticipant.firstName} ${selfParticipant.lastName} (Moi)`
           : 'Moi-même',
-        image: selfParticipant?.profilePicture || conversation.image || 'https://example.com/self-conversation.png',
+        image: selfParticipant?.profilePicture || conversation.image || 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png',
         lastMessage: conversation.lastMessage?.content || 'Écrivez-vous un message',
         time: formatDate(conversation.lastMessage?.createdAt),
+        fullDate: formatFullDate(conversation.lastMessage?.createdAt),
         hasOnlineUser: false,
       };
     }
@@ -183,9 +294,10 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       name: otherParticipant
         ? `${otherParticipant.firstName} ${otherParticipant.lastName}`
         : 'Utilisateur inconnu',
-      image: otherParticipant?.profilePicture || conversation.image || 'https://example.com/user-default.png',
+      image: otherParticipant?.profilePicture || conversation.image || 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png',
       lastMessage: conversation.lastMessage?.content || defaultMessage,
       time: formatDate(conversation.lastMessage?.createdAt),
+      fullDate: formatFullDate(conversation.lastMessage?.createdAt),
       hasOnlineUser,
     };
   };

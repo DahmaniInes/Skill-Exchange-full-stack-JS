@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import './MessengerApplicationStyles.css';
 import io from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 import EmojiPicker from 'emoji-picker-react';
 import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
+import { ConversationContext } from './ConversationContext';
 
-// Ajout de hasOnlineUser dans les props
-const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser }) => {
+const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser, groupInfo }) => {
+  const { currentConversation } = useContext(ConversationContext); // Utilisation du contexte
+  const activeConversation = currentConversation || conversation; // Priorité au contexte
   const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
   const [callData, setCallData] = useState(null);
@@ -39,32 +41,94 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   const [contextMenu, setContextMenu] = useState({ messageId: null, x: 0, y: 0 });
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedContent, setEditedContent] = useState('');
+  const [groupInfoState, setGroupInfoState] = useState(groupInfo || { name: activeConversation?.name, image: activeConversation?.image });
+
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (token) {
+      const decoded = jwtDecode(token);
+      setCurrentUserId(decoded.userId);
+    }
+  }, []);
+
+  // Synchroniser groupInfoState avec le contexte ou les props
+  useEffect(() => {
+    if (activeConversation?.isGroup) {
+      setGroupInfoState({
+        name: activeConversation.name || groupInfo?.name || 'Groupe sans nom',
+        image: activeConversation.image || groupInfo?.image || 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
+      });
+    }
+  }, [activeConversation, groupInfo]);
 
   const getOtherParticipant = () => {
-    if (!conversation || !currentUserId) {
-      console.log('getOtherParticipant : conversation ou currentUserId manquant', { conversation, currentUserId });
+    if (!activeConversation || !currentUserId) {
+      console.log('getOtherParticipant : conversation ou currentUserId manquant', { activeConversation, currentUserId });
       return null;
     }
-    const participants = conversation.participants || [];
-    if (conversation.isSelfConversation) {
+    const participants = activeConversation.participants || [];
+    if (activeConversation.isGroup) {
+      return {
+        firstName: groupInfoState?.name || 'Groupe sans nom',
+        lastName: '',
+        profilePicture: groupInfoState?.image || 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
+      };
+    }
+    if (activeConversation.isSelfConversation) {
       const selfParticipant = participants.find((p) => p._id === currentUserId);
-      console.log('getOtherParticipant : Conversation personnelle, participant = utilisateur actuel', selfParticipant);
+      console.log('getOtherParticipant : Conversation personnelle', selfParticipant);
       return selfParticipant;
     }
     const otherParticipant = participants.find((p) => p._id !== currentUserId) || participants[0];
-    console.log('getOtherParticipant : Autre participant trouvé', otherParticipant);
+    console.log('getOtherParticipant : Autre participant', otherParticipant);
     return otherParticipant;
   };
 
   const otherParticipant = getOtherParticipant();
-  const isSelfConversation = conversation?.isSelfConversation || false;
-  console.log('ChatConversation props:', { conversation, hasOnlineUser, isSelfConversation });
-  const formatDuration = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  const isSelfConversation = activeConversation?.isSelfConversation || false;
+  const isGroupConversation = activeConversation?.isGroup || false;
+
+  const formatSystemMessage = (message) => {
+    if (!message.isSystemMessage || !message.systemData) {
+      console.log('Message non système ou sans systemData', message);
+      return message.content;
+    }
+    console.log('Formatage du message système :', message);
+    console.log('Contenu de systemData :', message.systemData);
+  
+    const { action, actionBy, customContent } = message.systemData;
+    const isAuthor = actionBy === currentUserId;
+    console.log('Vérification isAuthor :', { actionBy, currentUserId, isAuthor });
+  
+    if (action === "group_name_updated") {
+      if (isAuthor) {
+        if (customContent?.forAuthor) {
+          console.log('Message pour l’auteur :', customContent.forAuthor);
+          return customContent.forAuthor;
+        }
+        console.log('forAuthor absent, utilisation de content par défaut');
+        return message.content; // Fallback si forAuthor est absent
+      }
+      console.log('Message pour les autres :', customContent?.forOthers || message.content);
+      return customContent?.forOthers || message.content;
+    } else if (action === "group_photo_updated") {
+      if (isAuthor) {
+        if (customContent?.forAuthor) {
+          console.log('Message pour l’auteur :', customContent.forAuthor);
+          return customContent.forAuthor;
+        }
+        console.log('forAuthor absent, utilisation de content par défaut');
+        return message.content;
+      }
+      console.log('Message pour les autres :', customContent?.forOthers || message.content);
+      return customContent?.forOthers || message.content;
+    }
+    console.log('Message par défaut :', message.content);
+    return message.content;
   };
 
+
+  
   const cancelCall = () => {
     if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming') && socketRef.current) {
       console.log('cancelCall : Annulation de l’appel', { callId: callData._id, receiverId: otherParticipant?._id });
@@ -246,7 +310,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   };
 
   useEffect(() => {
-    console.log('useEffect : Initialisation du socket', { conversationId: conversation?._id });
+    console.log('useEffect : Initialisation du socket', { conversationId: activeConversation?._id });
     const token = localStorage.getItem('jwtToken');
     if (!token) {
       console.log('useEffect : Aucun token JWT trouvé');
@@ -260,7 +324,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
       socketRef.current = io('http://localhost:5000', {
         auth: { token: `Bearer ${token}` },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
@@ -268,6 +332,9 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       socketRef.current.on('connect', () => {
         console.log('Socket : Connexion réussie au serveur avec userId', decoded.userId);
         socketRef.current.emit('authenticate', decoded.userId);
+        if (activeConversation?._id) {
+          socketRef.current.emit('joinConversation', activeConversation._id);
+        }
       });
 
       socketRef.current.on('connect_error', (error) => {
@@ -338,9 +405,34 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
       socketRef.current.on('newMessage', (message) => {
         console.log('Socket : Nouveau message reçu', message);
-        setMessages((prev) =>
-          prev.some((msg) => msg._id === message._id) ? prev : [...prev, message]
-        );
+        try {
+          if (!message || !message.conversation) {
+            console.error('Message invalide ou sans conversation', message);
+            return;
+          }
+          const messageConvId = typeof message.conversation === 'object' && message.conversation._id
+            ? message.conversation._id.toString()
+            : message.conversation.toString();
+          const activeConvId = activeConversation?._id?.toString();
+          if (!activeConvId) {
+            console.error('activeConversation._id est undefined', activeConversation);
+            return;
+          }
+          if (messageConvId === activeConvId) {
+            setMessages((prev) => {
+              if (prev.some((msg) => msg._id === message._id)) {
+                console.log('Message déjà présent, ignoré', message._id);
+                return prev;
+              }
+              console.log('Ajout du message à l’état', message);
+              return [...prev, message];
+            });
+          } else {
+            console.log('Message ignoré - Conversation différente', { messageConvId, activeConvId });
+          }
+        } catch (error) {
+          console.error('Erreur dans le traitement de newMessage', error);
+        }
       });
 
       socketRef.current.on('messageSent', (confirmedMessage) => {
@@ -422,6 +514,17 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       });
+
+      socketRef.current.on('groupUpdated', (data) => {
+        console.log('Socket : Mise à jour du groupe reçue dans ChatConversation', data);
+        if (data.conversationId === activeConversation?._id) {
+          setGroupInfoState({
+            name: data.groupName,
+            image: data.groupPhoto,
+          });
+        }
+      });
+
     } catch (error) {
       console.error('Erreur lors de l’initialisation du socket :', error);
     }
@@ -433,11 +536,14 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         socketRef.current = null;
       }
     };
-  }, [conversation?._id]);
+  }, [activeConversation?._id]);
 
   useEffect(() => {
     if (Array.isArray(initialMessages)) {
-      setMessages(initialMessages || []);
+      const uniqueMessages = initialMessages.filter(
+        (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
+      );
+      setMessages(uniqueMessages || []);
     } else {
       console.warn('initialMessages n’est pas un tableau', initialMessages);
       setMessages([]);
@@ -586,27 +692,30 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         attachment = { url: fileInfo.url, fileType: fileInfo.fileType, originalName: fileInfo.originalName };
       }
       const tempId = `${currentUserId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const receiverId = isSelfConversation ? currentUserId : otherParticipant._id;
+
       const optimisticMessage = {
         _id: tempId,
         sender: currentUserId,
-        receiver: receiverId,
         content: newMessage,
         attachments: attachment ? [attachment] : [],
         createdAt: new Date(),
         isOptimistic: true,
+        conversation: activeConversation._id,
       };
+
       console.log('handleSendMessage : Message optimiste ajouté', optimisticMessage);
       setMessages((prev) => [...prev, optimisticMessage]);
       setNewMessage('');
       setSelectedFile(null);
       setFilePreview(null);
+
       socketRef.current.emit('sendMessage', {
         senderId: currentUserId,
-        receiverId: receiverId,
         content: newMessage,
         attachments: attachment ? [attachment] : [],
         tempId,
+        conversationId: activeConversation._id,
+        isGroup: isGroupConversation,
       });
     } catch (error) {
       console.error('Erreur lors de l’envoi du message :', error);
@@ -647,9 +756,9 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const defaultProfileImage = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
 
-  console.log('ChatConversation : Rendu du composant', { conversation, messagesLength: messages.length });
+  console.log('ChatConversation : Rendu du composant', { activeConversation, messagesLength: messages.length });
 
-  if (!conversation) {
+  if (!activeConversation) {
     console.log('ChatConversation : Aucune conversation sélectionnée');
     return (
       <div className="chat-area empty-state">
@@ -663,17 +772,21 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       <div className="chat-header">
         <div className="chat-header-info">
           <div className="chat-avatar">
-            <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={`${otherParticipant?.firstName} ${otherParticipant?.lastName}`} />
-            <span className="online-indicator"></span>
+            <img
+              src={otherParticipant?.profilePicture || defaultProfileImage}
+              alt={isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+            />
           </div>
           <div>
-            <span className="chat-header-name">{otherParticipant?.firstName} {otherParticipant?.lastName}</span>
-            {/* Affichage conditionnel basé sur hasOnlineUser */}
-            {hasOnlineUser && !isSelfConversation && (
+            <span className="chat-header-name">
+              {isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+            </span>
+            {hasOnlineUser && !isSelfConversation && !isGroupConversation && (
               <span className="chat-header-status">Actif maintenant</span>
             )}
           </div>
         </div>
+
         <div className="chat-header-actions">
           {!isSelfConversation && (
             <>
@@ -768,23 +881,31 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
       <div className="messages-container" ref={messagesContainerRef}>
         <div className="scrollable-content">
-          <div className="user-profile-section">
-            <div className="user-profile-content">
-              <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={`${otherParticipant?.firstName} ${otherParticipant?.lastName}`} className="user-profile-image" />
-              <div className="user-profile-details">
-                <h2 className="user-full-name">{otherParticipant?.firstName} {otherParticipant?.lastName}</h2>
-                <p className="user-job-title">{otherParticipant?.jobTitle || 'Ingénieur'}</p>
-                <p className="user-bio">{otherParticipant?.bio || 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
-                <button className="view-profile-btn">Voir Profil</button>
-                {isSelfConversation && (
-                  <div className="personal-conversation-note">
-                    <p>Votre espace de conversation personnel</p>
-                    <small>Les messages que vous vous envoyez apparaîtront ici</small>
-                  </div>
-                )}
+          {!isGroupConversation && (
+            <div className="user-profile-section">
+              <div className="user-profile-content">
+                <img
+                  src={otherParticipant?.profilePicture || defaultProfileImage}
+                  alt={isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+                  className="user-profile-image"
+                />
+                <div className="user-profile-details">
+                  <h2 className="user-full-name">
+                    {isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+                  </h2>
+                  <p className="user-job-title">{otherParticipant?.jobTitle || 'Ingénieur'}</p>
+                  <p className="user-bio">{otherParticipant?.bio || 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
+                  <button className="view-profile-btn">Voir Profil</button>
+                  {isSelfConversation && (
+                    <div className="personal-conversation-note">
+                      <p>Votre espace de conversation personnel</p>
+                      <small>Les messages que vous vous envoyez apparaîtront ici</small>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="messages-list">
             {messages.map((message, index) => {
@@ -796,6 +917,16 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
                 !message.sender ||
                 messages[index - 1]?.sender._id !== message.sender._id ||
                 new Date(message.createdAt) - new Date(messages[index - 1]?.createdAt) > 5 * 60 * 1000;
+
+                if (message.isSystemMessage) {
+                    return (
+                      <div key={uniqueKey} className="message-container system-message">
+                        <div className="system-message-content">
+                          {formatSystemMessage(message)}
+                        </div>
+                      </div>
+                    );
+                  }
 
               if (message.isCall) {
                 const callData = message.callData;
