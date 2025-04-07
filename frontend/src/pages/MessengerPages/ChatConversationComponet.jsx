@@ -100,35 +100,42 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     const isAuthor = actionBy === currentUserId;
     console.log('Vérification isAuthor :', { actionBy, currentUserId, isAuthor });
   
-    if (action === "group_name_updated") {
-      if (isAuthor) {
-        if (customContent?.forAuthor) {
-          console.log('Message pour l’auteur :', customContent.forAuthor);
+    // Gestion des différentes actions
+    switch (action) {
+      case 'group_name_updated':
+        if (isAuthor && customContent?.forAuthor) {
+          console.log('Message pour l’auteur (group_name_updated) :', customContent.forAuthor);
           return customContent.forAuthor;
         }
-        console.log('forAuthor absent, utilisation de content par défaut');
-        return message.content; // Fallback si forAuthor est absent
-      }
-      console.log('Message pour les autres :', customContent?.forOthers || message.content);
-      return customContent?.forOthers || message.content;
-    } else if (action === "group_photo_updated") {
-      if (isAuthor) {
-        if (customContent?.forAuthor) {
-          console.log('Message pour l’auteur :', customContent.forAuthor);
+        console.log('Message pour les autres (group_name_updated) :', customContent?.forOthers || message.content);
+        return customContent?.forOthers || message.content;
+  
+      case 'group_photo_updated':
+        if (isAuthor && customContent?.forAuthor) {
+          console.log('Message pour l’auteur (group_photo_updated) :', customContent.forAuthor);
           return customContent.forAuthor;
         }
-        console.log('forAuthor absent, utilisation de content par défaut');
+        console.log('Message pour les autres (group_photo_updated) :', customContent?.forOthers || message.content);
+        return customContent?.forOthers || message.content;
+  
+      case 'user_added':
+        if (isAuthor && customContent?.forAuthor) {
+          console.log('Message pour l’auteur (user_added) :', customContent.forAuthor);
+          return customContent.forAuthor;
+        }
+        console.log('Message pour les autres (user_added) :', customContent?.forOthers || message.content);
+        return customContent?.forOthers || message.content;
+  
+      default:
+        console.log('Action non reconnue, utilisation du contenu par défaut :', message.content);
         return message.content;
-      }
-      console.log('Message pour les autres :', customContent?.forOthers || message.content);
-      return customContent?.forOthers || message.content;
     }
-    console.log('Message par défaut :', message.content);
-    return message.content;
   };
 
 
   
+
+
   const cancelCall = () => {
     if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming') && socketRef.current) {
       console.log('cancelCall : Annulation de l’appel', { callId: callData._id, receiverId: otherParticipant?._id });

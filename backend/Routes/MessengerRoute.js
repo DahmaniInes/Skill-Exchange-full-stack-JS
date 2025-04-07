@@ -27,7 +27,8 @@ router.post('/createGroupConversation', verifyToken, messengerController.createG
 router.put('/addParticipantToGroup', verifyToken, messengerController.addParticipantToGroup);
 router.post('/sendSystemMessage', verifyToken, messengerController.sendSystemMessage);
 router.get('/currentUser', verifyToken, messengerController.getCurrentUser);
-
+router.post('/createGroupFromConversation', verifyToken, messengerController.createGroupFromConversation); // Nouvelle route
+router.get('/conversationParticipants', verifyToken, messengerController.getConversationParticipants);
 // Mettre à jour le nom du groupe
 router.put('/updateGroupName', verifyToken, async (req, res) => {
   try {

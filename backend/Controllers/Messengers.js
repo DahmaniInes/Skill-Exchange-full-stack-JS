@@ -248,7 +248,130 @@ const createGroupConversation = async (req, res) => {
   }
 };
 
-// Nouvelle fonction : addParticipantToGroup
+
+
+// Nouvelle fonction : createGroupFromConversation
+const createGroupFromConversation = async (req, res) => {
+  try {
+    const { conversationId, newUserId } = req.body;
+    const currentUserId = req.userId;
+
+    console.log('Requête reçue dans createGroupFromConversation:', { conversationId, newUserId, currentUserId });
+
+    if (!conversationId || !newUserId) {
+      console.log('Erreur : ID de conversation ou ID d’utilisateur manquant');
+      return res.status(400).json({
+        success: false,
+        message: "ID de conversation et ID d'utilisateur requis",
+      });
+    }
+
+    const originalConversation = await Conversation.findById(conversationId);
+    if (!originalConversation) {
+      console.log('Erreur : Conversation non trouvée pour ID:', conversationId);
+      return res.status(404).json({
+        success: false,
+        message: "Conversation non trouvée",
+      });
+    }
+
+    console.log('Conversation trouvée:', originalConversation);
+
+    if (originalConversation.isGroup) {
+      console.log('Erreur : Cette conversation est déjà un groupe');
+      return res.status(400).json({
+        success: false,
+        message: "Cette conversation est déjà un groupe, utilisez addParticipantToGroup",
+      });
+    }
+
+    if (!originalConversation.participants.some((p) => p.toString() === currentUserId.toString())) {
+      console.log('Erreur : Utilisateur non autorisé à modifier cette conversation');
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'êtes pas autorisé à modifier cette conversation",
+      });
+    }
+
+    // Vérifier si newUserId est déjà dans les participants existants
+    const existingParticipants = originalConversation.participants.map(p => p.toString());
+    if (existingParticipants.includes(newUserId.toString())) {
+      console.log('Erreur : Cet utilisateur est déjà dans la conversation');
+      return res.status(400).json({
+        success: false,
+        message: "Cet utilisateur est déjà dans la conversation",
+      });
+    }
+
+    // Ajouter le nouvel utilisateur à la liste des participants
+    const participants = [...existingParticipants, newUserId];
+
+    const currentUser = await User.findById(currentUserId).select('firstName lastName');
+    const newUser = await User.findById(newUserId).select('firstName lastName');
+    if (!currentUser || !newUser) {
+      console.log('Erreur : Utilisateur non trouvé', { currentUser, newUser });
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+    const currentUserFullName = `${currentUser.firstName} ${currentUser.lastName}`;
+    const newUserFullName = `${newUser.firstName} ${newUser.lastName}`;
+
+    const newConversation = await Conversation.create({
+      participants,
+      isGroup: true,
+      groupName: "Nouveau groupe",
+      messages: [],
+      groupAdmin: currentUserId,
+    });
+
+    const systemMessage = await Message.create({
+      conversation: newConversation._id,
+      isSystemMessage: true,
+      content: `${currentUserFullName} a ajouté ${newUserFullName}`,
+      systemData: {
+        action: 'user_added',
+        actionBy: currentUserId,
+        actionTarget: newUserId,
+        customContent: {
+          forAuthor: `Vous avez ajouté ${newUserFullName}`,
+          forOthers: `${currentUserFullName} a ajouté ${newUserFullName}`,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    newConversation.messages.push(systemMessage._id);
+    newConversation.lastMessage = systemMessage._id;
+    await newConversation.save();
+
+    if (req.io) {
+      console.log('Émission du message système via Socket.IO :', systemMessage);
+      req.io.to(newConversation._id).emit('newMessage', systemMessage);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Nouvelle conversation de groupe créée avec succès",
+      conversation: newConversation,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la création du groupe depuis la conversation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la création du groupe",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+
+
+// Fonction existante : addParticipantToGroup
 const addParticipantToGroup = async (req, res) => {
   try {
     const { conversationId, userId: newUserId } = req.body;
@@ -290,11 +413,50 @@ const addParticipantToGroup = async (req, res) => {
       });
     }
 
+    const currentUser = await User.findById(currentUserId).select('firstName lastName');
+    const newUser = await User.findById(newUserId).select('firstName lastName');
+    if (!currentUser || !newUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+    const currentUserFullName = `${currentUser.firstName} ${currentUser.lastName}`;
+    const newUserFullName = `${newUser.firstName} ${newUser.lastName}`;
+
     const updatedConversation = await Conversation.findByIdAndUpdate(
       conversationId,
       { $push: { participants: newUserId } },
       { new: true }
     ).populate("participants", "firstName lastName profilePicture");
+
+    const systemMessage = await Message.create({
+      conversation: conversationId,
+      isSystemMessage: true,
+      content: `${currentUserFullName} a ajouté ${newUserFullName}`,
+      systemData: {
+        action: 'user_added',
+        actionBy: currentUserId,
+        actionTarget: newUserId,
+        customContent: {
+          forAuthor: `Vous avez ajouté ${newUserFullName}`,
+          forOthers: `${currentUserFullName} a ajouté ${newUserFullName}`,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    updatedConversation.messages = updatedConversation.messages || [];
+    updatedConversation.messages.push(systemMessage._id);
+    updatedConversation.lastMessage = systemMessage._id;
+    await updatedConversation.save();
+
+    if (req.io) {
+      console.log('Émission du message système via Socket.IO :', systemMessage);
+      req.io.to(conversationId).emit('newMessage', systemMessage);
+    } else {
+      console.error('req.io est undefined, impossible d’émettre via Socket.IO');
+    }
 
     res.status(200).json({
       success: true,
@@ -311,7 +473,10 @@ const addParticipantToGroup = async (req, res) => {
   }
 };
 
-// Nouvelle fonction : sendSystemMessage (corrigée)
+
+
+
+// Fonction existante : sendSystemMessage
 const sendSystemMessage = async (req, res) => {
   try {
     const { conversationId, content, action, actionBy, actionTarget } = req.body;
@@ -339,11 +504,10 @@ const sendSystemMessage = async (req, res) => {
       });
     }
 
-    // Création du message système avec le champ `conversation`
     const systemMessage = await Message.create({
-      conversation: conversationId, // Ajout du champ `conversation`
+      conversation: conversationId,
       sender: userId,
-      content, // Contenu générique, par ex. "User added to conversation"
+      content,
       isSystemMessage: true,
       systemData: {
         action: action || "user_added",
@@ -352,7 +516,6 @@ const sendSystemMessage = async (req, res) => {
       },
     });
 
-    // Mise à jour de la conversation avec le nouveau message
     await Conversation.findByIdAndUpdate(
       conversationId,
       {
@@ -362,7 +525,6 @@ const sendSystemMessage = async (req, res) => {
       { new: true }
     );
 
-    // Émettre l'événement newMessage via Socket.IO si nécessaire
     if (req.io) {
       const populatedMessage = await Message.findById(systemMessage._id)
         .populate('sender')
@@ -394,6 +556,7 @@ const sendSystemMessage = async (req, res) => {
   }
 };
 
+// Fonction existante : getCurrentUser
 const getCurrentUser = async (req, res) => {
   try {
     const userId = req.userId;
@@ -415,12 +578,67 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+// Fonction existante : getConversationParticipants
+const getConversationParticipants = async (req, res) => {
+  try {
+    const { conversationId } = req.query;
+    const userId = req.userId;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de conversation requis",
+      });
+    }
+
+    const conversation = await Conversation.findById(conversationId)
+      .populate('participants', 'firstName lastName profilePicture')
+      .lean();
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Conversation non trouvée",
+      });
+    }
+
+    if (!conversation.participants.some((p) => p._id.toString() === userId.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'êtes pas autorisé à voir les participants de cette conversation",
+      });
+    }
+
+    const participants = conversation.participants.map((p) => ({
+      _id: p._id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      profilePicture: p.profilePicture,
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: participants.length,
+      data: participants,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des participants:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la récupération des participants",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   deleteConversationForUser,
   getUserConversations,
   createGroupConversation,
   addParticipantToGroup,
+  createGroupFromConversation, // Nouvelle fonction exportée
   sendSystemMessage,
   getCurrentUser,
+  getConversationParticipants,
 };

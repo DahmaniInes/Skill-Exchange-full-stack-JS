@@ -93,6 +93,7 @@ const MessageSchema = new mongoose.Schema({
         'group_photo_updated',   // Ajouté pour updateGroupPhoto
         'participant_added',     // Exemple d'autres actions possibles
         'participant_removed',   // Exemple d'autres actions possibles
+        'user_added',
       ],
       required: function () {
         return this.isSystemMessage; // `systemData.action` est requis pour les messages système
@@ -108,6 +109,10 @@ const MessageSchema = new mongoose.Schema({
     actionTarget: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+    },
+    customContent: { // Ajouté pour stocker forAuthor et forOthers
+      forAuthor: String,
+      forOthers: String,
     },
   },
 }, {
