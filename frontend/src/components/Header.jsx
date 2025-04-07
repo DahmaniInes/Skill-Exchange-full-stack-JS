@@ -259,7 +259,7 @@ const fetchUserProfile = useCallback(async (signal) => {
       >
         <Link to="/" className="navbar-brand d-flex align-items-center px-4 px-lg-5">
           <h2 className="m-0 text-primary">
-            <i className="fa fa-book me-3"></i>E
+            <i className="fa fa-book me-3"></i>E-learning
           </h2>
         </Link>
         
