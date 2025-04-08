@@ -1,4 +1,3 @@
-// story.model.js
 const mongoose = require("mongoose");
 
 const StorySchema = new mongoose.Schema({
@@ -14,9 +13,14 @@ const StorySchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, "Le contenu ne peut pas dépasser 500 caractères"]
   },
-  image: {
+  media: {  // Changed from 'image' to 'media' to be more generic
     type: String,
-    required: [true, "Une image est requise pour la story"]
+    required: [true, "Un média (image ou vidéo) est requis pour la story"]
+  },
+  mediaType: {  // New field to distinguish between image and video
+    type: String,
+    enum: ['image', 'video'],
+    required: true
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,

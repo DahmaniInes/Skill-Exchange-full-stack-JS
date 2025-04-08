@@ -1,4 +1,9 @@
 const Skill = require("../Models/Skill");
+const User = require('../Models/User');
+const Roadmap = require('../Models/Roadmap');
+
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 
 // 📍 Récupérer toutes les compétences (Public)
 exports.getAllSkills = async (req, res) => {
@@ -19,54 +24,132 @@ exports.getAllSkills = async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur", error: error.message });
   }
 };
-
-// 📍 Récupérer une compétence par ID (Public)
-exports.getSkillById = async (req, res) => {
+exports.getComplementarySkills = async (req, res) => {
   try {
-    const skill = await Skill.findById(req.params.id);
-    if (!skill) return res.status(404).json({ success: false, message: "Compétence non trouvée" });
-    res.status(200).json({ success: true, data: skill });
+    const { skills } = req.query;
+    if (!skills) {
+      return res.status(400).json({ message: 'Le paramètre skills est requis' });
+    }
+    const skillIds = skills.split(',');
+
+    const complementaryCounts = {};
+
+    // Pour chaque compétence de l'utilisateur
+    for (const skillId of skillIds) {
+      const usersWithSkill = await User.find({ skills: skillId }).select('skills');
+      for (const user of usersWithSkill) {
+        for (const userSkill of user.skills) {
+          if (!skillIds.includes(userSkill.toString())) {
+            complementaryCounts[userSkill] = (complementaryCounts[userSkill] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    // Trier par fréquence décroissante et prendre les 5 premières
+    const sortedSkills = Object.entries(complementaryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(entry => entry[0]);
+
+    // Récupérer les détails des compétences
+    const complementarySkills = await Skill.find({ _id: { $in: sortedSkills } });
+
+    res.json(complementarySkills);
   } catch (error) {
-    res.status(500).json({ success: false, message: "Erreur serveur", error: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 
-// 📍 Ajouter une compétence (Privé)
+// 📍 Récupérer une compétence par ID (Public)
+// Contrôleur pour récupérer une compétence par ID
+exports.getSkillById = async (req, res) => {
+  try {
+    const skill = await Skill.findById(req.params.id); // Recherche dans la base de données
+    if (!skill) {
+      return res.status(404).json({ success: false, message: "Compétence non trouvée" });
+    }
+    res.status(200).json({ success: true, data: skill });
+  } catch (error) {
+    console.error("Erreur dans getSkillById:", error.message); // Log pour débogage
+    res.status(500).json({ success: false, message: "Erreur serveur", error: error.message });
+  }
+};
 exports.createSkill = async (req, res) => {
   try {
     const { name, description, categories, level, tags } = req.body;
 
+    // Check if an image file is provided
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Veuillez fournir une image."
+        message: "Please provide an image.",
       });
     }
 
-    // 📂 Récupérer le chemin de l'image
+    // 📂 Get the image path
     const imageUrl = `/uploads/skills/${req.file.filename}`;
 
+    // Validate categories and level against the schema enums
+    const validCategories = [
+      "Development",
+      "Design",
+      "Marketing",
+      "Business",
+      "Languages",
+      "Music",
+      "Art",
+      "Science",
+      "Technology",
+      "Health",
+      "Education",
+      "Sports",
+      "Other",
+    ];
+    const validLevels = ["Beginner", "Intermediate", "Advanced"];
+
+    if (!categories || !Array.isArray(categories) || categories.some(cat => !validCategories.includes(cat))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category or categories. Must be an array of valid categories.",
+        validCategories,
+      });
+    }
+
+    if (!level || !validLevels.includes(level)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid level.",
+        validLevels,
+      });
+    }
+
+    // Create the new skill
     const skill = new Skill({
       name,
       description,
-      categories,
+      categories, // Accepts multiple categories
       level,
-      tags: tags ? tags.split(",") : [],
-      imageUrl
+      tags: tags ? tags.split(",") : [], // Convert comma-separated tags to array
+      imageUrl,
     });
 
     const savedSkill = await skill.save();
 
     res.status(201).json({
       success: true,
-      message: "Compétence créée avec succès",
-      data: savedSkill
+      message: "Skill created successfully",
+      data: savedSkill,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Erreur serveur", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
-
 // 📍 Modifier une compétence (Privé)
 exports.updateSkill = async (req, res) => {
   try {

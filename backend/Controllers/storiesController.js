@@ -27,15 +27,13 @@ exports.createStory = async (req, res) => {
       });
     }
     
-    // Check if image was uploaded
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Image is required for stories"
+        message: "Media (image or video) is required for stories"
       });
     }
-    
-    // Create a new story
+
     const story = new Story({
       title,
       content,
@@ -44,7 +42,8 @@ exports.createStory = async (req, res) => {
       userName: `${user.firstName} ${user.lastName}`,
       userImage: user.profileImage,
       skillName: skill.name,
-      image: `/uploads/stories/${req.file.filename}`,
+      media: `/uploads/stories/${req.file.filename}`,
+      mediaType: req.file.mimetype.startsWith("image/") ? "image" : "video",
       createdAt: new Date()
     });
     
@@ -142,11 +141,10 @@ exports.deleteStory = async (req, res) => {
       });
     }
     
-    // Delete associated image if it exists
-    if (story.image) {
-      const imagePath = path.join(__dirname, "../public", story.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+    if (story.media) {
+      const mediaPath = path.join(__dirname, "../public", story.media);
+      if (fs.existsSync(mediaPath)) {
+        fs.unlinkSync(mediaPath);
       }
     }
     

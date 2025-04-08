@@ -11,7 +11,7 @@ const roadmapCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // TTL
 
 
 const ollama = new Ollama({
-    host: process.env.OLLAMA_HOST || 'http://localhost:11434'
+    host: process.env.OLLAMA_HOST || 'http://localhost:11435'
   });
 
 

@@ -9,7 +9,7 @@ var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
 const http = require('http');
 const cors = require("cors");
-
+const { SessionsClient } = require('@google-cloud/dialogflow');
 // Import route modules
 const authRoutes = require("./Routes/authRoutes");
 var indexRouter = require("./routes/index");
@@ -73,6 +73,34 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Static files
 app.use(express.static(path.join(__dirname, "public")));
+
+const sessionClient = new SessionsClient({
+  keyFilename: 'path/to/service-account-key.json',
+});
+
+const projectId = 'your-project-id';
+const sessionId = 'your-session-id';
+
+app.post('/chat', async (req, res) => {
+  const sessionPath = sessionClient.projectAgentSessionPath(projectId, sessionId);
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: req.body.message,
+        languageCode: 'fr-FR',
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    res.json({ response: result.fulfillmentText });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Register all routes AFTER middleware is set up
 app.use("/api", authRoutes);

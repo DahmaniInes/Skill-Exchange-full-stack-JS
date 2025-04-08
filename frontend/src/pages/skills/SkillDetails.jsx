@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Clock, Users, BookOpen, Award, MessageCircle, ArrowLeft, Heart, Share2 } from "lucide-react";
+import { toast } from "react-toastify";
 import "./SkillDetailsStyles.css";
 
 const SkillDetails = () => {
@@ -21,10 +22,9 @@ const SkillDetails = () => {
         setLoading(true);
         const response = await fetch(`${API_BASE_URL}/api/skills/${skillId}`);
         const data = await response.json();
-        
+
         if (response.ok) {
-          setSkill(data);
-          // Check if user has bookmarked this skill (would be from auth context in real app)
+          setSkill(data.data); // Assuming API returns { success: true, data: skill }
           const savedBookmarks = JSON.parse(localStorage.getItem("bookmarkedSkills") || "[]");
           setIsBookmarked(savedBookmarks.includes(skillId));
         } else {
@@ -32,7 +32,7 @@ const SkillDetails = () => {
         }
       } catch (err) {
         setError("An error occurred while fetching skill details");
-        console.error(err);
+        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -46,67 +46,44 @@ const SkillDetails = () => {
   const toggleBookmark = () => {
     const savedBookmarks = JSON.parse(localStorage.getItem("bookmarkedSkills") || "[]");
     let newBookmarks;
-    
+
     if (isBookmarked) {
-      newBookmarks = savedBookmarks.filter(id => id !== skillId);
+      newBookmarks = savedBookmarks.filter((id) => id !== skillId);
     } else {
       newBookmarks = [...savedBookmarks, skillId];
     }
-    
+
     localStorage.setItem("bookmarkedSkills", JSON.stringify(newBookmarks));
     setIsBookmarked(!isBookmarked);
   };
 
   const handleSubmitReview = (e) => {
     e.preventDefault();
-    // In a real application, this would send the review to the API
     alert(`Thank you for your ${userRating}-star review!`);
     setReviewText("");
     setUserRating(0);
   };
 
-  const renderStarRating = (rating) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Star 
-          key={i}
-          size={16} 
-          className={i <= rating ? "star filled" : "star"} 
-        />
-      );
-    }
-    return <div className="star-rating">{stars}</div>;
-  };
-  // In SkillDetails.jsx, modify the navigateToRoadmap function:
-
-const navigateToRoadmap = async () => {
+  const navigateToRoadmap = async () => {
     try {
-      // First, check if a roadmap exists for this skill
-      const token = localStorage.getItem('jwtToken');
+      const token = localStorage.getItem("jwtToken");
       if (!token) {
-        // Handle unauthenticated user
         toast.error("Please log in to view roadmaps");
         return;
       }
-  
-      // Option 1: Check if roadmap exists for this skill
+
       const response = await fetch(`${API_BASE_URL}/api/roadmaps/by-skill/${skillId}`, {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-  
+
       const data = await response.json();
-      
+
       if (response.ok && data.roadmap) {
-        // Roadmap exists, navigate to it
         navigate(`/roadmap/${data.roadmap._id}`);
       } else {
-        // Option 2: Generate new roadmap based on skill
         navigate(`/generate-roadmap?skillId=${skillId}`);
-        // OR show a modal asking if they want to create one
-        // setShowCreateRoadmapModal(true);
       }
     } catch (error) {
       console.error("Error checking roadmap:", error);
@@ -114,10 +91,24 @@ const navigateToRoadmap = async () => {
     }
   };
 
+  const renderStarRating = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Star
+          key={i}
+          size={16}
+          className={i <= rating ? "star filled" : "star"}
+        />
+      );
+    }
+    return <div className="star-rating">{stars}</div>;
+  };
+
   const renderRatingInput = () => {
     return (
       <div className="rating-input">
-        {[1, 2, 3, 4, 5].map(star => (
+        {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
             size={24}
@@ -135,18 +126,21 @@ const navigateToRoadmap = async () => {
 
   return (
     <div className="skill-details-container">
-      {/* Header with navigation and actions */}
       <header className="skill-header">
         <Link to="/marketplaceSkills" className="back-link">
           <ArrowLeft size={18} />
           <span>Back to Skills</span>
         </Link>
         <div className="skill-header-actions">
-          <button 
-            className={`bookmark-button ${isBookmarked ? 'bookmarked' : ''}`}
+          <button
+            className={`bookmark-button ${isBookmarked ? "bookmarked" : ""}`}
             onClick={toggleBookmark}
           >
-            <Heart size={18} fill={isBookmarked ? "#ff4d4d" : "none"} color={isBookmarked ? "#ff4d4d" : "currentColor"} />
+            <Heart
+              size={18}
+              fill={isBookmarked ? "#ff4d4d" : "none"}
+              color={isBookmarked ? "#ff4d4d" : "currentColor"}
+            />
             <span>{isBookmarked ? "Saved" : "Save"}</span>
           </button>
           <button className="share-button">
@@ -156,73 +150,82 @@ const navigateToRoadmap = async () => {
         </div>
       </header>
 
-      {/* Hero section */}
       <section className="skill-hero">
         <div className="skill-image-container">
-          <img 
-            src={skill.imageUrl || "/placeholder-skill.png"} 
-            alt={skill.name}
+          <img
+            src={skill.imageUrl ? `${API_BASE_URL}${skill.imageUrl}` : "/placeholder-skill.png"}
+            alt={skill.name || "Skill"}
             onError={(e) => {
-              e.target.onerror = null;
+              console.log("Image failed to load:", e.target.src);
               e.target.src = "/placeholder-skill.png";
             }}
           />
         </div>
         <div className="skill-hero-content">
-          <h1 className="skill-title">{skill.name}</h1>
-          
+          <h1 className="skill-title">{skill.name || "Unnamed Skill"}</h1>
+
           <div className="skill-categories">
-            {skill.categories && skill.categories.map((category, index) => (
-              <span key={index} className="skill-category">{category}</span>
-            ))}
-            <span className={`skill-level level-${skill.level ? skill.level.toLowerCase() : 'intermediate'}`}>
-              {skill.level || 'Intermediate'}
+            {Array.isArray(skill.categories) &&
+              skill.categories.map((category, index) => (
+                <span key={index} className="skill-category">
+                  {category}
+                </span>
+              ))}
+            <span
+              className={`skill-level level-${
+                typeof skill.level === "string" ? skill.level.toLowerCase() : "intermediate"
+              }`}
+            >
+              {skill.level || "Intermediate"}
             </span>
           </div>
-          
+
           <div className="skill-stats">
             <div className="stat">
               <Star size={16} />
-              <span>{skill.rating ? skill.rating.toFixed(1) : '4.5'} ({skill.ratings?.length || 0} reviews)</span>
+              <span>
+                {skill.rating ? skill.rating.toFixed(1) : "4.5"} (
+                {skill.ratings?.length || 0} reviews)
+              </span>
             </div>
             <div className="stat">
               <Users size={16} />
-              <span>{skill.popularity || 250} learners</span>
+              <span>{skill.popularity || 0} learners</span>
             </div>
             <div className="stat">
               <Clock size={16} />
               <span>Est. {skill.estimatedTimeHours || 10} hours to master</span>
             </div>
           </div>
-          
-          <p className="skill-description">{skill.description || 'No description available.'}</p>
-          
+
+          <p className="skill-description">{skill.description || "No description available."}</p>
+
           <div className="skill-cta">
             <button className="start-learning-btn">Start Learning</button>
-            {/* Bouton modifié pour accéder à la page de roadmap */}
-            <button className="explore-path-btn" onClick={navigateToRoadmap}>View Roadmap</button>
+            <button className="explore-path-btn" onClick={navigateToRoadmap}>
+              View Roadmap
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Navigation tabs */}
       <nav className="skill-tabs">
-        <button 
-          className={activeTab === "overview" ? "active" : ""} 
+        <button
+          className={activeTab === "overview" ? "active" : ""}
           onClick={() => setActiveTab("overview")}
         >
           <BookOpen size={16} />
           Overview
         </button>
-        <button 
-          className={activeTab === "prerequisites" ? "active" : ""} 
+        <button
+          className={activeTab === "prerequisites" ? "active" : ""}
           onClick={() => setActiveTab("prerequisites")}
         >
           <Award size={16} />
           Prerequisites
         </button>
-        <button 
-          className={activeTab === "reviews" ? "active" : ""} 
+        <button
+          className={activeTab === "reviews" ? "active" : ""}
           onClick={() => setActiveTab("reviews")}
         >
           <MessageCircle size={16} />
@@ -230,128 +233,132 @@ const navigateToRoadmap = async () => {
         </button>
       </nav>
 
-      {/* Tab content */}
       <div className="tab-content">
         {activeTab === "overview" && (
           <div className="overview-tab">
             <div className="content-section">
               <h2>What you'll learn</h2>
               <ul className="learning-outcomes">
-                {(skill.learningOutcomes || [
-                  "Understanding the core concepts",
-                  "Practical application of techniques",
-                  "Building real-world projects",
-                  "Advanced problem-solving strategies"
-                ]).map((outcome, index) => (
-                  <li key={index}>{outcome}</li>
-                ))}
+                {Array.isArray(skill.learningOutcomes) && skill.learningOutcomes.length > 0 ? (
+                  skill.learningOutcomes.map((outcome, index) => (
+                    <li key={index}>{outcome}</li>
+                  ))
+                ) : (
+                  <li>No learning outcomes available.</li>
+                )}
               </ul>
             </div>
-            
+
             <div className="content-section">
               <h2>Topics Covered</h2>
               <div className="topics-grid">
-                {(skill.topics || [
-                  "Introduction to basics",
-                  "Intermediate concepts",
-                  "Advanced techniques",
-                  "Professional integration",
-                  "Optimization strategies",
-                  "Case studies"
-                ]).map((topic, index) => (
-                  <div key={index} className="topic-card">
-                    <span>{topic}</span>
-                  </div>
-                ))}
+                {Array.isArray(skill.topics) && skill.topics.length > 0 ? (
+                  skill.topics.map((topic, index) => (
+                    <div key={index} className="topic-card">
+                      <span>{topic}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p>No topics available.</p>
+                )}
               </div>
             </div>
-            
+
             <div className="content-section">
               <h2>Resources</h2>
               <div className="resources-list">
-                {(skill.resources || [
-                  { type: "Article", title: "Getting Started Guide", link: "#" },
-                  { type: "Video", title: "Introduction Tutorial", link: "#" },
-                  { type: "Book", title: "Comprehensive Manual", link: "#" }
-                ]).map((resource, index) => (
-                  <div key={index} className="resource-item">
-                    <span className="resource-type">{resource.type}</span>
-                    <a href={resource.link} className="resource-title">{resource.title}</a>
-                  </div>
-                ))}
+                {Array.isArray(skill.resources) && skill.resources.length > 0 ? (
+                  skill.resources.map((resource, index) => (
+                    <div key={index} className="resource-item">
+                      <span className="resource-type">{resource.type}</span>
+                      <a href={resource.link} className="resource-title">
+                        {resource.title}
+                      </a>
+                    </div>
+                  ))
+                ) : (
+                  <p>No resources available.</p>
+                )}
               </div>
             </div>
-            
+
             <div className="content-section">
               <h2>Related Skills</h2>
               <div className="related-skills">
-                {(skill.relatedSkills || [
-                  { id: "1", name: "Related Skill 1", level: "Beginner" },
-                  { id: "2", name: "Related Skill 2", level: "Intermediate" },
-                  { id: "3", name: "Related Skill 3", level: "Advanced" }
-                ]).map((relSkill, index) => (
-                  <Link key={index} to={`/skills/${relSkill.id}`} className="related-skill-card">
-                    <h3>{relSkill.name}</h3>
-                    <span className={`level level-${relSkill.level.toLowerCase()}`}>
-                      {relSkill.level}
-                    </span>
-                  </Link>
-                ))}
+                {Array.isArray(skill.relatedSkills) && skill.relatedSkills.length > 0 ? (
+                  skill.relatedSkills.map((relSkill) => (
+                    <Link
+                      key={relSkill.id}
+                      to={`/skills/${relSkill.id}`}
+                      className="related-skill-card"
+                    >
+                      <h3>{relSkill.name}</h3>
+                      <span className={`level level-${relSkill.level.toLowerCase()}`}>
+                        {relSkill.level}
+                      </span>
+                    </Link>
+                  ))
+                ) : (
+                  <p>No related skills available.</p>
+                )}
               </div>
             </div>
           </div>
         )}
-        
+
         {activeTab === "prerequisites" && (
           <div className="prerequisites-tab">
             <div className="content-section">
               <h2>Required Knowledge</h2>
               <ul className="prerequisites-list">
-                {(skill.prerequisites || [
-                  "Basic understanding of the field",
-                  "Familiarity with fundamental concepts",
-                  "Access to necessary tools"
-                ]).map((prereq, index) => (
-                  <li key={index}>{prereq}</li>
-                ))}
+                {Array.isArray(skill.prerequisites) && skill.prerequisites.length > 0 ? (
+                  skill.prerequisites.map((prereq, index) => (
+                    <li key={index}>{prereq}</li>
+                  ))
+                ) : (
+                  <li>No prerequisites available.</li>
+                )}
               </ul>
             </div>
-            
+
             <div className="content-section">
               <h2>Recommended Preparation</h2>
               <div className="preparation-steps">
-                {(skill.preparationSteps || [
-                  { title: "Review basics", description: "Refresh your knowledge on core concepts" },
-                  { title: "Set up environment", description: "Prepare your workspace with the required tools" },
-                  { title: "Complete introductory tutorial", description: "Work through the beginner's guide" }
-                ]).map((step, index) => (
-                  <div key={index} className="preparation-step">
-                    <span className="step-number">{index + 1}</span>
-                    <div className="step-content">
-                      <h3>{step.title}</h3>
-                      <p>{step.description}</p>
+                {Array.isArray(skill.preparationSteps) && skill.preparationSteps.length > 0 ? (
+                  skill.preparationSteps.map((step, index) => (
+                    <div key={index} className="preparation-step">
+                      <span className="step-number">{index + 1}</span>
+                      <div className="step-content">
+                        <h3>{step.title}</h3>
+                        <p>{step.description}</p>
+                      </div>
                     </div>
-                  </div>  
-                ))}
+                  ))
+                ) : (
+                  <p>No preparation steps available.</p>
+                )}
               </div>
             </div>
           </div>
         )}
-        
+
         {activeTab === "reviews" && (
           <div className="reviews-tab">
             <div className="reviews-summary">
               <div className="rating-average">
-                <h2>{skill.rating ? skill.rating.toFixed(1) : '4.5'}</h2>
+                <h2>{skill.rating ? skill.rating.toFixed(1) : "4.5"}</h2>
                 {renderStarRating(skill.rating || 4.5)}
                 <span>{skill.ratings?.length || 0} reviews</span>
               </div>
-              
+
               <div className="rating-distribution">
-                {[5, 4, 3, 2, 1].map(stars => {
-                  const count = skill.ratings?.filter(r => Math.round(r.value) === stars).length || 0;
-                  const percentage = skill.ratings?.length ? (count / skill.ratings.length) * 100 : 0;
-                  
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count =
+                    skill.ratings?.filter((r) => Math.round(r.value) === stars).length || 0;
+                  const percentage = skill.ratings?.length
+                    ? (count / skill.ratings.length) * 100
+                    : 0;
+
                   return (
                     <div key={stars} className="rating-bar">
                       <span>{stars} stars</span>
@@ -364,7 +371,7 @@ const navigateToRoadmap = async () => {
                 })}
               </div>
             </div>
-            
+
             <div className="write-review">
               <h3>Write a Review</h3>
               <form onSubmit={handleSubmitReview}>
@@ -375,18 +382,23 @@ const navigateToRoadmap = async () => {
                   placeholder="Share your experience with this skill..."
                   rows={4}
                 />
-                <button type="submit" disabled={userRating === 0}>Submit Review</button>
+                <button type="submit" disabled={userRating === 0}>
+                  Submit Review
+                </button>
               </form>
             </div>
-            
+
             <div className="reviews-list">
               <h3>User Reviews</h3>
-              {(skill.ratings || []).length > 0 ? (
-                skill.ratings.map((review, index) => (
-                  <div key={index} className="review-card">
+              {Array.isArray(skill.ratings) && skill.ratings.length > 0 ? (
+                skill.ratings.map((review) => (
+                  <div key={review._id} className="review-card">
                     <div className="review-header">
                       <div className="reviewer-info">
-                        <img src={review.user?.avatar || "/placeholder-user.png"} alt="User" />
+                        <img
+                          src={review.user?.avatar || "/placeholder-user.png"}
+                          alt="User"
+                        />
                         <span>{review.user?.name || "Anonymous User"}</span>
                       </div>
                       {renderStarRating(review.value)}

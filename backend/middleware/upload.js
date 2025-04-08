@@ -20,21 +20,23 @@ const storage = multer.diskStorage({
   }
 });
 
-// Filtrage des fichiers (formats autorisés)
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Format d'image non supporté. Formats acceptés : JPEG, PNG, JPG"), false);
+// Configuration de multer
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Types de fichiers autorisés
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+    const allowedVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
+    
+    if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Format non supporté. Formats acceptés : JPEG, PNG, JPG, MP4, WEBM, OGG"), false);
+    }
   }
-};
-
-// Configuration de Multer
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5 Mo
-  fileFilter
 });
 
 // Middleware pour vérifier si le fichier a bien été téléchargé

@@ -3,10 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { WOW } from 'wowjs';
 import 'react-toastify/dist/ReactToastify.css';
-
 import './index.css';
-
-// Page imports
 import Login from "./pages/login/login";
 import Signup from "./pages/signup/SignUp";
 import MainLayout from './layouts/MainLayout';
@@ -73,7 +70,7 @@ function App() {
         <Route path="marketplace-skill" element={<Marketplace />} />
         <Route path="marketplaceSkills" element={<MarketplaceSkills />} />
         <Route path="skills/:skillId" element={<SkillDetails />} /> 
-        <Route path="/roadmap/:id" element={<RoadmapPage />} />
+        <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>

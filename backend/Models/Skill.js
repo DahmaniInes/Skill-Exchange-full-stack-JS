@@ -6,12 +6,26 @@ const SkillSchema = new mongoose.Schema({
     categories: [{ 
         type: String, 
         required: true, 
-        enum: ["Développement", "Design", "Marketing", "Business", "Langues", "Musique", "Art", "Science", "Autres"] 
-    }], // Plusieurs catégories possibles
-    level: { type: String, required: true, enum: ["Débutant", "Intermediate", "Advanced"] },
+        enum: [
+            "Development", 
+            "Design", 
+            "Marketing", 
+            "Business", 
+            "Languages", 
+            "Music", 
+            "Art", 
+            "Science", 
+            "Technology", // Added
+            "Health",      // Added
+            "Education",   // Added
+            "Sports",      // Added
+            "Other" 
+        ] 
+    }], // Multiple categories possible
+    level: { type: String, required: true, enum: ["Beginner", "Intermediate", "Advanced"] },
     popularity: { type: Number, default: 0 },
     tags: [{ type: String }],
-    imageUrl: { type: String, required: true }, // Image pour chaque skill
+    imageUrl: { type: String, required: true }, // Image for each skill
     ratings: [{ userId: String, rating: Number, comment: String }],
     rating: { type: Number, default: 0 }
 });
