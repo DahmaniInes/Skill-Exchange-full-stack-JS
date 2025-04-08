@@ -299,8 +299,8 @@ const fetchUserProfile = useCallback(async (signal) => {
                 </Link>
               </div>
             </div>
-            <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
-              Contact
+            <Link to="/marketplace-skill" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
+               Marketplace Skill
             </Link>
           </div>
 
