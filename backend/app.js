@@ -12,7 +12,7 @@ const cors = require("cors");
 const { SessionsClient } = require('@google-cloud/dialogflow');
 // Import route modules
 const authRoutes = require("./Routes/authRoutes");
-var indexRouter = require("./routes/index");
+var indexRouter = require("./Routes/index");
 var usersRouter = require("./Routes/users");
 var loginRouter = require('./Routes/authGOOGLE');
 var loginGit = require('./Routes/authGitHub');
@@ -107,6 +107,8 @@ app.use("/api", authRoutes);
 app.use("/api/skills", skillRoutes);
 app.use("/api/stories", storyRoutes);
 app.use("/", usersRouter);
+app.use("/users", usersRouter);
+//app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth", authOATH);
 app.use("/api", profileRoutes);
