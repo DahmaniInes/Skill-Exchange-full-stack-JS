@@ -1,5 +1,4 @@
 import React from 'react';
-
 import carousel1 from '../assets/img/carousel-1.jpg';
 import carousel2 from '../assets/img/carousel-2.jpg';
 import about from '../assets/img/about.jpg';

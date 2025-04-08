@@ -16,10 +16,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-
 router.post("/login", async (req, res) => {
   console.log("Login request received");
   const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
 
   try {
     const user = await User.findOne({ email });
@@ -27,7 +30,11 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Manually add user.salt to input, then compare
+    if (!user.password || !user.salt) {
+      console.error("User found but password or salt is missing for:", email);
+      return res.status(500).json({ message: "Account error. Please contact support." });
+    }
+
     const isMatch = await bcrypt.compare(password + user.salt, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -39,13 +46,18 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.json({ message: "Login successful", token });
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        isTOTPEnabled: user.isTOTPEnabled
+      }
+    });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 router.post("/logout",verifyToken, (req, res) => {
   // Just inform the client to delete the token

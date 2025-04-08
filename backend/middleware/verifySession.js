@@ -1,19 +1,39 @@
-const jwt = require('jsonwebtoken'); // Import jwt for token verification
+// middleware/verifySession.js
+const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose'); // N'oubliez pas d'importer mongoose
 
-const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1]; // Get token from Authorization header
-
+const verifySession = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1] || req.cookies?.jwt;
+  
   if (!token) {
-    return res.status(401).json({ message: "Unauthorized - No token provided" });
+    return res.status(401).json({ 
+      status: 'error',
+      code: 'MISSING_TOKEN',
+      message: 'Authentification requise'
+    });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ message: "Unauthorized - Invalid token" });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Vérification supplémentaire
+    if (!decoded?.userId || !mongoose.Types.ObjectId.isValid(decoded.userId)) {
+      return res.status(401).json({
+        status: 'error',
+        code: 'INVALID_PAYLOAD',
+        message: 'Structure de token invalide'
+      });
     }
-    req.userId = decoded.userId; // Attach user ID to request
+
+    req.userId = decoded.userId;
     next();
-  });
+  } catch (err) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'INVALID_TOKEN',
+      message: 'Session invalide ou expirée'
+    });
+  }
 };
 
-module.exports = verifyToken;
+module.exports = verifySession;

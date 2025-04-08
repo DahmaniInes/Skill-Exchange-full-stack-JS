@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../Models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Configurer le client OAuth2 avec les informations de Google Cloud
 const client = new OAuth2Client(
@@ -55,7 +57,7 @@ router.get('/login-with-google', async (req, res) => {
         firstName: firstName,
         lastName: lastName,
         email: payload.email,
-        password: await require('bcryptjs').hash(Math.random().toString(36).slice(-10), 10), // Mot de passe aléatoire
+        password: await bcrypt.hash(Math.random().toString(36).slice(-10), 10), // Mot de passe aléatoire
         profilePicture: payload.picture,
         isVerified: true // L'utilisateur est vérifié car il vient de Google
       });
@@ -74,49 +76,17 @@ router.get('/login-with-google', async (req, res) => {
       });
     }
     
-    // Créer une session pour l'utilisateur
-    req.session.userId = user._id;
-    console.log('Session créée pour l\'utilisateur:', user._id);
-    
-    // Rediriger vers la page d'accueil React
+    // Créer un JWT pour l'utilisateur
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log("Token JWT créé avec succès pour Google OAuth");
+
+    // Envoi du token côté client via le header
+    res.set('Authorization', `Bearer ${token}`);
     res.redirect('http://localhost:5173');
     
   } catch (error) {
     console.error('ERREUR GOOGLE AUTH:', error);
-    res.redirect('http://localhost:5173?error=authentication_failed');
-  }
-});
-
-// Route pour récupérer les informations de l'utilisateur connecté par Google
-router.get('/google-user', async (req, res) => {
-  if (!req.session.userId) {
-    console.log('Tentative d\'accès sans session');
-    return res.status(401).json({ success: false, message: 'Non authentifié' });
-  }
-  
-  try {
-    const user = await User.findById(req.session.userId);
-    if (!user) {
-      console.log('Utilisateur non trouvé en base:', req.session.userId);
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
-    }
-    
-    console.log('Données utilisateur envoyées:', user.firstName + ' ' + user.lastName);
-    
-    res.json({
-      success: true,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Erreur lors de la récupération des données utilisateur:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    res.status(500).send('Erreur d\'authentification');
   }
 });
 

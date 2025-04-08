@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import bgImage from "../../assets/images/bg-sign-up-cover.jpeg";
 import googleLogo from "../../assets/img/google-logo.png";
 import githubLogo from "../../assets/img/github-logo.jpg";
@@ -17,7 +17,44 @@ const Login = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // OAuth token handling
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      localStorage.setItem("jwtToken", token);
+      console.log("JWT Token from OAuth saved:", token);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetchUserInfo(token);
+    }
+  }, [location]);
+
+  const fetchUserInfo = async (token) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      let userInfo;
+      try {
+        const googleResponse = await axios.get("http://localhost:5000/login/google-user", config);
+        userInfo = googleResponse.data.user;
+      } catch {
+        const githubResponse = await axios.get("http://localhost:5000/loginGit/github-user", config);
+        userInfo = githubResponse.data.user;
+      }
+
+      console.log("User info retrieved:", userInfo);
+      setMessage("Authentication successful! Redirecting...");
+      setError('');
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to fetch user info:", error);
+      setError("Authentication successful, but failed to retrieve user information.");
+    }
+  };
+
+  // OTP countdown
   useEffect(() => {
     if (otpExpiresAt) {
       const interval = setInterval(() => {
@@ -37,13 +74,20 @@ const Login = () => {
     e.preventDefault();
     try {
       const response = await axios.post("http://localhost:5000/users/login", { email, password });
-      const token = response.data.token;
+      const { token, user } = response.data;
+
       if (token) {
         localStorage.setItem("jwtToken", token);
       }
+
       setMessage("Login successful! Redirecting...");
       setError('');
-      navigate("/home");
+
+      if (user?.isTOTPEnabled) {
+        navigate("/auth");
+      } else {
+        navigate("/home");
+      }
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
       setError(error.response?.data?.message || "Login failed. Please check your credentials.");
@@ -54,7 +98,7 @@ const Login = () => {
   const handleRequestOtp = async () => {
     try {
       const response = await axios.post("http://localhost:5000/users/request-otp", { email });
-      const expiresAt = response.data.expiresAt || new Date(Date.now() + 5 * 60 * 1000); // fallback
+      const expiresAt = response.data.expiresAt || new Date(Date.now() + 5 * 60 * 1000);
       setOtpExpiresAt(expiresAt);
       setIsOtpSent(true);
       setMessage(response.data.message || "OTP sent to your email.");
@@ -79,32 +123,18 @@ const Login = () => {
     } catch (error) {
       const status = error.response?.status;
       const msg = error.response?.data?.message || "OTP verification failed.";
-  
-      console.error("OTP verification error:", error);
-  
       if (status === 403) {
-        // Too many attempts — reset OTP form
         setIsOtpSent(false);
         setOtp('');
         setOtpExpiresAt(null);
         setCountdown(0);
-        setUseOtp(false); 
+        setUseOtp(false);
         setError("Too many failed OTP attempts. Please try logging in again.");
       } else {
         setError(msg);
       }
-  
       setMessage('');
     }
-  };
-  
-
-  const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5000/login/auth/google";
-  };
-
-  const handleGithubLogin = () => {
-    window.location.href = "http://localhost:5000/loginGit/auth/github";
   };
 
   const resetOtpState = () => {
@@ -114,6 +144,14 @@ const Login = () => {
     setCountdown(0);
     setMessage('');
     setError('');
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:5000/login/auth/google";
+  };
+
+  const handleGithubLogin = () => {
+    window.location.href = "http://localhost:5000/loginGit/auth/github";
   };
 
   return (
@@ -147,7 +185,6 @@ const Login = () => {
                     value={otp}
                     onChange={(e) => {
                       const val = e.target.value;
-                      // Allow only digits and max 6 chars
                       if (/^\d{0,6}$/.test(val)) {
                         setOtp(val);
                         setError('');
@@ -156,7 +193,6 @@ const Login = () => {
                     required
                     maxLength={6}
                   />
-
                   <button
                     type="button"
                     onClick={handleVerifyOtp}
@@ -188,20 +224,12 @@ const Login = () => {
             </>
           )}
 
-          <button
-            type="button"
-            className="oauth-button google-button"
-            onClick={handleGoogleLogin}
-          >
+          <button type="button" className="oauth-button google-button" onClick={handleGoogleLogin}>
             <img src={googleLogo} alt="Google logo" />
             Sign in with Google
           </button>
 
-          <button
-            type="button"
-            className="oauth-button github-button"
-            onClick={handleGithubLogin}
-          >
+          <button type="button" className="oauth-button github-button" onClick={handleGithubLogin}>
             <img src={githubLogo} alt="GitHub logo" />
             Sign in with GitHub
           </button>
