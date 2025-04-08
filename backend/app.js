@@ -21,6 +21,7 @@ const skillRoutes = require("./Routes/skillRoutes");
 const profileRoutes = require("./Routes/profileRoutes");
 const storyRoutes = require("./Routes/storyRoutes");
 const roadmapRoutes = require('./Routes/roadmapRoutes');
+const internshipRoutes = require('./Routes/internshipRoutes');
 // Initialize Express
 const app = express();
 const server = http.createServer(app);
@@ -106,6 +107,7 @@ app.post('/chat', async (req, res) => {
 app.use("/api", authRoutes);
 app.use("/api/skills", skillRoutes);
 app.use("/api/stories", storyRoutes);
+app.use("/api/internships", internshipRoutes);
 app.use("/", usersRouter);
 app.use("/users", usersRouter);
 //app.use("/login", loginRouter);
