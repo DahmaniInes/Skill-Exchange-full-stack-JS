@@ -157,6 +157,68 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
     }
   };
 
+  const handleLeaveGroup = async () => {
+    try {
+      if (!conversation?._id) {
+        console.error('Aucune conversation sélectionnée pour quitter');
+        alert('Aucune conversation sélectionnée');
+        return;
+      }
+
+      if (window.confirm('Êtes-vous sûr de vouloir quitter ce groupe ? Vous ne pourrez plus envoyer de messages.')) {
+        const token = localStorage.getItem('jwtToken');
+        const response = await axios.post(
+          'http://localhost:5000/MessengerRoute/leaveGroupConversation',
+          { conversationId: conversation._id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          console.log('Groupe quitté avec succès');
+          alert('Vous avez quitté le groupe avec succès');
+          window.location.reload();
+        } else {
+          console.error('Échec de l’abandon du groupe:', response.data.message);
+          alert('Échec de l’abandon du groupe: ' + response.data.message);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de l’abandon du groupe:', error);
+      alert('Une erreur est survenue lors de l’abandon du groupe');
+    }
+  };
+
+  const handleBlockUser = async () => {
+    try {
+      if (!conversation?._id || !otherParticipant?._id) {
+        console.error('Conversation ou participant non défini');
+        alert('Erreur : Conversation ou participant non sélectionné');
+        return;
+      }
+
+      if (window.confirm(`Êtes-vous sûr de vouloir bloquer ${otherParticipant.firstName} ${otherParticipant.lastName} ?`)) {
+        const token = localStorage.getItem('jwtToken');
+        const response = await axios.post(
+          'http://localhost:5000/MessengerRoute/blockUser',
+          { conversationId: conversation._id, blockedUserId: otherParticipant._id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          console.log('Utilisateur bloqué avec succès');
+          alert('Utilisateur bloqué avec succès');
+          window.location.reload();
+        } else {
+          console.error('Échec du blocage:', response.data.message);
+          alert('Échec du blocage: ' + response.data.message);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors du blocage de l’utilisateur:', error);
+      alert('Une erreur est survenue lors du blocage');
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -272,9 +334,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
               alt={conversation.name || defaultName}
               className="user-profile-image"
             />
-            <h2 className="user-full-name">
-              {conversation.name || defaultName}
-            </h2>
+            <h2 className="user-full-name">{conversation.name || defaultName}</h2>
           </div>
         ) : otherParticipant ? (
           <div className="user-header">
@@ -321,20 +381,26 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
               <span className="menu-icon">👥</span>
               <span>Afficher tous les participants</span>
             </div>
+            <div className="menu-item warning" onClick={handleLeaveGroup}>
+              <span className="menu-icon">🚪</span>
+              <span>Quitter la conversation</span>
+            </div>
           </>
         ) : (
-          <div className="menu-item" onClick={fetchUsers}>
-            <span className="menu-icon">👥</span>
-            <span>Ajouter une personne</span>
-          </div>
+          <>
+            <div className="menu-item" onClick={fetchUsers}>
+              <span className="menu-icon">👥</span>
+              <span>Ajouter une personne</span>
+            </div>
+            <div className="menu-item" onClick={handleBlockUser}>
+              <span className="menu-icon">🚫</span>
+              <span>Bloquer</span>
+            </div>
+          </>
         )}
         <div className="menu-item">
           <span className="menu-icon">🔔</span>
           <span>Mettre la conversation en sourdine</span>
-        </div>
-        <div className="menu-item">
-          <span className="menu-icon">🚫</span>
-          <span>Bloquer</span>
         </div>
         <div className="menu-item warning" onClick={handleDeleteConversation}>
           <span className="menu-icon">🗑️</span>

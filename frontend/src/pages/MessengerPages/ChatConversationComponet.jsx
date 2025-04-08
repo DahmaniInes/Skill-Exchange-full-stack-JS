@@ -7,8 +7,8 @@ import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
 import { ConversationContext } from './ConversationContext';
 
 const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser, groupInfo }) => {
-  const { currentConversation } = useContext(ConversationContext); // Utilisation du contexte
-  const activeConversation = currentConversation || conversation; // Priorité au contexte
+  const { currentConversation } = useContext(ConversationContext);
+  const activeConversation = currentConversation || conversation;
   const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
   const [callData, setCallData] = useState(null);
@@ -42,28 +42,302 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedContent, setEditedContent] = useState('');
   const [groupInfoState, setGroupInfoState] = useState(groupInfo || { name: activeConversation?.name, image: activeConversation?.image });
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedBy, setBlockedBy] = useState(null);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (token) {
-      const decoded = jwtDecode(token);
-      setCurrentUserId(decoded.userId);
+      try {
+        const decoded = jwtDecode(token);
+        console.log('Initialisation : Décodage JWT', { userId: decoded.userId });
+        setCurrentUserId(decoded.userId);
+      } catch (error) {
+        console.error('Erreur lors du décodage du token', error);
+      }
+    } else {
+      console.warn('Aucun token JWT trouvé');
     }
   }, []);
 
-  // Synchroniser groupInfoState avec le contexte ou les props
   useEffect(() => {
     if (activeConversation?.isGroup) {
-      setGroupInfoState({
+      const updatedGroupInfo = {
         name: activeConversation.name || groupInfo?.name || 'Groupe sans nom',
         image: activeConversation.image || groupInfo?.image || 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
-      });
+      };
+      console.log('Mise à jour groupInfoState', updatedGroupInfo);
+      setGroupInfoState(updatedGroupInfo);
     }
+    setIsBlocked(!!activeConversation?.blockedBy);
+    setBlockedBy(activeConversation?.blockedBy);
+    console.log('Mise à jour état blocage depuis props', { isBlocked: !!activeConversation?.blockedBy, blockedBy: activeConversation?.blockedBy });
   }, [activeConversation, groupInfo]);
+
+  useEffect(() => {
+    if (!activeConversation) {
+      console.warn('Socket useEffect : Pas de conversation active');
+      return;
+    }
+
+    console.log('Socket useEffect : Initialisation', { conversationId: activeConversation._id });
+    setIsBlocked(!!activeConversation.blockedBy);
+    setBlockedBy(activeConversation.blockedBy);
+
+    socketRef.current = io('http://localhost:5000', {
+      auth: { token: `Bearer ${localStorage.getItem('jwtToken')}` },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket : Connecté', { userId: currentUserId });
+      socketRef.current.emit('authenticate', currentUserId);
+      socketRef.current.emit('joinConversation', activeConversation._id);
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket : Erreur de connexion', error.message);
+    });
+
+    socketRef.current.on('conversationBlocked', ({ conversationId, blockedBy }) => {
+      if (conversationId === activeConversation?._id) {
+        console.log('Socket : Conversation bloquée via événement', { conversationId, blockedBy });
+        setIsBlocked(true);
+        setBlockedBy(blockedBy);
+      }
+    });
+
+    socketRef.current.on('conversationUnblocked', ({ conversationId }) => {
+      if (conversationId === activeConversation?._id) {
+        console.log('Socket : Conversation débloquée', { conversationId });
+        setIsBlocked(false);
+        setBlockedBy(null);
+      }
+    });
+
+    socketRef.current.on('newMessage', (message) => {
+      console.log('Socket : Nouveau message reçu', message);
+      if (message.conversation === activeConversation._id || message.conversation?._id === activeConversation._id) {
+        setMessages((prev) => {
+          // Vérifier si le message existe déjà pour éviter les doublons
+          if (prev.some((msg) => msg._id === message._id)) {
+            console.log('Message déjà présent, ignoré', message._id);
+            return prev;
+          }
+          console.log('Ajout du nouveau message', message);
+          return [...prev, message];
+        });
+      } else {
+        console.log('Message ignoré - Conversation différente', { received: message.conversation, active: activeConversation._id });
+      }
+    });
+
+    socketRef.current.on('messageSent', (confirmedMessage) => {
+      console.log('Socket : Message envoyé confirmé', confirmedMessage);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isOptimistic && msg._id === confirmedMessage.tempId
+            ? { ...confirmedMessage, isOptimistic: false }
+            : msg
+        ).filter((msg, index, self) => index === self.findIndex((m) => m._id === msg._id))
+      );
+    });
+
+    socketRef.current.on('messageDeletedForMe', ({ messageId, userId }) => {
+      if (userId === currentUserId) {
+        console.log('Socket : Message supprimé pour moi', { messageId, userId });
+        setMessages((prev) => prev.filter((msg) => (msg._id || msg.tempId) !== messageId));
+      }
+    });
+
+    socketRef.current.on('messageDeletedForEveryone', (updatedMessage) => {
+      console.log('Socket : Message supprimé pour tous', updatedMessage);
+      setMessages((prev) => prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg)));
+    });
+
+    socketRef.current.on('messageEdited', (updatedMessage) => {
+      console.log('Socket : Message édité', updatedMessage);
+      setMessages((prev) => prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg)));
+    });
+
+    socketRef.current.on('callInitiated', (call) => {
+      console.log('Socket : Appel initié', call);
+      setCallData(call);
+    });
+
+    socketRef.current.on('incomingCall', (data) => {
+      console.log('Socket : Appel entrant', data);
+      if (data.callerId !== currentUserId) {
+        setCallType(data.type);
+        setCallStatus('incoming');
+        setCallData(data);
+        const missedCallTimer = setTimeout(() => {
+          if (callStatus === 'incoming') {
+            console.log('Socket : Appel manqué après 30s', { callId: data._id });
+            socketRef.current.emit('callMissed', { callId: data._id, receiverId: currentUserId });
+            setCallStatus(null);
+            setCallData(null);
+            setCallType(null);
+          }
+        }, 30000);
+        return () => clearTimeout(missedCallTimer);
+      }
+    });
+
+    socketRef.current.on('callMissed', (data) => {
+      console.log('Socket : Appel manqué', data);
+      setCallStatus(null);
+      setCallData(null);
+      setCallType(null);
+      if (data.message) {
+        setMessages((prev) => prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]);
+      }
+    });
+
+    socketRef.current.on('callCancelled', () => {
+      console.log('Socket : Appel annulé');
+      setCallStatus(null);
+      setCallData(null);
+      setCallType(null);
+    });
+
+    socketRef.current.on('callStatusUpdate', (data) => {
+      console.log('Socket : Mise à jour statut appel', data);
+      setCallStatus(data.status);
+      if (data.status === 'rejected' || data.status === 'missed') {
+        setCallStatus(null);
+        setCallData(null);
+        setCallType(null);
+      }
+      if (data.message) {
+        setMessages((prev) => {
+          const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
+          if (!updatedMessages.some((msg) => msg._id === data.message._id)) {
+            updatedMessages.push(data.message);
+          }
+          return updatedMessages;
+        });
+      }
+    });
+
+    socketRef.current.on('callOffer', async (data) => {
+      console.log('Socket : Offre appel reçue', data);
+      if (peerConnectionRef.current && callStatus === 'ongoing') {
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnectionRef.current.createAnswer();
+        await peerConnectionRef.current.setLocalDescription(answer);
+        console.log('Socket : Envoi réponse WebRTC', { answer });
+        socketRef.current.emit('callAnswer', { answer, callerId: data.callerId, receiverId: currentUserId });
+      }
+    });
+
+    socketRef.current.on('callAnswer', async (data) => {
+      console.log('Socket : Réponse appel reçue', data);
+      if (peerConnectionRef.current) {
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+    });
+
+    socketRef.current.on('iceCandidate', async (data) => {
+      console.log('Socket : ICE candidate reçu', data);
+      if (peerConnectionRef.current && data.candidate) {
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    socketRef.current.on('callEnded', (data) => {
+      console.log('Socket : Appel terminé', data);
+      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
+      if (data.message) {
+        setMessages((prev) => prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]);
+      }
+      setCallStatus('ended');
+      setTimeout(() => {
+        setCallStatus(null);
+        setCallData(null);
+        setCallType(null);
+      }, 2000);
+    });
+
+    socketRef.current.on('groupUpdated', (data) => {
+      if (data.conversationId === activeConversation?._id) {
+        console.log('Socket : Mise à jour groupe', data);
+        setGroupInfoState({ name: data.groupName, image: data.groupPhoto });
+      }
+    });
+
+    return () => {
+      console.log('Socket useEffect : Nettoyage');
+      socketRef.current.off('connect');
+      socketRef.current.off('connect_error');
+      socketRef.current.off('conversationBlocked');
+      socketRef.current.off('conversationUnblocked');
+      socketRef.current.off('newMessage');
+      socketRef.current.off('messageSent');
+      socketRef.current.off('messageDeletedForMe');
+      socketRef.current.off('messageDeletedForEveryone');
+      socketRef.current.off('messageEdited');
+      socketRef.current.off('callInitiated');
+      socketRef.current.off('incomingCall');
+      socketRef.current.off('callMissed');
+      socketRef.current.off('callCancelled');
+      socketRef.current.off('callStatusUpdate');
+      socketRef.current.off('callOffer');
+      socketRef.current.off('callAnswer');
+      socketRef.current.off('iceCandidate');
+      socketRef.current.off('callEnded');
+      socketRef.current.off('groupUpdated');
+      socketRef.current.disconnect();
+    };
+  }, [activeConversation?._id, currentUserId]);
+
+  useEffect(() => {
+    if (Array.isArray(initialMessages)) {
+      console.log('Messages useEffect : Mise à jour initiale', { count: initialMessages.length });
+      const uniqueMessages = initialMessages.filter(
+        (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
+      );
+      setMessages((prev) => {
+        // Fusionner avec les messages existants pour ne pas écraser les messages en temps réel
+        const mergedMessages = [...prev];
+        uniqueMessages.forEach((newMsg) => {
+          if (!mergedMessages.some((msg) => msg._id === newMsg._id)) {
+            mergedMessages.push(newMsg);
+          }
+        });
+        return mergedMessages;
+      });
+      const lastBlockingMessage = uniqueMessages
+        .filter((msg) => msg.isSystemMessage && (msg.systemData?.action === 'user_blocked' || msg.systemData?.action === 'user_unblocked'))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      if (lastBlockingMessage) {
+        if (lastBlockingMessage.systemData.action === 'user_blocked') {
+          const isAuthor = lastBlockingMessage.systemData.actionBy === currentUserId;
+          console.log('Messages useEffect : Blocage détecté dans messages initiaux', { isAuthor });
+          setIsBlocked(true);
+          setBlockedBy(isAuthor ? currentUserId : lastBlockingMessage.systemData.actionBy);
+        } else if (lastBlockingMessage.systemData.action === 'user_unblocked') {
+          console.log('Messages useEffect : Déblocage détecté dans messages initiaux');
+          setIsBlocked(false);
+          setBlockedBy(null);
+        }
+      }
+    } else {
+      console.warn('Messages useEffect : initialMessages invalide', initialMessages);
+    }
+  }, [initialMessages, currentUserId]);
+
+  useEffect(() => {
+    console.log('Scroll useEffect : Défilement', { messagesLength: messages.length });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const getOtherParticipant = () => {
     if (!activeConversation || !currentUserId) {
-      console.log('getOtherParticipant : conversation ou currentUserId manquant', { activeConversation, currentUserId });
+      console.warn('getOtherParticipant : Données manquantes', { activeConversation, currentUserId });
       return null;
     }
     const participants = activeConversation.participants || [];
@@ -76,7 +350,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     }
     if (activeConversation.isSelfConversation) {
       const selfParticipant = participants.find((p) => p._id === currentUserId);
-      console.log('getOtherParticipant : Conversation personnelle', selfParticipant);
+      console.log('getOtherParticipant : Conversation perso', selfParticipant);
       return selfParticipant;
     }
     const otherParticipant = participants.find((p) => p._id !== currentUserId) || participants[0];
@@ -90,55 +364,31 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const formatSystemMessage = (message) => {
     if (!message.isSystemMessage || !message.systemData) {
-      console.log('Message non système ou sans systemData', message);
+      console.log('formatSystemMessage : Non système ou sans données', message);
       return message.content;
     }
-    console.log('Formatage du message système :', message);
-    console.log('Contenu de systemData :', message.systemData);
-  
     const { action, actionBy, customContent } = message.systemData;
     const isAuthor = actionBy === currentUserId;
-    console.log('Vérification isAuthor :', { actionBy, currentUserId, isAuthor });
-  
-    // Gestion des différentes actions
+    console.log('formatSystemMessage : Formatage', { action, isAuthor });
+
     switch (action) {
       case 'group_name_updated':
-        if (isAuthor && customContent?.forAuthor) {
-          console.log('Message pour l’auteur (group_name_updated) :', customContent.forAuthor);
-          return customContent.forAuthor;
-        }
-        console.log('Message pour les autres (group_name_updated) :', customContent?.forOthers || message.content);
-        return customContent?.forOthers || message.content;
-  
       case 'group_photo_updated':
-        if (isAuthor && customContent?.forAuthor) {
-          console.log('Message pour l’auteur (group_photo_updated) :', customContent.forAuthor);
-          return customContent.forAuthor;
-        }
-        console.log('Message pour les autres (group_photo_updated) :', customContent?.forOthers || message.content);
-        return customContent?.forOthers || message.content;
-  
       case 'user_added':
-        if (isAuthor && customContent?.forAuthor) {
-          console.log('Message pour l’auteur (user_added) :', customContent.forAuthor);
-          return customContent.forAuthor;
-        }
-        console.log('Message pour les autres (user_added) :', customContent?.forOthers || message.content);
-        return customContent?.forOthers || message.content;
-  
+        return isAuthor && customContent?.forAuthor ? customContent.forAuthor : customContent?.forOthers || message.content;
+      case 'user_blocked':
+        return isAuthor ? 'Vous avez bloqué cet utilisateur.' : 'Vous avez été bloqué par cet utilisateur.';
+      case 'user_unblocked':
+        return isAuthor ? 'Vous avez débloqué cet utilisateur.' : 'Cet utilisateur vous a débloqué.';
       default:
-        console.log('Action non reconnue, utilisation du contenu par défaut :', message.content);
+        console.log('formatSystemMessage : Action inconnue', action);
         return message.content;
     }
   };
 
-
-  
-
-
   const cancelCall = () => {
     if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming') && socketRef.current) {
-      console.log('cancelCall : Annulation de l’appel', { callId: callData._id, receiverId: otherParticipant?._id });
+      console.log('cancelCall : Annulation', { callId: callData._id });
       socketRef.current.emit('cancelCall', { callId: callData._id, receiverId: otherParticipant?._id });
       setCallStatus(null);
       setCallData(null);
@@ -147,12 +397,12 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   };
 
   const handleVoiceCall = () => {
-    if (!otherParticipant || !socketRef.current) {
-      console.log('handleVoiceCall : otherParticipant ou socket manquant', { otherParticipant, socket: socketRef.current });
+    if (!otherParticipant || !socketRef.current || isBlocked) {
+      console.warn('handleVoiceCall : Données manquantes ou bloqué', { otherParticipant, socket: socketRef.current, isBlocked });
       return;
     }
     const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'audio' };
-    console.log('handleVoiceCall : Début d’un appel vocal', callData);
+    console.log('handleVoiceCall : Début appel vocal', callData);
     setCallType('audio');
     setCallStatus('calling');
     setCallData(callData);
@@ -160,12 +410,12 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   };
 
   const handleVideoCall = () => {
-    if (!otherParticipant || !socketRef.current) {
-      console.log('handleVideoCall : otherParticipant ou socket manquant', { otherParticipant, socket: socketRef.current });
+    if (!otherParticipant || !socketRef.current || isBlocked) {
+      console.warn('handleVideoCall : Données manquantes ou bloqué', { otherParticipant, socket: socketRef.current, isBlocked });
       return;
     }
     const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'video' };
-    console.log('handleVideoCall : Début d’un appel vidéo', callData);
+    console.log('handleVideoCall : Début appel vidéo', callData);
     setCallType('video');
     setCallStatus('calling');
     setCallData(callData);
@@ -174,11 +424,11 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const handleCallResponse = (accepted) => {
     if (!callData || !socketRef.current) {
-      console.log('handleCallResponse : callData ou socket manquant', { callData, socket: socketRef.current });
+      console.warn('handleCallResponse : Données manquantes', { callData, socket: socketRef.current });
       return;
     }
     const responseData = { callId: callData._id, accepted, receiverId: currentUserId };
-    console.log('handleCallResponse : Réponse à l’appel', responseData);
+    console.log('handleCallResponse : Réponse', responseData);
     if (accepted) {
       setCallStatus('ongoing');
       startCall();
@@ -192,7 +442,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const endCall = async () => {
     try {
-      console.log('endCall : Fin de l’appel en cours', { callId: callData?._id, duration: callDurationRef.current });
+      console.log('endCall : Fin appel', { callId: callData?._id, duration: callDurationRef.current });
       setCallStatus('ended');
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach((track) => track.stop());
       if (peerConnectionRef.current) peerConnectionRef.current.close();
@@ -202,7 +452,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         socketRef.current.emit('endCall', { callId: callData._id, duration, type: callType });
       }
     } catch (error) {
-      console.error('Erreur lors de la fin de l’appel :', error);
+      console.error('endCall : Erreur', error);
     } finally {
       setTimeout(() => {
         setCallStatus(null);
@@ -216,7 +466,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const startCall = async () => {
     try {
-      console.log('startCall : Démarrage de l’appel', { callType });
+      console.log('startCall : Début', { callType });
       callIntervalRef.current = setInterval(() => {
         callDurationRef.current += 1;
         setCallDuration(callDurationRef.current);
@@ -231,22 +481,22 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       stream.getTracks().forEach((track) => peerConnectionRef.current.addTrack(track, stream));
       peerConnectionRef.current.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
-          console.log('startCall : Envoi d’un ICE candidate', event.candidate);
+          console.log('startCall : Envoi ICE candidate', event.candidate);
           socketRef.current.emit('iceCandidate', { candidate: event.candidate, receiverId: otherParticipant?._id });
         }
       };
       peerConnectionRef.current.ontrack = (event) => {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
-        console.log('startCall : Réception d’un flux distant');
+        console.log('startCall : Flux distant reçu');
       };
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
       if (socketRef.current) {
-        console.log('startCall : Envoi de l’offre WebRTC', { offer });
+        console.log('startCall : Envoi offre WebRTC', { offer });
         socketRef.current.emit('callOffer', { offer, callerId: currentUserId, receiverId: otherParticipant?._id });
       }
     } catch (error) {
-      console.error('Erreur au démarrage de l’appel :', error);
+      console.error('startCall : Erreur', error);
       endCall();
     }
   };
@@ -256,17 +506,17 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     const rect = e.target.getBoundingClientRect();
     let x = isSent ? rect.left - 100 : rect.right + 5;
     let y = rect.top;
-    console.log('handleContextMenuClick : Ouverture du menu contextuel', { messageId, x, y });
+    console.log('handleContextMenuClick : Ouverture menu', { messageId, x, y });
     setContextMenu({ messageId, x, y });
   };
 
   const handleCloseContextMenu = () => {
-    console.log('handleCloseContextMenu : Fermeture du menu contextuel');
+    console.log('handleCloseContextMenu : Fermeture menu');
     setContextMenu({ messageId: null, x: 0, y: 0 });
   };
 
   const handleCopy = (content) => {
-    console.log('handleCopy : Copie du contenu', content);
+    console.log('handleCopy : Copie', content);
     navigator.clipboard.writeText(content);
     handleCloseContextMenu();
   };
@@ -288,7 +538,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   };
 
   const handleEdit = (messageId, content) => {
-    console.log('handleEdit : Édition du message', { messageId, content });
+    console.log('handleEdit : Édition', { messageId, content });
     setEditingMessageId(messageId);
     setEditedContent(content);
     handleCloseContextMenu();
@@ -300,12 +550,12 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       return;
     }
     try {
-      console.log('handleSaveEdit : Sauvegarde de l’édition', { messageId: editingMessageId, content: editedContent });
+      console.log('handleSaveEdit : Sauvegarde', { messageId: editingMessageId, content: editedContent });
       socketRef.current.emit('editMessage', { messageId: editingMessageId, content: editedContent });
       setEditingMessageId(null);
       setEditedContent('');
     } catch (error) {
-      console.error('Erreur lors de la modification du message :', error);
+      console.error('handleSaveEdit : Erreur', error);
     }
   };
 
@@ -315,252 +565,6 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     const diffInMinutes = (now - messageTime) / (1000 * 60);
     return diffInMinutes <= 5;
   };
-
-  useEffect(() => {
-    console.log('useEffect : Initialisation du socket', { conversationId: activeConversation?._id });
-    const token = localStorage.getItem('jwtToken');
-    if (!token) {
-      console.log('useEffect : Aucun token JWT trouvé');
-      return;
-    }
-
-    try {
-      const decoded = jwtDecode(token);
-      setCurrentUserId(decoded.userId);
-      console.log('useEffect : Utilisateur décodé', { userId: decoded.userId });
-
-      socketRef.current = io('http://localhost:5000', {
-        auth: { token: `Bearer ${token}` },
-        transports: ['websocket', 'polling'],
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
-
-      socketRef.current.on('connect', () => {
-        console.log('Socket : Connexion réussie au serveur avec userId', decoded.userId);
-        socketRef.current.emit('authenticate', decoded.userId);
-        if (activeConversation?._id) {
-          socketRef.current.emit('joinConversation', activeConversation._id);
-        }
-      });
-
-      socketRef.current.on('connect_error', (error) => {
-        console.error('Socket : Erreur de connexion', error.message);
-      });
-
-      socketRef.current.on('callInitiated', (call) => {
-        console.log('Socket : Appel initié reçu', call);
-        setCallData(call);
-      });
-
-      socketRef.current.on('incomingCall', (data) => {
-        console.log('Socket : Appel entrant reçu', data);
-        if (data.callerId !== decoded.userId) {
-          setCallType(data.type);
-          setCallStatus('incoming');
-          setCallData(data);
-          const missedCallTimer = setTimeout(() => {
-            if (callStatus === 'incoming') {
-              console.log('Socket : Appel manqué après 30s', { callId: data._id });
-              socketRef.current.emit('callMissed', { callId: data._id, receiverId: decoded.userId });
-              setCallStatus(null);
-              setCallData(null);
-              setCallType(null);
-            }
-          }, 30000);
-          return () => clearTimeout(missedCallTimer);
-        }
-      });
-
-      socketRef.current.on('callMissed', (data) => {
-        console.log('Socket : Appel manqué', data);
-        setCallStatus(null);
-        setCallData(null);
-        setCallType(null);
-        if (data.message) {
-          setMessages((prev) =>
-            prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]
-          );
-        }
-      });
-
-      socketRef.current.on('callCancelled', () => {
-        console.log('Socket : Appel annulé');
-        setCallStatus(null);
-        setCallData(null);
-        setCallType(null);
-      });
-
-      socketRef.current.on('callStatusUpdate', (data) => {
-        console.log('Socket : Mise à jour du statut de l’appel', data);
-        setCallStatus(data.status);
-        if (data.status === 'rejected' || data.status === 'missed') {
-          setCallStatus(null);
-          setCallData(null);
-          setCallType(null);
-        }
-        if (data.message) {
-          setMessages((prev) => {
-            const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
-            if (!updatedMessages.some((msg) => msg._id === data.message._id)) {
-              updatedMessages.push(data.message);
-            }
-            return updatedMessages;
-          });
-        }
-      });
-
-      socketRef.current.on('newMessage', (message) => {
-        console.log('Socket : Nouveau message reçu', message);
-        try {
-          if (!message || !message.conversation) {
-            console.error('Message invalide ou sans conversation', message);
-            return;
-          }
-          const messageConvId = typeof message.conversation === 'object' && message.conversation._id
-            ? message.conversation._id.toString()
-            : message.conversation.toString();
-          const activeConvId = activeConversation?._id?.toString();
-          if (!activeConvId) {
-            console.error('activeConversation._id est undefined', activeConversation);
-            return;
-          }
-          if (messageConvId === activeConvId) {
-            setMessages((prev) => {
-              if (prev.some((msg) => msg._id === message._id)) {
-                console.log('Message déjà présent, ignoré', message._id);
-                return prev;
-              }
-              console.log('Ajout du message à l’état', message);
-              return [...prev, message];
-            });
-          } else {
-            console.log('Message ignoré - Conversation différente', { messageConvId, activeConvId });
-          }
-        } catch (error) {
-          console.error('Erreur dans le traitement de newMessage', error);
-        }
-      });
-
-      socketRef.current.on('messageSent', (confirmedMessage) => {
-        console.log('Socket : Message envoyé confirmé', confirmedMessage);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.isOptimistic && msg._id === confirmedMessage.tempId
-              ? { ...confirmedMessage, isOptimistic: false }
-              : msg
-          ).filter((msg, index, self) => index === self.findIndex((m) => m._id === msg._id))
-        );
-      });
-
-      socketRef.current.on('messageDeletedForMe', ({ messageId, userId }) => {
-        console.log('Socket : Message supprimé pour moi', { messageId, userId });
-        if (userId === decoded.userId) {
-          setMessages((prev) => {
-            const updatedMessages = prev.filter((msg) => {
-              const msgId = msg._id || msg.tempId;
-              return msgId !== messageId;
-            });
-            console.log('Messages mis à jour après suppression', updatedMessages);
-            return updatedMessages;
-          });
-        }
-      });
-
-      socketRef.current.on('messageDeletedForEveryone', (updatedMessage) => {
-        console.log('Socket : Message supprimé pour tous', updatedMessage);
-        setMessages((prev) =>
-          prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
-        );
-      });
-
-      socketRef.current.on('messageEdited', (updatedMessage) => {
-        console.log('Socket : Message édité', updatedMessage);
-        setMessages((prev) =>
-          prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
-        );
-      });
-
-      socketRef.current.on('callEnded', (data) => {
-        console.log('Socket : Appel terminé', data);
-        if (callIntervalRef.current) clearInterval(callIntervalRef.current);
-        if (data.message) {
-          setMessages((prev) =>
-            prev.some((msg) => msg._id === data.message._id) ? prev : [...prev, data.message]
-          );
-        }
-        setCallStatus('ended');
-        setTimeout(() => {
-          setCallStatus(null);
-          setCallData(null);
-          setCallType(null);
-        }, 2000);
-      });
-
-      socketRef.current.on('callOffer', async (data) => {
-        console.log('Socket : Offre d’appel reçue', data);
-        if (peerConnectionRef.current && callStatus === 'ongoing') {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.offer));
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
-          console.log('Socket : Envoi de la réponse WebRTC', { answer });
-          socketRef.current.emit('callAnswer', { answer, callerId: data.callerId, receiverId: decoded.userId });
-        }
-      });
-
-      socketRef.current.on('callAnswer', async (data) => {
-        console.log('Socket : Réponse d’appel reçue', data);
-        if (peerConnectionRef.current) {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
-        }
-      });
-
-      socketRef.current.on('iceCandidate', async (data) => {
-        console.log('Socket : ICE candidate reçu', data);
-        if (peerConnectionRef.current && data.candidate) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-      });
-
-      socketRef.current.on('groupUpdated', (data) => {
-        console.log('Socket : Mise à jour du groupe reçue dans ChatConversation', data);
-        if (data.conversationId === activeConversation?._id) {
-          setGroupInfoState({
-            name: data.groupName,
-            image: data.groupPhoto,
-          });
-        }
-      });
-
-    } catch (error) {
-      console.error('Erreur lors de l’initialisation du socket :', error);
-    }
-
-    return () => {
-      console.log('useEffect : Déconnexion du socket');
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [activeConversation?._id]);
-
-  useEffect(() => {
-    if (Array.isArray(initialMessages)) {
-      const uniqueMessages = initialMessages.filter(
-        (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
-      );
-      setMessages(uniqueMessages || []);
-    } else {
-      console.warn('initialMessages n’est pas un tableau', initialMessages);
-      setMessages([]);
-    }
-  }, [initialMessages]);
-
-  useEffect(() => {
-    console.log('useEffect : Défilement vers le dernier message', { messagesLength: messages.length });
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const handleEmojiClick = (emojiData) => {
     const { emoji } = emojiData;
@@ -578,7 +582,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     const ref = document.querySelector('.message-input');
     if (ref) {
       const position = ref.selectionStart || 0;
-      console.log('handleInputClick : Position du curseur', position);
+      console.log('handleInputClick : Position curseur', position);
       setCursorPosition(position);
     }
   };
@@ -586,7 +590,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) {
-      console.log('handleFileChange : Aucun fichier sélectionné');
+      console.log('handleFileChange : Aucun fichier');
       return;
     }
     console.log('handleFileChange : Fichier sélectionné', { name: file.name, type: file.type });
@@ -594,49 +598,49 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = (event) => {
-        console.log('handleFileChange : Aperçu de l’image généré');
+        console.log('handleFileChange : Aperçu image');
         setFilePreview(event.target.result);
       };
       reader.readAsDataURL(file);
     } else if (file.type.match('video.*')) {
       setSelectedFile(file);
       setFilePreview(URL.createObjectURL(file));
-      console.log('handleFileChange : Aperçu de la vidéo généré');
+      console.log('handleFileChange : Aperçu vidéo');
     } else {
       setSelectedFile(file);
       setFilePreview(null);
-      console.log('handleFileChange : Fichier sans aperçu');
+      console.log('handleFileChange : Sans aperçu');
     }
   };
 
   const handleDocUploadClick = () => {
-    console.log('handleDocUploadClick : Clic sur téléchargement de document');
+    console.log('handleDocUploadClick : Clic document');
     docInputRef.current?.click();
   };
 
   const handleUploadClick = () => {
-    console.log('handleUploadClick : Clic sur téléchargement d’image/vidéo');
+    console.log('handleUploadClick : Clic image/vidéo');
     fileInputRef.current?.click();
   };
 
   const handleAudioUploadClick = () => {
-    console.log('handleAudioUploadClick : Clic sur téléchargement d’audio');
+    console.log('handleAudioUploadClick : Clic audio');
     audioInputRef.current?.click();
   };
 
   const startRecording = async () => {
     try {
-      console.log('startRecording : Début de l’enregistrement audio');
+      console.log('startRecording : Début');
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
-        console.log('startRecording : Données audio disponibles', e.data.size);
+        console.log('startRecording : Données audio', e.data.size);
       };
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        console.log('startRecording : Enregistrement arrêté, blob créé');
+        console.log('startRecording : Enregistrement arrêté');
         setAudioBlob(audioBlob);
         const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
         setSelectedFile(audioFile);
@@ -645,14 +649,14 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      console.error('Erreur au démarrage de l’enregistrement :', error);
-      alert('Accès au microphone refusé ou erreur survenue');
+      console.error('startRecording : Erreur', error);
+      alert('Accès microphone refusé ou erreur');
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      console.log('stopRecording : Arrêt de l’enregistrement');
+      console.log('stopRecording : Arrêt');
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
@@ -660,12 +664,12 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   };
 
   const toggleRecording = () => {
-    console.log('toggleRecording : Changement d’état de l’enregistrement', { isRecording });
+    console.log('toggleRecording : Changement état', { isRecording });
     isRecording ? stopRecording() : startRecording();
   };
 
   const uploadFileToServer = async (file) => {
-    console.log('uploadFileToServer : Début de l’upload', { fileName: file.name, fileType: file.type });
+    console.log('uploadFileToServer : Début', { fileName: file.name, fileType: file.type });
     const formData = new FormData();
     formData.append('file', file);
     const endpoint = file.type.startsWith('audio/') ? '/upload-audio' : '/upload';
@@ -674,32 +678,32 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       body: formData,
       headers: { Authorization: `Bearer ${localStorage.getItem('jwtToken')}` },
     });
-    if (!response.ok) throw new Error('Échec de l’upload');
+    if (!response.ok) throw new Error('Échec upload');
     const result = await response.json();
-    console.log('uploadFileToServer : Upload réussi', result);
+    console.log('uploadFileToServer : Succès', result);
     return result;
   };
 
   const handleSendMessage = async () => {
+    if (isBlocked) {
+      console.log('handleSendMessage : Conversation bloquée');
+      alert('Vous ne pouvez pas envoyer de messages dans une conversation bloquée.');
+      return;
+    }
     if ((!newMessage.trim() && !selectedFile) || !currentUserId || !socketRef.current) {
-      console.log('handleSendMessage : Conditions de base non remplies', {
-        newMessage,
-        selectedFile,
-        currentUserId,
-        socket: socketRef.current,
-      });
+      console.log('handleSendMessage : Conditions non remplies', { newMessage, selectedFile, currentUserId });
       return;
     }
     try {
-      console.log('handleSendMessage : Envoi du message');
+      console.log('handleSendMessage : Envoi');
       setIsUploading(true);
       let attachment = null;
       if (selectedFile) {
         const fileInfo = await uploadFileToServer(selectedFile);
         attachment = { url: fileInfo.url, fileType: fileInfo.fileType, originalName: fileInfo.originalName };
+        console.log('handleSendMessage : Fichier uploadé', attachment);
       }
       const tempId = `${currentUserId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
       const optimisticMessage = {
         _id: tempId,
         sender: currentUserId,
@@ -709,13 +713,11 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         isOptimistic: true,
         conversation: activeConversation._id,
       };
-
-      console.log('handleSendMessage : Message optimiste ajouté', optimisticMessage);
+      console.log('handleSendMessage : Message optimiste', optimisticMessage);
       setMessages((prev) => [...prev, optimisticMessage]);
       setNewMessage('');
       setSelectedFile(null);
       setFilePreview(null);
-
       socketRef.current.emit('sendMessage', {
         senderId: currentUserId,
         content: newMessage,
@@ -725,18 +727,79 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         isGroup: isGroupConversation,
       });
     } catch (error) {
-      console.error('Erreur lors de l’envoi du message :', error);
+      console.error('handleSendMessage : Erreur', error);
       alert(`Erreur : ${error.message}`);
     } finally {
       setIsUploading(false);
+      console.log('handleSendMessage : Fin');
     }
   };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      console.log('handleKeyPress : Touche Enter pressée, envoi du message');
+      console.log('handleKeyPress : Envoi');
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    try {
+      console.log('handleUnblockUser : Début', { conversationId: activeConversation._id });
+      const response = await fetch('http://localhost:5000/MessengerRoute/unblockUser', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('jwtToken')}`,
+        },
+        body: JSON.stringify({ conversationId: activeConversation._id }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        console.log('handleUnblockUser : Succès', result);
+        setIsBlocked(false);
+        setBlockedBy(null);
+      } else {
+        console.error('handleUnblockUser : Échec', result.message);
+        alert('Échec du déblocage : ' + result.message);
+      }
+    } catch (error) {
+      console.error('handleUnblockUser : Erreur', error);
+      alert('Erreur lors du déblocage : ' + error.message);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    try {
+      if (!activeConversation || !activeConversation._id) {
+        console.error('handleDeleteConversation : ID de conversation manquant ou conversation invalide', { activeConversation });
+        alert('Erreur : Aucune conversation sélectionnée pour suppression');
+        return;
+      }
+      const confirmation = window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?');
+      if (!confirmation) {
+        console.log('handleDeleteConversation : Suppression annulée par l’utilisateur');
+        return;
+      }
+      console.log('handleDeleteConversation : Début', { conversationId: activeConversation._id });
+      const response = await fetch(`http://localhost:5000/MessengerRoute/deleteConversationForUser?conversationId=${activeConversation._id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('jwtToken')}`,
+        },
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        console.log('handleDeleteConversation : Succès', result);
+        setIsDeleted(true);
+        alert('Conversation supprimée avec succès');
+      } else {
+        console.error('handleDeleteConversation : Échec', result.message);
+        alert('Échec de la suppression : ' + result.message);
+      }
+    } catch (error) {
+      console.error('handleDeleteConversation : Erreur', error);
+      alert('Erreur lors de la suppression : ' + error.message);
     }
   };
 
@@ -763,10 +826,10 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const defaultProfileImage = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
 
-  console.log('ChatConversation : Rendu du composant', { activeConversation, messagesLength: messages.length });
+  console.log('Rendu ChatConversation', { activeConversation, messagesLength: messages.length, isBlocked, blockedBy });
 
   if (!activeConversation) {
-    console.log('ChatConversation : Aucune conversation sélectionnée');
+    console.log('Rendu : Pas de conversation');
     return (
       <div className="chat-area empty-state">
         <p>Sélectionnez une conversation pour commencer à discuter</p>
@@ -797,12 +860,12 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         <div className="chat-header-actions">
           {!isSelfConversation && (
             <>
-              <div className="chat-header-btn" onClick={handleVoiceCall}>
+              <div className="chat-header-btn" onClick={handleVoiceCall} disabled={isBlocked}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06BBCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                 </svg>
               </div>
-              <div className="chat-header-btn" onClick={handleVideoCall}>
+              <div className="chat-header-btn" onClick={handleVideoCall} disabled={isBlocked}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06BBCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 7l-7 5 7 5V7z"></path>
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
@@ -925,15 +988,15 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
                 messages[index - 1]?.sender._id !== message.sender._id ||
                 new Date(message.createdAt) - new Date(messages[index - 1]?.createdAt) > 5 * 60 * 1000;
 
-                if (message.isSystemMessage) {
-                    return (
-                      <div key={uniqueKey} className="message-container system-message">
-                        <div className="system-message-content">
-                          {formatSystemMessage(message)}
-                        </div>
-                      </div>
-                    );
-                  }
+              if (message.isSystemMessage) {
+                return (
+                  <div key={uniqueKey} className="message-container system-message">
+                    <div className="system-message-content">
+                      {formatSystemMessage(message)}
+                    </div>
+                  </div>
+                );
+              }
 
               if (message.isCall) {
                 const callData = message.callData;
@@ -1113,90 +1176,119 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       )}
 
       <div className="input-area">
-        <div className="input-actions">
-          <div className="input-action-btn" onClick={handleUploadClick} title="Télécharger une image ou une vidéo">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-          </div>
-          <div className="input-action-btn" onClick={handleDocUploadClick} title="Télécharger un document">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </div>
-          <div className="emoji-picker-container">
-            <button className="input-action-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button" title="Emoji">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                <line x1="15" y1="9" x2="15.01" y2="9"></line>
-              </svg>
-            </button>
-            {showEmojiPicker && (
-              <div className="emoji-picker-wrapper">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiClick}
-                  width={300}
-                  height={350}
-                  previewConfig={{ showPreview: false }}
-                  searchDisabled={false}
-                  skinTonesDisabled
-                />
-              </div>
+        {isBlocked ? (
+          <div className="blocked-message">
+            {blockedBy === currentUserId ? (
+              <>
+                <p>Vous avez bloqué cet utilisateur.</p>
+                <button onClick={handleUnblockUser} className="blocked-message-btn unblock-btn">
+                  Débloquer
+                </button>
+              </>
+            ) : (
+              <>
+                <p>Vous avez été bloqué par cet utilisateur.</p>
+                <button onClick={handleDeleteConversation} disabled={isDeleted} className="blocked-message-btn delete-btn">
+                  Supprimer la conversation
+                </button>
+              </>
             )}
           </div>
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
-          <input type="file" ref={docInputRef} onChange={handleFileChange} accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" style={{ display: 'none' }} />
-          <input type="file" ref={audioInputRef} onChange={handleFileChange} accept="audio/*" style={{ display: 'none' }} />
-        </div>
+        ) : (
+          <>
+            <div className="input-actions">
+              <div className="input-action-btn" onClick={handleUploadClick} title="Télécharger une image ou une vidéo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </div>
+              <div className="input-action-btn" onClick={handleDocUploadClick} title="Télécharger un document">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </div>
+              <div className="emoji-picker-container">
+                <button className="input-action-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button" title="Emoji">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                    <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                    <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                  </svg>
+                </button>
+                {showEmojiPicker && (
+                  <div className="emoji-picker-wrapper">
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      width={300}
+                      height={350}
+                      previewConfig={{ showPreview: false }}
+                      searchDisabled={false}
+                      skinTonesDisabled
+                    />
+                  </div>
+                )}
+              </div>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
+              <input type="file" ref={docInputRef} onChange={handleFileChange} accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" style={{ display: 'none' }} />
+              <input type="file" ref={audioInputRef} onChange={handleFileChange} accept="audio/*" style={{ display: 'none' }} />
+            </div>
 
-        <input
-          type="text"
-          className="message-input"
-          placeholder="Aa"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          onClick={handleInputClick}
-          onKeyUp={handleInputClick}
-        />
+            <input
+              type="text"
+              className="message-input"
+              placeholder="Aa"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onClick={handleInputClick}
+              onKeyUp={handleInputClick}
+              disabled={isBlocked}
+            />
 
-        <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Arrêter l’enregistrement' : 'Enregistrer un audio'}>
-          {isRecording ? (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-          )}
-        </div>
+            <div className={`input-action-btn ${isRecording ? 'recording-active' : ''}`} onClick={toggleRecording} title={isRecording ? 'Arrêter l’enregistrement' : 'Enregistrer un audio'} disabled={isBlocked}>
+              {isRecording ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              )}
+            </div>
 
-        <button className="send-button" onClick={handleSendMessage} disabled={(!newMessage.trim() && !selectedFile && !audioBlob) || isUploading}>
-          {isUploading ? (
-            <div className="loading-spinner"></div>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          )}
-        </button>
+            <button className="send-button" onClick={handleSendMessage} disabled={isBlocked || (!newMessage.trim() && !selectedFile && !audioBlob) || isUploading}>
+              {isUploading ? (
+                <div className="loading-spinner"></div>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              )}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 };
+
+function formatDuration(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+}
 
 export default ChatConversation;

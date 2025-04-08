@@ -1,7 +1,7 @@
 const User = require("../Models/User");
 const { Conversation, Message } = require('../Models/MessageSchema');
 const onlineUsers = require('../Utils/onlineUsers');
-
+const mongoose = require('mongoose'); // Importer mongoose pour utiliser isValidObjectId
 const formatDate = (date) => {
   if (!date) return "";
   return new Date(date).toLocaleString("fr-FR", {
@@ -631,6 +631,278 @@ const getConversationParticipants = async (req, res) => {
   }
 };
 
+
+const leaveGroupConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    const userId = req.userId; // Supposons que userId vient du middleware d'authentification
+
+    if (!conversationId || !userId) {
+      console.log('Erreur : Paramètres manquants', { conversationId, userId });
+      return res.status(400).json({
+        success: false,
+        message: 'ID de conversation et ID d’utilisateur requis',
+      });
+    }
+
+    // Utiliser mongoose.isValidObjectId pour valider les IDs
+    if (!mongoose.isValidObjectId(conversationId) || !mongoose.isValidObjectId(userId)) {
+      console.log('Erreur : ID invalide', { conversationId, userId });
+      return res.status(400).json({ message: 'ID de conversation ou d’utilisateur invalide' });
+    }
+
+    const conversation = await Conversation.findById(conversationId).populate('participants', 'firstName lastName');
+    if (!conversation) {
+      console.log('Erreur : Conversation non trouvée', conversationId);
+      return res.status(404).json({ message: 'Conversation non trouvée' });
+    }
+
+    if (!conversation.isGroup) {
+      console.log('Erreur : Ce n’est pas une conversation de groupe', conversationId);
+      return res.status(400).json({ message: 'Cette action est réservée aux groupes' });
+    }
+
+    const participantIds = conversation.participants.map((p) => p._id.toString());
+    if (!participantIds.includes(userId)) {
+      console.log('Erreur : Utilisateur non dans le groupe', { userId, conversationId });
+      return res.status(403).json({ message: 'Vous ne faites pas partie de ce groupe' });
+    }
+
+    // Retirer l'utilisateur des participants
+    conversation.participants = conversation.participants.filter(
+      (p) => p._id.toString() !== userId
+    );
+
+    // Si plus de participants, supprimer la conversation
+    if (conversation.participants.length === 0) {
+      await Conversation.deleteOne({ _id: conversationId });
+      console.log('Conversation supprimée car vide', conversationId);
+      return res.status(200).json({
+        success: true,
+        message: 'Vous avez quitté le groupe et il a été supprimé car il était vide',
+      });
+    }
+
+    // Récupérer les informations de l'utilisateur qui quitte (avant de le retirer)
+    const leavingUser = participantIds.includes(userId)
+      ? (await User.findById(userId).select('firstName lastName')) || { firstName: 'Utilisateur', lastName: '' }
+      : { firstName: 'Utilisateur', lastName: '' };
+    const fullName = `${leavingUser.firstName} ${leavingUser.lastName}`;
+
+    // Créer un message système
+    const systemMessage = await Message.create({
+      conversation: conversationId,
+      isSystemMessage: true,
+      content: `${fullName} a quitté la conversation`,
+      systemData: {
+        action: 'user_left',
+        actionBy: userId,
+        customContent: {
+          forAuthor: 'Vous avez quitté la conversation',
+          forOthers: `${fullName} a quitté la conversation`,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    conversation.messages.push(systemMessage._id);
+    conversation.lastMessage = systemMessage._id;
+    await conversation.save();
+
+    // Émettre le message système et mise à jour via Socket.IO
+    if (req.io) {
+      console.log('Émission du message système via Socket.IO', systemMessage);
+      const populatedMessage = await Message.findById(systemMessage._id)
+        .populate('sender', 'firstName lastName profilePicture');
+      req.io.to(conversationId).emit('newMessage', populatedMessage);
+      req.io.to(conversationId).emit('groupUpdated', {
+        conversationId,
+        participants: conversation.participants,
+        groupName: conversation.groupName,
+        groupPhoto: conversation.groupPhoto,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Vous avez quitté la conversation avec succès',
+      conversationId,
+    });
+  } catch (error) {
+    console.error('Erreur lors de l’abandon de la conversation de groupe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de l’abandon du groupe',
+      error: error.message,
+    });
+  }
+};
+
+const blockUser = async (req, res) => {
+  try {
+    const { conversationId, blockedUserId } = req.body;
+    const userId = req.userId;
+
+    if (!conversationId || !blockedUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de conversation et ID de l'utilisateur à bloquer requis",
+      });
+    }
+
+    if (!mongoose.isValidObjectId(conversationId) || !mongoose.isValidObjectId(blockedUserId)) {
+      return res.status(400).json({ message: 'ID de conversation ou d’utilisateur invalide' });
+    }
+
+    const conversation = await Conversation.findById(conversationId).populate('participants', 'firstName lastName');
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation non trouvée' });
+    }
+
+    if (conversation.isGroup) {
+      return res.status(400).json({ message: 'Le blocage n’est pas disponible pour les groupes' });
+    }
+
+    const participantIds = conversation.participants.map((p) => p._id.toString());
+    if (!participantIds.includes(userId) || !participantIds.includes(blockedUserId)) {
+      return res.status(403).json({ message: 'Vous ou l’utilisateur à bloquer ne faites pas partie de cette conversation' });
+    }
+
+    if (conversation.blockedBy) {
+      return res.status(400).json({ message: 'Cette conversation est déjà bloquée' });
+    }
+
+    const blocker = await User.findById(userId).select('firstName lastName');
+    const blocked = await User.findById(blockedUserId).select('firstName lastName');
+    const blockerName = `${blocker.firstName} ${blocker.lastName}`;
+    const blockedName = `${blocked.firstName} ${blocked.lastName}`;
+
+    const systemMessage = await Message.create({
+      conversation: conversationId,
+      isSystemMessage: true,
+      content: `${blockerName} a bloqué ${blockedName}`,
+      systemData: {
+        action: 'user_blocked',
+        actionBy: userId,
+        actionTarget: blockedUserId,
+        customContent: {
+          forAuthor: `Vous avez bloqué ${blockedName}. Vous ne pouvez plus échanger de messages.`,
+          forOthers: `Vous avez été bloqué par ${blockerName}. Vous ne pouvez plus envoyer de messages.`,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    conversation.messages.push(systemMessage._id);
+    conversation.lastMessage = systemMessage._id;
+    conversation.blockedBy = userId;
+    await conversation.save();
+
+    if (req.io) {
+      const populatedMessage = await Message.findById(systemMessage._id)
+        .populate('sender', 'firstName lastName profilePicture');
+      req.io.to(conversationId).emit('newMessage', populatedMessage);
+      req.io.to(conversationId).emit('conversationBlocked', {
+        conversationId,
+        blockedBy: userId,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Utilisateur bloqué avec succès',
+      conversationId,
+    });
+  } catch (error) {
+    console.error('Erreur lors du blocage de l’utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du blocage',
+      error: error.message,
+    });
+  }
+};
+
+const unblockUser = async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    const userId = req.userId;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de conversation requis",
+      });
+    }
+
+    if (!mongoose.isValidObjectId(conversationId)) {
+      return res.status(400).json({ message: 'ID de conversation invalide' });
+    }
+
+    const conversation = await Conversation.findById(conversationId).populate('participants', 'firstName lastName');
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation non trouvée' });
+    }
+
+    
+    if (conversation.isGroup) {
+      return res.status(400).json({ message: 'Le déblocage n’est pas disponible pour les groupes' });
+    }
+
+    if (conversation.blockedBy?.toString() !== userId) {
+      return res.status(403).json({ message: 'Vous n’êtes pas autorisé à débloquer cette conversation' });
+    }
+
+    const blocker = await User.findById(userId).select('firstName lastName');
+    const blocked = conversation.participants.find(p => p._id.toString() !== userId);
+    const blockerName = `${blocker.firstName} ${blocker.lastName}`;
+    const blockedName = `${blocked.firstName} ${blocked.lastName}`;
+
+    const systemMessage = await Message.create({
+      conversation: conversationId,
+      isSystemMessage: true,
+      content: `${blockerName} a débloqué ${blockedName}`,
+      systemData: {
+        action: 'user_unblocked',
+        actionBy: userId,
+        actionTarget: blocked._id,
+        customContent: {
+          forAuthor: `Vous avez débloqué ${blockedName}. Vous pouvez maintenant échanger des messages.`,
+          forOthers: `${blockerName} vous a débloqué. Vous pouvez maintenant envoyer des messages.`,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    conversation.messages.push(systemMessage._id);
+    conversation.lastMessage = systemMessage._id;
+    conversation.blockedBy = null;
+    await conversation.save();
+
+    if (req.io) {
+      const populatedMessage = await Message.findById(systemMessage._id)
+        .populate('sender', 'firstName lastName profilePicture');
+      req.io.to(conversationId).emit('newMessage', populatedMessage);
+      req.io.to(conversationId).emit('conversationUnblocked', {
+        conversationId,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Utilisateur débloqué avec succès',
+      conversationId,
+    });
+  } catch (error) {
+    console.error('Erreur lors du déblocage de l’utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du déblocage',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   deleteConversationForUser,
@@ -641,4 +913,7 @@ module.exports = {
   sendSystemMessage,
   getCurrentUser,
   getConversationParticipants,
+  leaveGroupConversation,
+  unblockUser,
+  blockUser,
 };

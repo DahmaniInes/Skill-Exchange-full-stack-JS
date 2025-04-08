@@ -28,7 +28,13 @@ router.put('/addParticipantToGroup', verifyToken, messengerController.addPartici
 router.post('/sendSystemMessage', verifyToken, messengerController.sendSystemMessage);
 router.get('/currentUser', verifyToken, messengerController.getCurrentUser);
 router.post('/createGroupFromConversation', verifyToken, messengerController.createGroupFromConversation); // Nouvelle route
+router.post('/leaveGroupConversation', verifyToken, messengerController.leaveGroupConversation); // Nouvelle route
 router.get('/conversationParticipants', verifyToken, messengerController.getConversationParticipants);
+
+router.post('/blockUser', verifyToken, messengerController.blockUser); // Nouvelle route
+router.post('/unblockUser', verifyToken, messengerController.unblockUser); // Nouvelle route
+
+
 // Mettre à jour le nom du groupe
 router.put('/updateGroupName', verifyToken, async (req, res) => {
   try {

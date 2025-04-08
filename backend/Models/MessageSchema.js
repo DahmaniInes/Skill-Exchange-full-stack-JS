@@ -94,6 +94,9 @@ const MessageSchema = new mongoose.Schema({
         'participant_added',     // Exemple d'autres actions possibles
         'participant_removed',   // Exemple d'autres actions possibles
         'user_added',
+        'user_left', // Ajout de 'user_left' ici
+        'user_blocked',
+        'user_unblocked',
       ],
       required: function () {
         return this.isSystemMessage; // `systemData.action` est requis pour les messages système
@@ -166,8 +169,16 @@ const ConversationSchema = new mongoose.Schema({
       default: Date.now
     },
     _id: false
-  }]
-}, { 
+  }],
+
+blockedBy: { // Nouveau champ pour suivre le blocage
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null
+}
+},
+
+{ 
   timestamps: true 
 });
 

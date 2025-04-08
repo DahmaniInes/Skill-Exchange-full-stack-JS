@@ -21,6 +21,8 @@ import ProfileForm from './pages/profile/ProfileForm';
 import SecuritySettings from './pages/profile/SecuritySettings';
 import Profile from './pages/profile/ProfilePage';
 import MessengerPage from './pages/MessengerPages/MessengerPage';
+import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
+
 
 import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
 
@@ -81,6 +83,8 @@ function App() {
           <Route path="SecuritySettings" element={<SecuritySettings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="MessengerPage" element={<MessengerPage />} />
+          <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
+
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
