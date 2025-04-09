@@ -10,14 +10,16 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
   const [gender, setGender] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [company, setCompany] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!['student', 'teacher'].includes(role)) {
-      setError('Please select a valid role (student or teacher).');
+    if (!['student', 'teacher', 'entrepreneur'].includes(role)) {
+      setError('Please select a valid role (student, teacher or entrepreneur).');
       setMessage('');
       return;
     }
@@ -28,20 +30,34 @@ const SignUp = () => {
       return;
     }
 
+    if (role === 'entrepreneur' && (!jobTitle || !company)) {
+      setError("Please provide both job title and company for entrepreneurs.");
+      setMessage('');
+      return;
+    }
+
     const userData = {
       firstName,
       lastName,
       email,
       password,
       role,
-      gender
+      gender,
+      ...(role === 'entrepreneur' && { jobTitle, company })
     };
 
     try {
       const response = await axios.post("http://localhost:5000/api/signup", userData);
       setMessage(response.data.message);
       setError('');
-      // Optional reset
+      setFirstName('');
+      setLastName('');
+      setEmail('');
+      setPassword('');
+      setRole('');
+      setGender('');
+      setJobTitle('');
+      setCompany('');
     } catch (err) {
       setError(err.response?.data?.message || 'Error during sign-up');
       setMessage('');
@@ -79,7 +95,6 @@ const SignUp = () => {
             required
           />
 
-          {/* Gender radio buttons */}
           <div className="form-group">
             <label htmlFor="gender" style={{ display: 'block', marginTop: '10px' }}>Gender</label>
             <div className="gender-selection" style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '10px' }}>
@@ -106,7 +121,6 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Password */}
           <input
             type="password"
             placeholder="Password"
@@ -115,7 +129,6 @@ const SignUp = () => {
             required
           />
 
-          {/* Role dropdown */}
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
@@ -125,7 +138,27 @@ const SignUp = () => {
             <option value="">Select Role</option>
             <option value="student">Student</option>
             <option value="teacher">Teacher</option>
+            <option value="entrepreneur">Entrepreneur</option>
           </select>
+
+          {role === 'entrepreneur' && (
+            <>
+              <input
+                type="text"
+                placeholder="Job Title"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                required
+              />
+            </>
+          )}
 
           <button type="submit">Sign Up</button>
         </form>

@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const User = require("../Models/User");
 const dotenv = require("dotenv");
+const fs = require("fs");
+const path = require("path");
 
 dotenv.config();
 
@@ -50,7 +52,7 @@ const isValidURL = (url) => {
   return !url || urlRegex.test(url);
 };
 
-const validRoles = ["student", "teacher"];
+const validRoles = ["student", "teacher", "entrepreneur"];
 
 router.post("/signup", async (req, res) => {
   try {
@@ -150,20 +152,22 @@ router.post("/signup", async (req, res) => {
 router.get("/verify/:token", async (req, res) => {
   try {
     const { token } = req.params;
-
     const user = await User.findOne({ verificationToken: token });
+
     if (!user) {
-      return res.status(400).json({ message: "Invalid or expired verification link." });
+      const invalidPath = path.join(__dirname, "../email-templates/invalid.html");
+      return res.status(400).sendFile(invalidPath);
     }
 
     user.isVerified = true;
     user.verificationToken = null;
     await user.save();
 
-    res.status(200).json({ message: "Email verified successfully!" });
+    const successPath = path.join(__dirname, "../email-templates/verified.html");
+    return res.status(200).sendFile(successPath);
   } catch (err) {
     console.error("Verification error:", err);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).send("<h2>Internal server error. Please try again later.</h2>");
   }
 });
 
