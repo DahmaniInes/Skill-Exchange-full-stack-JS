@@ -19,7 +19,21 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [showReportPopup, setShowReportPopup] = useState(false); // Popup principale pour les causes
+  const [showCustomReasonPopup, setShowCustomReasonPopup] = useState(false); // Popup pour "Autre"
+  const [reportReason, setReportReason] = useState(''); // Raison personnalisée
   const fileInputRef = useRef(null);
+
+  const reportCauses = [
+    'Harcèlement',
+    'Suicide ou automutilation',
+    'Usurpation d’identité',
+    'Violence ou organisations dangereuses',
+    'Nudité ou actes sexuels',
+    'Arnaque ou fraude',
+    'Spam',
+    'Autre',
+  ];
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -219,6 +233,55 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
     }
   };
 
+  const handleReportUser = async (reason) => {
+    try {
+      if (!conversation?._id || !otherParticipant?._id) {
+        console.error('Conversation ou participant non défini');
+        alert('Erreur : Conversation ou participant non sélectionné');
+        return;
+      }
+
+      if (!reason.trim()) {
+        alert('Veuillez sélectionner ou entrer une raison pour le signalement');
+        return;
+      }
+
+      const token = localStorage.getItem('jwtToken');
+      const response = await axios.post(
+        'http://localhost:5000/MessengerRoute/reportUser',
+        {
+          conversationId: conversation._id,
+          reportedUserId: otherParticipant._id,
+          reason,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        console.log('Utilisateur signalé avec succès');
+        alert('Utilisateur signalé avec succès');
+        setShowReportPopup(false);
+        setShowCustomReasonPopup(false);
+        setReportReason('');
+      } else {
+        console.error('Échec du signalement:', response.data.message);
+        alert('Échec du signalement: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('Erreur lors du signalement de l’utilisateur:', error);
+      alert('Une erreur est survenue lors du signalement');
+    }
+  };
+
+  const handleCauseClick = (cause) => {
+    if (cause === 'Autre') {
+      setShowReportPopup(false);
+      setShowCustomReasonPopup(true);
+    } else {
+      handleReportUser(cause);
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -318,7 +381,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
   const handleShowParticipants = () => {
     if (!conversation?.participants) {
       console.error('Aucune donnée de participants disponible');
-      alert('Aucune donnée de participants disponible');
+      alert('Aucune données de participants disponible');
       return;
     }
     setShowParticipantsPopup(true);
@@ -359,10 +422,13 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       )}
 
       <div className="menu-options">
-        <div className="menu-item">
-          <span className="menu-icon">👤</span>
-          <span>Voir le profil</span>
-        </div>
+        {!conversation?.isGroup && (
+          <div className="menu-item">
+            <span className="menu-icon">👤</span>
+            <span>Voir le profil</span>
+          </div>
+        )}
+
         {conversation?.isGroup ? (
           <>
             <div className="menu-item" onClick={() => setShowEditPhotoPopup(true)}>
@@ -396,12 +462,12 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
               <span className="menu-icon">🚫</span>
               <span>Bloquer</span>
             </div>
+            <div className="menu-item" onClick={() => setShowReportPopup(true)}>
+              <span className="menu-icon">⚠️</span>
+              <span>Signaler</span>
+            </div>
           </>
         )}
-        <div className="menu-item">
-          <span className="menu-icon">🔔</span>
-          <span>Mettre la conversation en sourdine</span>
-        </div>
         <div className="menu-item warning" onClick={handleDeleteConversation}>
           <span className="menu-icon">🗑️</span>
           <span>Supprimer la conversation</span>
@@ -512,19 +578,56 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         </div>
       )}
 
-      <div className="warning-section">
-        <div className="warning-message">
-          <p>Il y a un problème</p>
-          <div className="rating-feedback">
-            <div className="stars">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span key={star} className="star">★</span>
+      {showReportPopup && (
+        <div className="popup-overlay">
+          <div className="popup-content">
+            <h3>Signaler {otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
+            <div className="report-causes">
+              {reportCauses.map((cause, index) => (
+                <div
+                  key={index}
+                  className="report-cause-item"
+                  onClick={() => handleCauseClick(cause)}
+                >
+                  {cause}
+                </div>
               ))}
             </div>
-            <p>Donnez votre avis et signalez la conversation</p>
+            <div className="popup-buttons">
+              <button onClick={() => setShowReportPopup(false)} className="cancel-btn">Annuler</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {showCustomReasonPopup && (
+        <div className="popup-overlay">
+          <div className="popup-content">
+            <h3>Signaler - Autre</h3>
+            <div className="popup-input-group">
+              <textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Entrez la raison du signalement"
+                rows="4"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="popup-buttons">
+              <button onClick={() => handleReportUser(reportReason)} className="apply-btn">Signaler</button>
+              <button
+                onClick={() => {
+                  setShowCustomReasonPopup(false);
+                  setReportReason('');
+                }}
+                className="cancel-btn"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ const MessengerDefaultPage = () => {
   const [teachers, setTeachers] = useState([]);
   const [error, setError] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [purchasedTeachers, setPurchasedTeachers] = useState([]); // Nouveau state pour les formateurs débloqués
+  const [purchasedTeachers, setPurchasedTeachers] = useState([]);
   const userCardsRef = useRef([]);
   const socketRef = useRef(null);
 
@@ -146,19 +146,17 @@ const MessengerDefaultPage = () => {
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
             status: user.status || 'Formateur',
-            isPremium: true, // Tous les formateurs sont initialement Premium
+            isPremium: true,
             isOnline: user.isOnline || false,
             profilePicture: user.profilePicture || null,
           }));
 
-        // Récupérer les formateurs débloqués (purchasedTeachers) de l'utilisateur actuel
         const currentUser = data.data.find((user) => user._id === currentUserId);
         if (currentUser && currentUser.purchasedTeachers) {
           setPurchasedTeachers(currentUser.purchasedTeachers);
-          // Mettre à jour isPremium pour les formateurs débloqués
           filteredTeachers.forEach((teacher) => {
             if (currentUser.purchasedTeachers.includes(teacher.id)) {
-              teacher.isPremium = false; // Débloqué, pas Premium
+              teacher.isPremium = false;
             }
           });
         }
@@ -195,7 +193,7 @@ const MessengerDefaultPage = () => {
 
   // Gestion du clic sur un utilisateur ou formateur
   const handleCardClick = async (user) => {
-    if (user.isPremium) { // Si c'est un formateur Premium (non débloqué)
+    if (user.isPremium) {
       console.log(`Clic sur le formateur ${user.name}, redirection vers Stripe...`);
       
       const stripe = await stripePromise;
@@ -233,12 +231,16 @@ const MessengerDefaultPage = () => {
         setError('Impossible de rediriger vers le paiement');
       }
     } else if (!user.isPremium && teachers.some(t => t.id === user.id)) {
-      // Si c'est un formateur débloqué, ne rien faire pour l'instant
       console.log(`Clic sur le formateur débloqué ${user.name}, aucune action pour le moment`);
     } else {
-      // Si c'est un utilisateur de la communauté
       console.log(`Conversation ouverte avec ${user.name}`);
     }
+  };
+
+  // Redirection vers MessengerPage
+  const handleMessengerRedirect = () => {
+    console.log('Redirection vers MessengerPage');
+    window.location.href = 'http://localhost:5173/MessengerPage';
   };
 
   const getAvatarContent = (user) => {
@@ -263,11 +265,11 @@ const MessengerDefaultPage = () => {
       </div>
 
       <div className={`${styles.actionButtons} ${isLoaded ? styles.loaded : ''}`}>
-        <button className={styles.actionButton}>
+        <button className={styles.actionButton} onClick={handleMessengerRedirect}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M12 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm-1 9h-2v2h-2V9H5V7h2V5h2v2h2v2z"/>
+            <path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.771 2.966-.079.186.074.394.273.362 2.256-.37 3.597-.938 4.18-1.234A9.06 9.06 0 0 0 8 15z"/>
           </svg>
-          Créer un groupe
+          Afficher dans Messenger
         </button>
 
         <button className={styles.actionButton}>

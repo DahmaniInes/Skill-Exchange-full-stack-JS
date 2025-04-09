@@ -7,6 +7,7 @@ const { audioUpload, upload, callRecordingUpload } = require('../Config/cloudina
 const verifyToken = require('../middleware/verifySession');
 const { Conversation, Message } = require('../Models/MessageSchema');
 const User = require('../Models/User');
+const Report = require('../Models/ReportSchema');
 const Stripe = require("stripe");
 const mongoose = require("mongoose");
 const app = express();
@@ -186,32 +187,31 @@ router.put('/updateGroupPhoto', verifyToken, async (req, res) => {
 
 // Route à ajouter dans votre fichier de routes (probablement MessengerRoutes.js)
 router.post('/mark-messages-as-read', verifyToken, async (req, res) => {
-  const { conversationId, userId } = req.body;
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'userId requis' });
+  }
 
   try {
-    // Vérifier que la conversation existe et que l'utilisateur en fait partie
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
-    if (!conversation) {
-      return res.status(404).json({ success: false, message: 'Conversation non trouvée ou accès refusé' });
-    }
-
-    // Mettre à jour tous les messages non lus de la conversation pour cet utilisateur
+    // Mettre à jour tous les messages non lus pour cet utilisateur dans toutes les conversations
     const updatedMessages = await Message.updateMany(
       {
-        conversation: conversationId,
         sender: { $ne: userId }, // Ne pas mettre à jour les messages envoyés par l'utilisateur lui-même
         read: false, // Seulement les messages non lus
+        conversation: { $in: await Conversation.find({ participants: userId }).distinct('_id') }, // Conversations de l'utilisateur
       },
       { $set: { read: true } }
     );
 
-    // Renvoyer une réponse avec le nombre de messages mis à jour
+    // Émettre un événement pour informer les clients (optionnel)
+    if (req.io) {
+      req.io.emit('messagesMarkedAsRead', { userId });
+    }
+
     res.json({
       success: true,
-      message: 'Messages marqués comme lus',
+      message: 'Tous les messages ont été marqués comme lus',
       modifiedCount: updatedMessages.modifiedCount,
     });
   } catch (error) {
@@ -219,8 +219,6 @@ router.post('/mark-messages-as-read', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
-
-
 
 
 
@@ -304,6 +302,50 @@ router.get('/verify-checkout-session', async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la vérification de la session Stripe :', error);
     res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+});
+
+
+
+router.post('/reportUser', verifyToken, async (req, res) => {
+  const { conversationId, reportedUserId, reason } = req.body;
+  const reporterId = req.userId; // Récupéré via verifyToken
+
+  try {
+    // Vérifier les paramètres
+    if (!conversationId || !reportedUserId || !reason) {
+      return res.status(400).json({ success: false, message: 'Paramètres manquants' });
+    }
+
+    // Vérifier que la conversation existe et que l'utilisateur en fait partie
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: reporterId,
+    });
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation non trouvée ou accès refusé' });
+    }
+
+    // Vérifier que l'utilisateur signalé est dans la conversation
+    if (!conversation.participants.some(p => p._id.toString() === reportedUserId)) {
+      return res.status(400).json({ success: false, message: 'Utilisateur signalé non trouvé dans cette conversation' });
+    }
+
+    // Créer un nouveau signalement
+    const report = new Report({
+      reporter: reporterId,
+      reportedUser: reportedUserId,
+      conversation: conversationId,
+      reason,
+    });
+
+    await report.save();
+
+    console.log(`Signalement enregistré: Reporter ${reporterId}, Reported ${reportedUserId}, Raison: ${reason}`);
+    res.status(200).json({ success: true, message: 'Utilisateur signalé avec succès' });
+  } catch (error) {
+    console.error('Erreur lors du signalement:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors du signalement' });
   }
 });
 

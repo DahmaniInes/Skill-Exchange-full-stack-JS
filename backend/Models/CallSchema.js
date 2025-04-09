@@ -1,4 +1,5 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose'); // Importer mongoose pour utiliser isValidObjectId
+const Schema = mongoose.Schema;
 
 const CallSchema = new mongoose.Schema({
   caller: {
@@ -6,11 +7,11 @@ const CallSchema = new mongoose.Schema({
     ref: "User",
     required: true
   },
-  receiver: {
+  participants: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true
-  },
+  }], // Remplace `receiver` pour gérer plusieurs participants
   type: {
     type: String,
     enum: ["audio", "video"],
@@ -22,10 +23,10 @@ const CallSchema = new mongoose.Schema({
   },
   acceptedAt: Date,
   endedAt: Date,
-  duration: Number, // en secondes
+  duration: Number,
   status: {
     type: String,
-    enum: ["initiated", "ongoing", "ended", "rejected", "missed"],
+    enum: ["initiated", "ongoing", "ended", "rejected", "missed", "cancelled"],
     default: "initiated"
   },
   recording: {
@@ -35,11 +36,14 @@ const CallSchema = new mongoose.Schema({
     format: String,
     size: Number
   },
-  // Pour lier l'appel à la conversation
   conversation: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Conversation"
+    ref: "Conversation",
+    required: true // Assure que chaque appel est lié à une conversation
+  },
+  isGroupCall: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
-
-module.exports = mongoose.model("Call", CallSchema);
+module.exports = mongoose.model('Call', CallSchema);

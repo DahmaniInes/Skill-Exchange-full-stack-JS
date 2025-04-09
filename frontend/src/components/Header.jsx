@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import axiosInstance from "../interceptor/axiosInstance";
+import io from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
 
 // Import des styles CSS
 import "../utils/css/bootstrap.min.css";
@@ -17,11 +19,14 @@ function Header() {
   const isHomePage = location.pathname === "/";
   const carouselRef = useRef(null);
   const carouselInitializedRef = useRef(false);
+  const socketRef = useRef(null);
   const [showCarousel, setShowCarousel] = useState(isHomePage);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') || 'Auto');
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'English');
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [unseenMessages, setUnseenMessages] = useState({});
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
   const navigate = useNavigate();
 
@@ -53,6 +58,109 @@ function Header() {
     localStorage.setItem('darkMode', darkMode);
     localStorage.setItem('language', language);
   }, [darkMode, language]);
+
+  // Initialisation de Socket.IO et récupération de l'utilisateur
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setCurrentUserId(decoded.userId);
+        console.log('Utilisateur connecté avec ID:', decoded.userId);
+      } catch (error) {
+        console.error('Erreur lors du décodage du token JWT:', error);
+      }
+    }
+
+    // Initialisation de Socket.IO
+    socketRef.current = io('http://localhost:5000', {
+      auth: { token: `Bearer ${token}` },
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket : Connecté au serveur avec userId', currentUserId);
+      socketRef.current.emit('authenticate', currentUserId);
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket : Erreur de connexion', error.message);
+    });
+
+    socketRef.current.on('newMessage', (message) => {
+      console.log('Socket : Nouveau message reçu:', message);
+
+      if (!message || !message.conversation?._id || !message._id) {
+        console.error('Message invalide ou incomplet:', message);
+        return;
+      }
+
+      // Vérifier si le message est non lu et n'est pas envoyé par l'utilisateur actuel
+      if (
+        message.sender?._id !== currentUserId &&
+        !message.read &&
+        location.pathname !== "/MessengerDefaultPage"
+      ) {
+        setUnseenMessages((prev) => {
+          const updated = { ...prev, [message.conversation._id]: true };
+          console.log('Messages non lus mis à jour:', updated);
+          return updated;
+        });
+      }
+    });
+
+    // Charger les conversations initiales pour initialiser unseenMessages
+    const fetchConversations = async () => {
+      try {
+        const response = await axiosInstance.get('/MessengerRoute/conversations');
+        const conversations = response.data.data || [];
+        const newUnseenMessages = {};
+        conversations.forEach(conv => {
+          if (
+            conv?.lastMessage &&
+            conv.lastMessage.sender?._id !== currentUserId &&
+            !conv.lastMessage.read
+          ) {
+            newUnseenMessages[conv._id] = true;
+          }
+        });
+        setUnseenMessages(newUnseenMessages);
+        console.log('Conversations initiales chargées, messages non lus:', newUnseenMessages);
+      } catch (error) {
+        console.error('Erreur lors du chargement des conversations:', error);
+      }
+    };
+
+    fetchConversations();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('newMessage');
+        socketRef.current.disconnect();
+        console.log('Socket : Déconnexion effectuée');
+      }
+    };
+  }, [currentUserId]);
+
+  // Réinitialiser les messages non lus quand on visite la page Messenger
+  useEffect(() => {
+    if (location.pathname === "/MessengerDefaultPage") {
+      setUnseenMessages({});
+      const markAllAsRead = async () => {
+        try {
+          await axiosInstance.post('/MessengerRoute/mark-messages-as-read', {
+            userId: currentUserId,
+          });
+          console.log('Tous les messages ont été marqués comme lus');
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour des messages comme lus:', error);
+        }
+      };
+      markAllAsRead();
+    }
+  }, [location.pathname, currentUserId]);
 
   // Logout
   const handleLogout = async () => {
@@ -181,6 +289,18 @@ function Header() {
       document.body.style.paddingTop = '0';
     };
   }, []);
+
+  // Calculer le nombre total de messages non lus
+  const unseenCount = Object.values(unseenMessages).filter(Boolean).length;
+
+  // Gestion du clic sur le lien Messenger
+  const handleMessengerClick = (e) => {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) {
+      e.preventDefault();
+      navigate('/login');
+    }
+  };
 
   // Rendu conditionnel du carousel
   const renderCarousel = () => {
@@ -318,9 +438,41 @@ function Header() {
                 </Link>
               </div>
             </div>
-            <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
-              Contact
-            </Link>
+            <div className="d-flex align-items-center position-relative">
+              <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
+                Contact
+              </Link>
+              <Link 
+  to="/MessengerDefaultPage" 
+  className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
+  onClick={handleMessengerClick}
+>
+  <div style={{ position: "relative" }}>
+    <i className="fa fa-envelope me-2"></i>
+    {unseenCount > 0 && (
+      <span
+        style={{
+          position: "absolute",
+          top: "-8px",
+          right: "-8px",
+          backgroundColor: "red",
+          color: "white",
+          borderRadius: "50%",
+          width: "16px",
+          height: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "10px",
+          fontWeight: "bold",
+        }}
+      >
+        {unseenCount}
+      </span>
+    )}
+  </div>
+</Link>
+    </div>
           </div>
 
           {/* Ajout des nouvelles fonctionnalités */}
@@ -370,11 +522,9 @@ function Header() {
                 <Link to="/posts" className="dropdown-item">
                   <i className="fa fa-file-text-o me-2"></i>Posts
                 </Link>
-
                 <Link to="/login" className="dropdown-item">
-                  <i className="fa fa-file-text-o me-2"></i>Login
+                  <i className="fa fa-sign-in me-2"></i>Login
                 </Link>
-
                 <Link to="/profile" className="dropdown-item">
                   <i className="fa fa-user-circle me-2"></i>Profile
                 </Link>

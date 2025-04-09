@@ -6,6 +6,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
 import { ConversationContext } from './ConversationContext';
 import axios from 'axios';
+import EmptyStateChatArea from './ComposantDefaultChatConversation';
 
 const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser, groupInfo }) => {
   const { currentConversation } = useContext(ConversationContext);
@@ -207,14 +208,13 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     });
 
     socketRef.current.on('incomingCall', (data) => {
-      console.log('Socket : Appel entrant', data);
-      if (data.callerId !== currentUserId) {
+      console.log('Incoming call received:', data);
+      if (data.callerId !== currentUserId && data.conversationId === activeConversation._id) {
         setCallType(data.type);
         setCallStatus('incoming');
         setCallData(data);
         const missedCallTimer = setTimeout(() => {
           if (callStatus === 'incoming') {
-            console.log('Socket : Appel manqué après 30s', { callId: data._id });
             socketRef.current.emit('callMissed', { callId: data._id, receiverId: currentUserId });
             setCallStatus(null);
             setCallData(null);
@@ -222,6 +222,8 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
           }
         }, 30000);
         return () => clearTimeout(missedCallTimer);
+      } else {
+        console.log('Incoming call ignored:', { callerId: data.callerId, currentUserId, conversationId: data.conversationId });
       }
     });
 
@@ -235,29 +237,43 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       }
     });
 
-    socketRef.current.on('callCancelled', () => {
-      console.log('Socket : Appel annulé');
-      setCallStatus(null);
-      setCallData(null);
-      setCallType(null);
-    });
-
-    socketRef.current.on('callStatusUpdate', (data) => {
-      console.log('Socket : Mise à jour statut appel', data);
-      setCallStatus(data.status);
-      if (data.status === 'rejected' || data.status === 'missed') {
+    socketRef.current.on('callCancelled', (data) => {
+      console.log('Socket: Call cancelled received', data);
+      if (callData?._id === data.callId) {
         setCallStatus(null);
         setCallData(null);
         setCallType(null);
       }
-      if (data.message) {
-        setMessages((prev) => {
-          const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
-          if (!updatedMessages.some((msg) => msg._id === data.message._id)) {
-            updatedMessages.push(data.message);
-          }
-          return updatedMessages;
-        });
+    });
+
+    socketRef.current.on('callStatusUpdate', (data) => {
+      console.log('Socket: Call status update received', data);
+      if (data.callId === callData?._id) {
+        setCallStatus(data.status);
+        if (data.status === 'rejected' || data.status === 'missed' || data.status === 'cancelled') {
+          // Réinitialiser immédiatement l'état pour cacher le pop-up
+          setCallStatus(null);
+          setCallData(null);
+          setCallType(null);
+          console.log('Call rejected or missed, resetting state');
+        }
+        if (data.message) {
+          setMessages((prev) => {
+            const updatedMessages = prev.filter((msg) => msg._id !== data.callId);
+            if (!updatedMessages.some((msg) => msg._id === data.message._id)) {
+              updatedMessages.push(data.message);
+            }
+            return updatedMessages;
+          });
+        }
+      }
+    });
+
+    socketRef.current.on('callStarted', (data) => {
+      console.log('Socket: Call started received', data);
+      if (data.callId === callData?._id) {
+        setCallStatus('ongoing');
+        startCall();
       }
     });
 
@@ -425,57 +441,87 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
 
   const cancelCall = () => {
     if (callData?._id && (callStatus === 'calling' || callStatus === 'incoming') && socketRef.current) {
-      console.log('cancelCall : Annulation', { callId: callData._id });
-      socketRef.current.emit('cancelCall', { callId: callData._id, receiverId: otherParticipant?._id });
+      console.log('Canceling call:', { callId: callData._id });
+      socketRef.current.emit('cancelCall', { callId: callData._id });
+      setCallStatus(null);
+      setCallData(null);
+      setCallType(null);
+    } else {
+      console.warn('Cancel call failed:', { callData, callStatus, socket: socketRef.current });
+      // Forcer la réinitialisation si quelque chose ne va pas
       setCallStatus(null);
       setCallData(null);
       setCallType(null);
     }
   };
 
+  
+  
   const handleVoiceCall = () => {
-    if (!otherParticipant || !socketRef.current || isBlocked) {
-      console.warn('handleVoiceCall : Données manquantes ou bloqué', { otherParticipant, socket: socketRef.current, isBlocked });
-      return;
-    }
-    const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'audio' };
-    console.log('handleVoiceCall : Début appel vocal', callData);
+    if (!socketRef.current || isBlocked) return;
+    const callData = { 
+      callerId: currentUserId, 
+      conversationId: activeConversation._id, 
+      type: 'audio' 
+    };
     setCallType('audio');
     setCallStatus('calling');
     setCallData(callData);
-    socketRef.current.emit('initiateCall', callData);
+    console.log('Initiating voice call:', callData);
+    socketRef.current.emit('initiateCall', callData, (response) => {
+      if (response && response.missedCallTimeout) {
+        callData.missedCallTimeout = response.missedCallTimeout; // Stocker le timeout
+      }
+    });
   };
 
-  const handleVideoCall = () => {
-    if (!otherParticipant || !socketRef.current || isBlocked) {
-      console.warn('handleVideoCall : Données manquantes ou bloqué', { otherParticipant, socket: socketRef.current, isBlocked });
-      return;
-    }
-    const callData = { callerId: currentUserId, receiverId: otherParticipant._id, startTime: new Date(), type: 'video' };
-    console.log('handleVideoCall : Début appel vidéo', callData);
-    setCallType('video');
-    setCallStatus('calling');
-    setCallData(callData);
-    socketRef.current.emit('initiateCall', callData);
+  
+ const handleVideoCall = () => {
+  if (!socketRef.current || isBlocked) return;
+  const callData = { 
+    callerId: currentUserId, 
+    conversationId: activeConversation._id, 
+    type: 'video' 
   };
+  setCallType('video');
+  setCallStatus('calling');
+  setCallData(callData);
+  console.log('Initiating video call:', callData);
+  socketRef.current.emit('initiateCall', callData);
+};
 
-  const handleCallResponse = (accepted) => {
-    if (!callData || !socketRef.current) {
-      console.warn('handleCallResponse : Données manquantes', { callData, socket: socketRef.current });
-      return;
+
+
+
+
+
+
+
+
+
+const handleCallResponse = (accepted) => {
+  if (!callData || !socketRef.current) {
+    console.warn('handleCallResponse: Missing data or socket', { callData, socket: socketRef.current });
+    return;
+  }
+  const responseData = { callId: callData._id, accepted, receiverId: currentUserId };
+  console.log('handleCallResponse:', responseData);
+  if (accepted) {
+    setCallStatus('ongoing');
+    if (callData.missedCallTimeout) {
+      clearTimeout(callData.missedCallTimeout); // Annuler le timeout
+      console.log('Missed call timeout cleared');
     }
-    const responseData = { callId: callData._id, accepted, receiverId: currentUserId };
-    console.log('handleCallResponse : Réponse', responseData);
-    if (accepted) {
-      setCallStatus('ongoing');
-      startCall();
-    } else {
-      socketRef.current.emit('callResponse', responseData);
-      setCallStatus(null);
-      setCallData(null);
-      setCallType(null);
-    }
-  };
+    startCall();
+  } else {
+    socketRef.current.emit('callResponse', responseData);
+    setCallStatus(null);
+    setCallData(null);
+    setCallType(null);
+  }
+};
+
+
 
   const endCall = async () => {
     try {
@@ -504,6 +550,10 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   const startCall = async () => {
     try {
       console.log('startCall : Début', { callType });
+      // Réinitialiser la durée avant de commencer
+      callDurationRef.current = 0;
+      setCallDuration(0);
+      if (callIntervalRef.current) clearInterval(callIntervalRef.current); // Nettoyer l'ancien intervalle
       callIntervalRef.current = setInterval(() => {
         callDurationRef.current += 1;
         setCallDuration(callDurationRef.current);
@@ -537,6 +587,9 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       endCall();
     }
   };
+
+
+  
 
   const handleContextMenuClick = (e, messageId, isSent) => {
     e.preventDefault();
@@ -862,6 +915,9 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     </svg>
   );
 
+
+
+  
   const defaultProfileImage = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
 
   console.log('Rendu ChatConversation', { activeConversation, messagesLength: messages.length, isBlocked, blockedBy });
@@ -869,9 +925,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
   if (!activeConversation) {
     console.log('Rendu : Pas de conversation');
     return (
-      <div className="chat-area empty-state">
-        <p>Sélectionnez une conversation pour commencer à discuter</p>
-      </div>
+      <EmptyStateChatArea />
     );
   }
 
@@ -938,47 +992,49 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
               </div>
             </div>
           )}
-          {callStatus === 'incoming' && callData && (
-            <div className="call-modal">
-              <h3>Appel {callData.type === 'video' ? 'vidéo' : 'vocal'} entrant</h3>
-              <div className="caller-info">
-                <img src={otherParticipant?.profilePicture || defaultProfileImage} alt="Appelant" />
-                <p>Appel de {otherParticipant?.firstName}</p>
-              </div>
-              <div className="call-actions">
-                <button onClick={() => handleCallResponse(true)} className="accept-call-btn">
-                  <FiPhoneCall /> Accepter
-                </button>
-                <button onClick={() => handleCallResponse(false)} className="reject-call-btn">
-                  <FiPhoneOff /> Refuser
-                </button>
-              </div>
-            </div>
-          )}
-          {callStatus === 'ongoing' && (
-            <div className="ongoing-call">
-              <div className="video-container">
-                {callType === 'video' && (
-                  <>
-                    <video ref={localVideoRef} autoPlay muted className="local-video" />
-                    <video ref={remoteVideoRef} autoPlay className="remote-video" />
-                  </>
-                )}
-                {callType === 'audio' && (
-                  <div className="audio-call-ui">
-                    <div className="user-avatar">
-                      <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={otherParticipant?.firstName} />
-                    </div>
-                    <h3>{otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
-                    <p>Appel en cours... {formatDuration(callDuration)}</p>
-                  </div>
-                )}
-              </div>
-              <button onClick={endCall} className="end-call-btn" style={{ backgroundColor: 'red', color: 'white' }}>
-                Terminer l'appel
-              </button>
-            </div>
-          )}
+      {callStatus === 'incoming' && callData && (
+  <div className="call-modal">
+    <h3>{callData.isGroupCall ? `Appel de groupe ${callData.type}` : `Appel ${callData.type}`} entrant</h3>
+    <div className="caller-info">
+      <img src={otherParticipant?.profilePicture || defaultProfileImage} alt="Appelant" />
+      <p>{callData.isGroupCall ? `Groupe ${groupInfoState?.name}` : `Appel de ${otherParticipant?.firstName}`}</p>
+    </div>
+    <div className="call-actions">
+      <button onClick={() => handleCallResponse(true)} className="accept-call-btn">
+        <FiPhoneCall /> Accepter
+      </button>
+      <button onClick={() => handleCallResponse(false)} className="reject-call-btn">
+        <FiPhoneOff /> Refuser
+      </button>
+    </div>
+  </div>
+  )}
+         {callStatus === 'ongoing' && (
+  <div className="ongoing-call">
+    <div className="video-container">
+      {callType === 'video' && (
+        <>
+          <video ref={localVideoRef} autoPlay muted className="local-video" />
+          <video ref={remoteVideoRef} autoPlay className="remote-video" />
+        </>
+      )}
+      {callType === 'audio' && (
+        <div className="audio-call-ui">
+          <div className="user-avatar">
+            <img src={otherParticipant?.profilePicture || defaultProfileImage} alt={otherParticipant?.firstName} />
+          </div>
+          <h3>{otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
+          <p>Appel en cours... {formatDuration(callDuration)}</p>
+        </div>
+      )}
+    </div>
+    <button onClick={endCall} className="end-call-btn" style={{ backgroundColor: 'red', color: 'white' }}>
+      Terminer l'appel
+    </button>
+  </div>
+)}
+
+
           {callStatus === 'ended' && (
             <div className="call-modal">
               <h3>Appel terminé</h3>

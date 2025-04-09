@@ -4,6 +4,7 @@ const { upload } = require('../Config/cloudinaryMessenger');
 const { v4: uuidv4 } = require('uuid');
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const  Call  = require('../Models/CallSchema');
+
 module.exports = {
   // Uploader un fichier
 
@@ -242,63 +243,136 @@ module.exports = {
   },
 
 
+  initiateCall: async (socket, data) => {
+    try {
+      const { callerId, conversationId, type } = data;
+  
+      console.log('Initiating call with data:', { callerId, conversationId, type });
+  
+      if (!callerId || !conversationId || !type) {
+        throw new Error('Missing required parameters');
+      }
+  
+      const conversation = await Conversation.findById(conversationId).populate('participants');
+      if (!conversation) throw new Error('Conversation not found');
+  
+      const participants = conversation.participants.map(p => p._id);
+      const isGroupCall = conversation.isGroup;
+  
+      const call = new Call({
+        caller: callerId,
+        participants,
+        type,
+        startTime: new Date(),
+        status: 'initiated',
+        conversation: conversationId,
+        isGroupCall
+      });
+  
+      await call.save();
+      console.log('Call saved:', call._id);
+  
+      // Convertir l'objet Mongoose en POJO pour éviter les références circulaires
+      const callData = call.toObject();
+  
+      participants.forEach(participantId => {
+        if (participantId.toString() !== callerId) {
+          console.log('Emitting incomingCall to:', participantId.toString());
+          socket.to(participantId.toString()).emit('incomingCall', {
+            _id: callData._id,
+            callerId,
+            conversationId,
+            type,
+            startTime: callData.startTime,
+            isGroupCall
+          });
+        }
+      });
+  
+      socket.emit('callInitiated', callData);
+      console.log('callInitiated emitted to caller:', callerId);
+  
+      // Stocker le timeout dans une Map globale ou une propriété de l'objet call
+      const missedCallTimeout = setTimeout(async () => {
+        const updatedCall = await Call.findById(call._id);
+        if (updatedCall && updatedCall.status === 'initiated') {
+          updatedCall.status = 'missed';
+          updatedCall.endTime = new Date();
+          await updatedCall.save();
+  
+          const callMessage = await module.exports.saveCallToConversation(updatedCall, socket);
+          const callDataMissed = {
+            callId: updatedCall._id,
+            status: 'missed',
+            callerId: updatedCall.caller,
+            conversationId: updatedCall.conversation,
+            type: updatedCall.type,
+            isGroupCall: updatedCall.isGroupCall,
+            message: callMessage
+          };
+  
+          participants.forEach(participantId => {
+            socket.to(participantId.toString()).emit('callMissed', callDataMissed);
+          });
+          socket.emit('callMissed', callDataMissed);
+          console.log('Call marked as missed after 20 seconds:', call._id);
+        } else {
+          console.log('Call not marked as missed, current status:', updatedCall?.status);
+        }
+      }, 40000);
+  
+      // Stocker le timeout dans l'objet call pour pouvoir l'annuler plus tard
+      call.missedCallTimeout = missedCallTimeout;
+  
+      return call; // Retourner l'objet call avec le timeout
+    } catch (error) {
+      console.error('Call initiation error:', error);
+      socket.emit('error', { message: 'Failed to initiate call', error: error.message });
+    }
+  },
 
-// Dans votre contrôleur messageController.js
-initiateCall: async (socket, data) => {
-  try {
-    const { callerId, receiverId, type } = data;
 
-    const call = new Call({
-      caller: callerId,
-      receiver: receiverId,
-      type,
-      startTime: new Date(),
-      status: 'initiated'
-    });
 
-    await call.save();
 
-    socket.to(receiverId).emit('incomingCall', {
-      _id: call._id,
-      callerId,
-      receiverId,
-      type,
-      startTime: call.startTime
-    });
-    socket.emit('callInitiated', call); // Émettre callInitiated au caller
-    return call;
-  } catch (error) {
-    console.error('Error initiating call:', error);
-    socket.emit('error', { message: 'Failed to initiate call' });
-  }
-},
 
-cancelCall: async (socket, data) => {
-  try {
-    const { callId, receiverId } = data;
 
-    const call = await Call.findByIdAndUpdate(
-      callId,
-      {
-        status: 'cancelled',
-        endTime: new Date()
-      },
-      { new: true }
-    ).populate('caller receiver');
-
-    if (!call) throw new Error('Call not found');
-
-    // Ne pas appeler saveCallToConversation ici pour éviter le message
-    // Notifier les deux parties pour cacher la notification
-    socket.to(receiverId).emit('callCancelled', { callId: call._id });
-    socket.emit('callCancelled', { callId: call._id });
-
-    return call;
-  } catch (error) {
-    console.error('Error cancelling call:', error);
-    socket.emit('error', { message: 'Failed to cancel call' });
-  }
-},
+  cancelCall: async (socket, data) => {
+    try {
+      const { callId } = data;
+  
+      const call = await Call.findByIdAndUpdate(
+        callId,
+        {
+          status: 'cancelled',
+          endTime: new Date()
+        },
+        { new: true }
+      ).populate('participants caller'); // Remplace "receiver" par "participants" et "caller"
+  
+      if (!call) throw new Error('Call not found');
+  
+      const callMessage = await module.exports.saveCallToConversation(call, socket);
+  
+      const callData = {
+        callId: call._id,
+        status: call.status,
+        conversationId: call.conversation,
+        message: callMessage
+      };
+  
+      // Notifier tous les participants
+      call.participants.forEach(participantId => {
+        socket.to(participantId.toString()).emit('callCancelled', callData);
+      });
+      socket.emit('callCancelled', callData);
+  
+      console.log('Call cancelled successfully:', call._id);
+      return call;
+    } catch (error) {
+      console.error('Error cancelling call:', error);
+      socket.emit('error', { message: 'Failed to cancel call', error: error.message });
+    }
+  },
 
 // Moodifiez la fonction endCall
 endCall: async (socket, data) => {
@@ -314,14 +388,10 @@ endCall: async (socket, data) => {
         type: type || 'audio'
       },
       { new: true }
-    ).populate('caller receiver');
+    ).populate('caller participants');
 
-    if (!call) {
-      console.warn('Call not found with ID:', callId);
-      return null;
-    }
+    if (!call) throw new Error('Call not found');
 
-    // Sauvegarder le message d'appel dans la conversation
     const callMessage = await module.exports.saveCallToConversation(call, socket);
 
     const callData = {
@@ -329,28 +399,16 @@ endCall: async (socket, data) => {
       duration: call.duration,
       type: call.type,
       status: call.status,
-      callerId: call.caller._id,
-      receiverId: call.receiver._id,
-      iconColor: 'green',
-      callClass: 'ended-call',
+      conversationId: call.conversation,
+      isGroupCall: call.isGroupCall,
       message: callMessage
     };
 
-    // Émettre à tous les participants via socket.to()
-    socket.to(call.caller._id.toString()).emit('callStatusUpdate', callData);
-    socket.to(call.receiver._id.toString()).emit('callStatusUpdate', callData);
-    socket.emit('callStatusUpdate', callData); // Émettre aussi à l'émetteur
-
-    // Émettre l'événement callEnded pour synchroniser l'interface
-    socket.to(call.caller._id.toString()).emit('callEnded', callData);
-    socket.to(call.receiver._id.toString()).emit('callEnded', callData);
-    socket.emit('callEnded', callData);
-
-    console.log('Call ended successfully:', {
-      callId: call._id,
-      duration: call.duration,
-      participants: [call.caller._id, call.receiver._id]
+    // Notifier tous les participants
+    call.participants.forEach(participant => {
+      socket.to(participant._id.toString()).emit('callEnded', callData);
     });
+    socket.emit('callEnded', callData);
 
     return { success: true, call, message: callMessage };
   } catch (error) {
@@ -359,8 +417,6 @@ endCall: async (socket, data) => {
     return { success: false, error: error.message };
   }
 },
-
-  
 
   uploadAudio : async (req, res) => {
   try {
@@ -501,21 +557,17 @@ uploadCallRecording: async (req, res) => {
   }
 },
 
-// Modifiez handleCallResponse
 handleCallResponse: async (socket, data) => {
   try {
     const { callId, accepted, receiverId } = data;
-    
-    const call = await Call.findByIdAndUpdate(
-      callId,
-      {
-        status: accepted ? 'ongoing' : 'rejected',
-        [accepted ? 'acceptedAt' : 'rejectedAt']: new Date()
-      },
-      { new: true }
-    ).populate('caller receiver');
 
+    const call = await Call.findById(callId).populate('caller participants');
     if (!call) throw new Error('Call not found');
+
+    call.status = accepted ? 'ongoing' : 'rejected';
+    if (accepted) call.acceptedAt = new Date();
+    else call.endTime = new Date();
+    await call.save();
 
     let callMessage;
     if (!accepted) {
@@ -526,16 +578,29 @@ handleCallResponse: async (socket, data) => {
       callId: call._id,
       status: call.status,
       callerId: call.caller._id,
-      receiverId: call.receiver._id,
+      conversationId: call.conversation,
       type: call.type,
-      iconColor: accepted ? 'green' : 'red',
-      callClass: accepted ? 'ongoing-call' : 'rejected-call',
+      isGroupCall: call.isGroupCall,
       message: callMessage
     };
 
-    socket.to(call.caller._id.toString()).emit('callStatusUpdate', callData);
-    socket.to(receiverId).emit('callStatusUpdate', callData);
+    // Si accepté, annuler le timeout du "missed"
+    if (accepted && call.missedCallTimeout) {
+      clearTimeout(call.missedCallTimeout);
+      console.log('Missed call timeout cleared for call:', call._id);
+    }
+
+    call.participants.forEach(participant => {
+      socket.to(participant._id.toString()).emit('callStatusUpdate', callData);
+    });
     socket.emit('callStatusUpdate', callData);
+
+    if (accepted) {
+      call.participants.forEach(participant => {
+        socket.to(participant._id.toString()).emit('callStarted', callData);
+      });
+      socket.emit('callStarted', callData);
+    }
 
     return call;
   } catch (error) {
@@ -547,25 +612,10 @@ handleCallResponse: async (socket, data) => {
 
 
 
-// Modifiez saveCallToConversation
 saveCallToConversation: async function (call, socket) {
   try {
-    const isSelfConversation = call.caller._id.toString() === call.receiver._id.toString();
-
-    let conversation = await Conversation.findOne({
-      participants: isSelfConversation ? [call.caller._id] : { $all: [call.caller._id, call.receiver._id] },
-      isGroup: false,
-      isSelfConversation
-    });
-
-    if (!conversation) {
-      conversation = new Conversation({
-        participants: isSelfConversation ? [call.caller._id] : [call.caller._id, call.receiver._id],
-        messages: [],
-        isGroup: false,
-        isSelfConversation
-      });
-    }
+    const conversation = await Conversation.findById(call.conversation).populate('participants');
+    if (!conversation) throw new Error('Conversation not found');
 
     let callStatusText = '';
     let iconColor = 'green';
@@ -573,7 +623,7 @@ saveCallToConversation: async function (call, socket) {
 
     switch (call.status) {
       case 'ended':
-        callStatusText = ` (${Math.round(call.duration)}s)`;
+        callStatusText = call.duration ? ` (${Math.round(call.duration)}s)` : '';
         iconColor = 'green';
         callClass = 'ended-call';
         break;
@@ -587,61 +637,50 @@ saveCallToConversation: async function (call, socket) {
         iconColor = 'red';
         callClass = 'missed-call';
         break;
-      case 'ignored':
-        callStatusText = ' - Appel ignoré';
-        iconColor = 'orange';
-        callClass = 'ignored-call';
-        break;
       case 'cancelled':
         callStatusText = ' - Appel annulé';
         iconColor = 'orange';
         callClass = 'cancelled-call';
         break;
       default:
-        callStatusText = ' - Statut inconnu';
-        iconColor = 'gray';
-        callClass = 'unknown-call';
+        callStatusText = '';
     }
 
     const callMessage = new Message({
-      _id: call._id, // Utiliser l'ID de l'appel comme clé unique
-      sender: call.caller._id,
-      receiver: call.receiver._id,
-      content: `Appel ${call.type === 'video' ? 'vidéo' : 'audio'}${callStatusText}`,
+      _id: call._id,
+      sender: call.caller,
+      conversation: call.conversation,
+      content: `${call.isGroupCall ? 'Appel de groupe' : 'Appel'} ${call.type === 'video' ? 'vidéo' : 'audio'}${callStatusText}`,
       isCall: true,
       callData: {
         callId: call._id,
         duration: call.duration || 0,
         type: call.type,
         status: call.status,
-        caller: call.caller._id,
-        receiver: call.receiver._id,
-        iconColor,
-        callClass,
         startTime: call.startTime,
-        endTime: call.endTime
+        endTime: call.endTime,
+        iconColor,
+        callClass
       },
       createdAt: new Date()
     });
 
-    // Remplacer tout message existant avec le même callId
+    // Ajouter ou remplacer le message dans la conversation
     conversation.messages = conversation.messages.filter(
-      (msg) => msg.callData?.callId?.toString() !== call._id.toString()
+      msg => msg.callData?.callId?.toString() !== call._id.toString()
     );
     conversation.messages.push(callMessage);
     conversation.lastMessage = callMessage._id;
     conversation.updatedAt = new Date();
 
     await Promise.all([callMessage.save(), conversation.save()]);
-    call.conversation = conversation._id;
-    await call.save();
-
     const populatedMessage = await Message.findById(callMessage._id)
-      .populate('sender', 'firstName lastName profilePicture')
-      .populate('receiver', 'firstName lastName profilePicture');
+      .populate('sender', 'firstName lastName profilePicture');
 
-    socket.to(call.caller._id.toString()).emit('newMessage', populatedMessage);
-    socket.to(call.receiver._id.toString()).emit('newMessage', populatedMessage);
+    // Émettre à tous les participants
+    conversation.participants.forEach(participant => {
+      socket.to(participant._id.toString()).emit('newMessage', populatedMessage);
+    });
     socket.emit('newMessage', populatedMessage);
 
     return populatedMessage;
@@ -650,7 +689,7 @@ saveCallToConversation: async function (call, socket) {
     throw error;
   }
 },
-
+   
 
 cancelCall: async (socket, data) => {
   try {
