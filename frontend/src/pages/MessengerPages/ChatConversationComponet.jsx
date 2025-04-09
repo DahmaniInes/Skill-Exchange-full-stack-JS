@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import EmojiPicker from 'emoji-picker-react';
 import { FiPhoneCall, FiPhoneOff } from 'react-icons/fi';
 import { ConversationContext } from './ConversationContext';
+import axios from 'axios';
 
 const ChatConversation = ({ conversation, messages: initialMessages, onToggleComponent, hasOnlineUser, groupInfo }) => {
   const { currentConversation } = useContext(ConversationContext);
@@ -85,6 +86,36 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
     setIsBlocked(!!activeConversation.blockedBy);
     setBlockedBy(activeConversation.blockedBy);
 
+    const markMessagesAsRead = async () => {
+      try {
+        const token = localStorage.getItem('jwtToken');
+        await axios.post(
+          'http://localhost:5000/MessengerRoute/mark-messages-as-read',
+          {
+            conversationId: activeConversation._id,
+            userId: currentUserId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.sender?._id !== currentUserId && !msg.read ? { ...msg, read: true } : msg
+          )
+        );
+      } catch (error) {
+        console.error('Erreur lors du marquage des messages comme lus:', error);
+      }
+    };
+
+    if (currentUserId) {
+      markMessagesAsRead();
+    }
+
     socketRef.current = io('http://localhost:5000', {
       auth: { token: `Bearer ${localStorage.getItem('jwtToken')}` },
       transports: ['websocket', 'polling'],
@@ -122,14 +153,21 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
       console.log('Socket : Nouveau message reçu', message);
       if (message.conversation === activeConversation._id || message.conversation?._id === activeConversation._id) {
         setMessages((prev) => {
-          // Vérifier si le message existe déjà pour éviter les doublons
           if (prev.some((msg) => msg._id === message._id)) {
             console.log('Message déjà présent, ignoré', message._id);
             return prev;
           }
-          console.log('Ajout du nouveau message', message);
-          return [...prev, message];
+          const updatedMessage = { ...message, read: true }; // Marquer comme lu si reçu dans la conversation active
+          console.log('Ajout du nouveau message', updatedMessage);
+          return [...prev, updatedMessage];
         });
+
+        // Marquer comme lu côté serveur
+        axios.post(
+          'http://localhost:5000/MessengerRoute/mark-messages-as-read',
+          { conversationId: activeConversation._id, userId: currentUserId },
+          { headers: { Authorization: `Bearer ${localStorage.getItem('jwtToken')}` } }
+        ).catch((error) => console.error('Erreur marquage message lu:', error));
       } else {
         console.log('Message ignoré - Conversation différente', { received: message.conversation, active: activeConversation._id });
       }
@@ -301,7 +339,6 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         (msg, index, self) => index === self.findIndex((m) => m._id === msg._id)
       );
       setMessages((prev) => {
-        // Fusionner avec les messages existants pour ne pas écraser les messages en temps réel
         const mergedMessages = [...prev];
         uniqueMessages.forEach((newMsg) => {
           if (!mergedMessages.some((msg) => msg._id === newMsg._id)) {
@@ -712,6 +749,7 @@ const ChatConversation = ({ conversation, messages: initialMessages, onToggleCom
         createdAt: new Date(),
         isOptimistic: true,
         conversation: activeConversation._id,
+        read: true // Les messages envoyés par soi-même sont lus par défaut
       };
       console.log('handleSendMessage : Message optimiste', optimisticMessage);
       setMessages((prev) => [...prev, optimisticMessage]);

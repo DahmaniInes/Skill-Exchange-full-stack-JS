@@ -1,0 +1,133 @@
+.pageContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+    font-family: 'Arial', sans-serif;
+  }
+  
+  .card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+  }
+  
+  .iconContainer {
+    margin-bottom: 30px;
+  }
+  
+  .checkmarkCircle {
+    width: 80px;
+    height: 80px;
+    background-color: #06BBCC;
+    border-radius: 50%;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .checkmark {
+    width: 30px;
+    height: 60px;
+    border-right: 4px solid white;
+    border-bottom: 4px solid white;
+    transform: rotate(45deg) translate(-5px, -10px);
+  }
+  
+  .errorCircle {
+    width: 80px;
+    height: 80px;
+    background-color: #ff5252;
+    border-radius: 50%;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .errorX {
+    position: relative;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .errorX:before,
+  .errorX:after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 40px;
+    background-color: white;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .errorX:before {
+    transform: rotate(45deg);
+  }
+  
+  .errorX:after {
+    transform: rotate(-45deg);
+  }
+  
+  .title {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+  
+  .message {
+    color: #555;
+    font-size: 18px;
+    margin-bottom: 15px;
+    line-height: 1.5;
+  }
+  
+  .orderInfo {
+    color: #777;
+    font-size: 16px;
+    margin-bottom: 30px;
+  }
+  
+  .returnButton {
+    background-color: #06BBCC;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .returnButton:hover {
+    background-color: #059aa9;
+  }
+  
+  @media (max-width: 600px) {
+    .card {
+      padding: 30px 20px;
+      margin: 0 15px;
+    }
+    
+    .title {
+      font-size: 24px;
+    }
+    
+    .message {
+      font-size: 16px;
+    }
+    
+    .orderInfo {
+      font-size: 14px;
+    }
+  }

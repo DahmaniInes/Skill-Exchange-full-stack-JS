@@ -1444,3 +1444,23 @@
   background-color: #cccccc; /* Gris clair pour indiquer désactivé */
   cursor: not-allowed; /* Curseur interdit */
 }
+
+
+
+/*.unread-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+
+
+.chat-item.unread {
+  background-color: rgba(0, 132, 255, 0.05);
+}
+*/

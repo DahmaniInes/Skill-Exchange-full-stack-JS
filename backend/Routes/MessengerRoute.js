@@ -1,17 +1,25 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require("jsonwebtoken"); // Ajouté pour jwt.verify
 const messengerController = require('../Controllers/Messengers');
 const messageController = require('../Controllers/messageController');
 const { audioUpload, upload, callRecordingUpload } = require('../Config/cloudinaryMessenger');
 const verifyToken = require('../middleware/verifySession');
 const { Conversation, Message } = require('../Models/MessageSchema');
 const User = require('../Models/User');
-
+const Stripe = require("stripe");
 const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken"); // Ajouté pour jwt.verify
+const app = express();
+const stripe = Stripe("sk_test_51RBp5T2RFwWmT2NugdywQ4CSCjxzON7PIFwZTx3KjrITvoFabnkkzM8AkzXUho4055sTVo0gEug28kDiHGoqORga00ltpGgb0v");//privateKey
+
+
+
+
 
 router.post('/upload', upload.single('file'), messageController.uploadFile);
 router.get('/users', messengerController.getAllUsers);
+// Dans votre fichier de routes (ex: messengerRoutes.js)
+router.put('/upgradeToTeacher/:userId', messengerController.upgradeToTeacher);
 router.delete('/deleteConversationForUser', verifyToken, messengerController.deleteConversationForUser);
 router.get('/conversations', verifyToken, messengerController.getUserConversations);
 router.post('/upload-audio', audioUpload.single('file'), messageController.uploadAudio);
@@ -166,6 +174,135 @@ router.put('/updateGroupPhoto', verifyToken, async (req, res) => {
     res.status(200).json({ success: true, message: 'Photo du groupe mise à jour' });
   } catch (error) {
     console.error('Erreur:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+});
+
+
+
+
+
+
+
+// Route à ajouter dans votre fichier de routes (probablement MessengerRoutes.js)
+router.post('/mark-messages-as-read', verifyToken, async (req, res) => {
+  const { conversationId, userId } = req.body;
+
+  try {
+    // Vérifier que la conversation existe et que l'utilisateur en fait partie
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation non trouvée ou accès refusé' });
+    }
+
+    // Mettre à jour tous les messages non lus de la conversation pour cet utilisateur
+    const updatedMessages = await Message.updateMany(
+      {
+        conversation: conversationId,
+        sender: { $ne: userId }, // Ne pas mettre à jour les messages envoyés par l'utilisateur lui-même
+        read: false, // Seulement les messages non lus
+      },
+      { $set: { read: true } }
+    );
+
+    // Renvoyer une réponse avec le nombre de messages mis à jour
+    res.json({
+      success: true,
+      message: 'Messages marqués comme lus',
+      modifiedCount: updatedMessages.modifiedCount,
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des messages comme lus:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+router.post("/create-checkout-session", async (req, res) => {
+  const { teacherId, teacherName, studentId } = req.body;
+
+  if (!teacherId || !teacherName || !studentId) {
+    return res.status(400).json({ error: "teacherId, teacherName et studentId sont requis" });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `Session avec ${teacherName}`,
+            },
+            unit_amount: 5000,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: "http://localhost:5173/ConfirmPagePaiement?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "http://localhost:5173/CancelPagePaiement",
+      metadata: {
+        teacherId: teacherId, // Définir les métadonnées au niveau de la session
+        studentId: studentId,
+      },
+    });
+
+    res.json({ id: session.id });
+  } catch (error) {
+    console.error("Erreur lors de la création de la session Stripe :", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Vérification de la session Stripe (inchangée, mais incluse pour référence)
+router.get('/verify-checkout-session', async (req, res) => {
+  const { session_id } = req.query;
+
+  try {
+    if (!session_id) {
+      return res.status(400).json({ success: false, message: 'session_id requis' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (session.payment_status === 'paid') {
+      const { teacherId, studentId } = session.metadata;
+
+      if (!teacherId || !studentId) {
+        return res.status(400).json({ success: false, message: 'teacherId ou studentId manquant dans les métadonnées' });
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        studentId,
+        { $addToSet: { purchasedTeachers: teacherId } },
+        { new: true }
+      );
+
+      console.log(`Teacher ${teacherId} ajouté à purchasedTeachers pour l'utilisateur ${studentId}`);
+      return res.json({ success: true, message: 'Paiement confirmé', user: updatedUser });
+    } else {
+      return res.status(400).json({ success: false, message: 'Paiement non confirmé ou annulé' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la vérification de la session Stripe :', error);
     res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
   }
 });

@@ -1,12 +1,188 @@
 import React, { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
+import { loadStripe } from '@stripe/stripe-js';
 import styles from './DefaultPageStylesMessenger.module.css';
+
+const stripePromise = loadStripe('pk_test_51RBp5T2RFwWmT2NuEkuwiq7H4wwlPXmeQuHqWITY7aTtYga8Dgg7bY5GqlAHuk90uQQ46vkC3xr8DIc6A0YsS6i400YKnIyKhQ');
 
 const MessengerDefaultPage = () => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [communityUsers, setCommunityUsers] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [error, setError] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [purchasedTeachers, setPurchasedTeachers] = useState([]); // Nouveau state pour les formateurs débloqués
   const userCardsRef = useRef([]);
+  const socketRef = useRef(null);
 
+  // Initialisation et vérification du token
   useEffect(() => {
-    setIsLoaded(true);
+    console.log("=== INITIALISATION DE MESSENGER DEFAULT PAGE ===");
+    
+    const token = localStorage.getItem('jwtToken');
+    console.log('Token brut récupéré de localStorage :', token);
+
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        console.log('Token décodé :', decoded);
+        const userId = decoded.userId;
+        if (!userId) {
+          throw new Error('Aucun ID utilisateur trouvé dans le token (champ userId attendu)');
+        }
+        setCurrentUserId(userId);
+        console.log('Utilisateur connecté identifié :', userId);
+      } catch (err) {
+        console.error('Erreur lors du décodage du token JWT:', err.message);
+        setError('Token invalide ou corrompu');
+      }
+    } else {
+      console.warn('Aucun token JWT trouvé dans localStorage');
+      setError('Veuillez vous connecter');
+    }
+
+    socketRef.current = io('http://localhost:5000', {
+      auth: { token: `Bearer ${token}` },
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket : Connexion réussie au serveur');
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket : Erreur de connexion', error.message);
+    });
+
+    socketRef.current.on('userStatusUpdate', ({ userId, isOnline }) => {
+      console.log(`Mise à jour statut reçue : ${userId} -> ${isOnline ? 'en ligne' : 'déconnecté'}`);
+      setCommunityUsers((prevUsers) => {
+        const updatedUsers = prevUsers.map((user) => {
+          if (user.id === userId) {
+            console.log(`Mise à jour de ${user.name} (communauté) : isOnline = ${isOnline}`);
+            return { ...user, isOnline };
+          }
+          return user;
+        });
+        return updatedUsers;
+      });
+      setTeachers((prevTeachers) => {
+        const updatedTeachers = prevTeachers.map((teacher) => {
+          if (teacher.id === userId) {
+            console.log(`Mise à jour de ${teacher.name} (formateur) : isOnline = ${isOnline}`);
+            return { ...teacher, isOnline };
+          }
+          return teacher;
+        });
+        return updatedTeachers;
+      });
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        console.log('Socket : Déconnexion effectuée');
+      }
+    };
+  }, []);
+
+  // Authentification Socket.IO
+  useEffect(() => {
+    if (currentUserId && socketRef.current?.connected) {
+      socketRef.current.emit('authenticate', currentUserId);
+      console.log('Authentification Socket.IO émise pour :', currentUserId);
+    }
+  }, [currentUserId]);
+
+  // Récupération des utilisateurs (formateurs et communauté) + purchasedTeachers
+  useEffect(() => {
+    const fetchUsers = async () => {
+      console.log("=== CHARGEMENT DES UTILISATEURS ===");
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        console.error('Aucun token trouvé dans localStorage');
+        setError('Veuillez vous connecter pour voir les utilisateurs');
+        setIsLoaded(true);
+        return;
+      }
+
+      try {
+        console.log('Token envoyé :', token);
+        const response = await fetch('http://localhost:5000/MessengerRoute/users', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('Statut de la réponse :', response.status);
+        const data = await response.json();
+        console.log('Données reçues de l\'API :', JSON.stringify(data, null, 2));
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status} - ${data.message || response.statusText}`);
+        }
+
+        if (!data.success || !Array.isArray(data.data)) {
+          throw new Error('La réponse de l\'API n\'est pas valide ou ne contient pas de tableau d\'utilisateurs');
+        }
+
+        const filteredCommunityUsers = data.data
+          .filter((user) => user.role === 'user' || user.role === 'student')
+          .map((user) => ({
+            id: user._id,
+            name: `${user.firstName} ${user.lastName}${user._id === currentUserId ? ' (toi)' : ''}`,
+            isOnline: user.isOnline || false,
+            profilePicture: user.profilePicture || null,
+          }));
+
+        const filteredTeachers = data.data
+          .filter((user) => user.role === 'teacher')
+          .map((user) => ({
+            id: user._id,
+            name: `${user.firstName} ${user.lastName}`,
+            status: user.status || 'Formateur',
+            isPremium: true, // Tous les formateurs sont initialement Premium
+            isOnline: user.isOnline || false,
+            profilePicture: user.profilePicture || null,
+          }));
+
+        // Récupérer les formateurs débloqués (purchasedTeachers) de l'utilisateur actuel
+        const currentUser = data.data.find((user) => user._id === currentUserId);
+        if (currentUser && currentUser.purchasedTeachers) {
+          setPurchasedTeachers(currentUser.purchasedTeachers);
+          // Mettre à jour isPremium pour les formateurs débloqués
+          filteredTeachers.forEach((teacher) => {
+            if (currentUser.purchasedTeachers.includes(teacher.id)) {
+              teacher.isPremium = false; // Débloqué, pas Premium
+            }
+          });
+        }
+
+        console.log('Utilisateurs communauté filtrés :', filteredCommunityUsers);
+        console.log('Formateurs filtrés :', filteredTeachers);
+        console.log('Formateurs débloqués :', purchasedTeachers);
+        setCommunityUsers(filteredCommunityUsers);
+        setTeachers(filteredTeachers);
+        setIsLoaded(true);
+      } catch (error) {
+        console.error('Erreur lors de la récupération des utilisateurs :', error.message);
+        setError(error.message);
+        setIsLoaded(true);
+      }
+    };
+
+    if (currentUserId) {
+      fetchUsers();
+    }
+  }, [currentUserId]);
+
+  // Animation des cartes
+  useEffect(() => {
     userCardsRef.current.forEach((card, index) => {
       if (card) {
         setTimeout(() => {
@@ -15,25 +191,68 @@ const MessengerDefaultPage = () => {
         }, 100 + (index * 100));
       }
     });
-  }, []);
+  }, [communityUsers, teachers]);
 
-  const premiumTeachers = [
-    { id: 1, name: "Prof. Ahmed", status: "Expert en développement web", isPremium: true, online: false },
-    { id: 2, name: "Prof. Sophie", status: "Spécialiste UX/UI", isPremium: true, online: true },
-    { id: 3, name: "Prof. Karim", status: "Expert en sécurité informatique", isPremium: true, online: false },
-    { id: 4, name: "Prof. Linda", status: "Formatrice en data science", isPremium: true, online: true }
-  ];
+  // Gestion du clic sur un utilisateur ou formateur
+  const handleCardClick = async (user) => {
+    if (user.isPremium) { // Si c'est un formateur Premium (non débloqué)
+      console.log(`Clic sur le formateur ${user.name}, redirection vers Stripe...`);
+      
+      const stripe = await stripePromise;
 
-  const communityUsers = [
-    { id: 1, name: "Maria L.", status: "En ligne", isOnline: true },
-    { id: 2, name: "Thomas K.", status: "En ligne", isOnline: true },
-    { id: 3, name: "Amina H.", status: "Vu à 11:45", isOnline: false },
-    { id: 4, name: "Lucas M.", status: "Vu à 10:30", isOnline: false },
-    { id: 5, name: "Sarah B.", status: "En ligne", isOnline: true }
-  ];
+      try {
+        const response = await fetch('http://localhost:5000/MessengerRoute/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            teacherId: user.id,
+            teacherName: user.name,
+            studentId: currentUserId,
+          }),
+        });
 
-  const handleCardClick = (user) => {
-    console.log(`Conversation ouverte avec ${user.name}`);
+        const session = await response.json();
+
+        if (session.error) {
+          throw new Error(session.error);
+        }
+
+        console.log('Session Stripe créée avec ID :', session.id);
+        const result = await stripe.redirectToCheckout({
+          sessionId: session.id,
+        });
+
+        if (result.error) {
+          console.error('Erreur lors de la redirection Stripe :', result.error.message);
+          setError(result.error.message);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création de la session Checkout :', error.message);
+        setError('Impossible de rediriger vers le paiement');
+      }
+    } else if (!user.isPremium && teachers.some(t => t.id === user.id)) {
+      // Si c'est un formateur débloqué, ne rien faire pour l'instant
+      console.log(`Clic sur le formateur débloqué ${user.name}, aucune action pour le moment`);
+    } else {
+      // Si c'est un utilisateur de la communauté
+      console.log(`Conversation ouverte avec ${user.name}`);
+    }
+  };
+
+  const getAvatarContent = (user) => {
+    if (user.profilePicture) {
+      return (
+        <img
+          src={user.profilePicture}
+          alt={user.name}
+          className={styles.avatarImage}
+          onError={(e) => (e.target.src = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png')}
+        />
+      );
+    }
+    return <div className={styles.avatarPlaceholder}>{user.name.charAt(0).toUpperCase()}</div>;
   };
 
   return (
@@ -78,24 +297,29 @@ const MessengerDefaultPage = () => {
           </div>
 
           <div className={styles.userList}>
-            {premiumTeachers.map((teacher, index) => (
-              <div
-                key={teacher.id}
-                className={styles.userCard}
-                ref={(el) => (userCardsRef.current[index] = el)}
-                onClick={() => handleCardClick(teacher)}
-              >
-                <div className={styles.userAvatar}>
-                  <div className={styles.avatarPlaceholder}>{teacher.name.charAt(0)}</div>
+            {teachers.length > 0 ? (
+              teachers.map((teacher, index) => (
+                <div
+                  key={teacher.id}
+                  className={`${styles.userCard} ${!teacher.isPremium ? styles.unlockedCard : ''}`}
+                  ref={(el) => (userCardsRef.current[index] = el)}
+                  onClick={() => handleCardClick(teacher)}
+                >
+                  <div className={styles.userAvatar}>
+                    {getAvatarContent(teacher)}
+                  </div>
+                  <div className={styles.userInfo}>
+                    <div className={styles.userName}>{teacher.name}</div>
+                    <div className={styles.userStatus}>{teacher.status}</div>
+                  </div>
+                  <span className={`${styles.userBadge} ${teacher.isPremium ? styles.badgePremium : styles.badgeUnlocked}`}>
+                    {teacher.isPremium ? 'Premium' : 'Débloqué'}
+                  </span>
                 </div>
-                <div className={styles.userInfo}>
-                  <div className={styles.userName}>{teacher.name}</div>
-                  <div className={styles.userStatus}>{teacher.status}</div>
-                </div>
-                <span className={`${styles.userBadge} ${styles.badgePremium}`}>Premium</span>
-                {teacher.online && <div className={styles.activeDot}></div>}
-              </div>
-            ))}
+              ))
+            ) : (
+              <p>Aucun formateur à afficher</p>
+            )}
           </div>
 
           <div className={styles.sectionFooter}>
@@ -119,25 +343,43 @@ const MessengerDefaultPage = () => {
             </h2>
           </div>
 
-          <div className={styles.userList}>
-            {communityUsers.map((user, index) => (
-              <div
-                key={user.id}
-                className={styles.userCard}
-                ref={(el) => (userCardsRef.current[premiumTeachers.length + index] = el)}
-                onClick={() => handleCardClick(user)}
-              >
-                <div className={styles.userAvatar}>
-                  <div className={styles.avatarPlaceholder}>{user.name.charAt(0)}</div>
-                </div>
-                <div className={styles.userInfo}>
-                  <div className={styles.userName}>{user.name}</div>
-                  <div className={`${styles.userStatus} ${user.isOnline ? styles.online : ''}`}>{user.status}</div>
-                </div>
-                {user.isOnline && <div className={styles.activeDot}></div>}
-              </div>
-            ))}
-          </div>
+          {error ? (
+            <div className={styles.errorMessage}>
+              <p>Erreur : {error}</p>
+            </div>
+          ) : !isLoaded ? (
+            <p>Chargement des utilisateurs...</p>
+          ) : (
+            <div className={styles.userList}>
+              {communityUsers.length > 0 ? (
+                communityUsers.map((user, index) => (
+                  <div
+                    key={user.id}
+                    className={styles.userCard}
+                    ref={(el) => (userCardsRef.current[teachers.length + index] = el)}
+                    onClick={() => handleCardClick(user)}
+                  >
+                    <div className={styles.userAvatar}>
+                      {getAvatarContent(user)}
+                    </div>
+                    <div className={styles.userInfo}>
+                      <div className={styles.userName}>{user.name}</div>
+                      <div className={`${styles.userStatus} ${user.isOnline ? styles.online : ''}`}>
+                        {user.isOnline ? (
+                          <span style={{ color: '#98FF98' }}>En ligne</span>
+                        ) : (
+                          'Déconnecté'
+                        )}
+                      </div>
+                    </div>
+                    {user.isOnline && <div className={styles.activeDot}></div>}
+                  </div>
+                ))
+              ) : (
+                <p>Aucun utilisateur à afficher</p>
+              )}
+            </div>
+          )}
 
           <div className={styles.sectionFooter}>
             <button className={styles.viewMoreBtn}>

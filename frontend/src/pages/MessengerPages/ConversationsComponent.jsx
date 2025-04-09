@@ -10,14 +10,19 @@ const ConversationsComponent = ({ onConversationSelect }) => {
   const [error, setError] = useState(null);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [unseenMessages, setUnseenMessages] = useState({});
   const socketRef = useRef(null);
 
   useEffect(() => {
+    console.log("=== INITIALISATION DU COMPOSANT ===");
+    console.log("État actuel des messages non lus:", unseenMessages);
+    
     const token = localStorage.getItem('jwtToken');
     if (token) {
       try {
         const decoded = jwtDecode(token);
         setCurrentUserId(decoded.userId);
+        console.log('Initialisation : currentUserId défini', decoded.userId);
       } catch (error) {
         console.error('Erreur lors du décodage du token JWT:', error);
       }
@@ -40,43 +45,76 @@ const ConversationsComponent = ({ onConversationSelect }) => {
     });
 
     socketRef.current.on('newMessage', (message) => {
-      console.log('Nouveau message reçu dans ConversationsComponent', message);
+      console.log('===== NOUVEAU MESSAGE REÇU =====');
+      console.log('Message reçu:', message);
+      
+      if (!message || !message.conversation?._id || !message._id) {
+        console.error('Message invalide ou incomplet:', message);
+        return;
+      }
+
       setConversations((prevConversations) => {
+        const conversationExists = prevConversations.some(conv => conv?._id === message.conversation._id);
+        if (!conversationExists) {
+          console.log('Conversation non trouvée dans la liste actuelle, ignorée:', message.conversation._id);
+          return prevConversations;
+        }
+
         const updatedConversations = prevConversations.map((conv) => {
-          if (conv._id === message.conversation?._id) {
-            return {
-              ...conv,
-              lastMessage: {
-                _id: message._id,
-                content: message.content,
-                createdAt: message.createdAt,
-                sender: message.sender,
-              },
-              messages: [...(conv.messages || []), message],
-            };
-          }
-          return conv;
-        });
+          if (!conv || conv._id !== message.conversation._id) return conv;
+          console.log('Mise à jour de la conversation:', conv._id);
+          return {
+            ...conv,
+            lastMessage: {
+              _id: message._id,
+              content: message.content || 'Message vide',
+              createdAt: message.createdAt || new Date(),
+              sender: message.sender || { _id: 'unknown' },
+              read: message.read ?? false,
+            },
+            messages: [...(conv.messages || []), message],
+          };
+        }).filter(conv => conv && conv._id); // Filtrer les objets invalides après mise à jour
+        
         return updatedConversations.sort((a, b) => {
-          const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
-          const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
+          const dateA = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
+          const dateB = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
           return dateB - dateA;
         });
       });
+
+      if (
+        message.sender?._id !== currentUserId &&
+        message.conversation?._id !== selectedConversationId &&
+        !message.read
+      ) {
+        console.log('MESSAGE MARQUÉ COMME NON LU:', message.conversation._id);
+        setUnseenMessages((prev) => ({
+          ...prev,
+          [message.conversation._id]: true,
+        }));
+      } else {
+        console.log('Message déjà vu ou envoyé par moi-même');
+      }
     });
 
     socketRef.current.on('groupUpdated', (data) => {
-      console.log('Mise à jour du groupe reçue dans ConversationsComponent', data);
+      console.log('Socket : Mise à jour du groupe reçue', data);
+      if (!data?.conversationId) {
+        console.error('Données de mise à jour de groupe invalides:', data);
+        return;
+      }
       setConversations((prevConversations) =>
         prevConversations.map((conv) =>
-          conv._id === data.conversationId
+          conv?._id === data.conversationId
             ? { ...conv, name: data.groupName, image: data.groupPhoto }
             : conv
-        )
+        ).filter(conv => conv && conv._id)
       );
     });
 
     const fetchConversations = async () => {
+      console.log("=== CHARGEMENT DES CONVERSATIONS ===");
       try {
         const response = await axios.get('http://localhost:5000/MessengerRoute/conversations', {
           headers: {
@@ -85,35 +123,69 @@ const ConversationsComponent = ({ onConversationSelect }) => {
         });
 
         if (response.data && Array.isArray(response.data.data)) {
-          const sortedConversations = response.data.data.sort((a, b) => {
-            const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
-            const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
+          console.log("Données brutes reçues du serveur:", response.data.data);
+          
+          const validConversations = response.data.data.filter(conv => 
+            conv && 
+            conv._id && 
+            (conv.lastMessage === null || (conv.lastMessage && typeof conv.lastMessage === 'object'))
+          ).map(conv => ({
+            ...conv,
+            lastMessage: conv.lastMessage || { content: 'Aucun message', createdAt: null }
+          }));
+          
+          console.log("Conversations valides après filtrage:", validConversations);
+          
+          const sortedConversations = validConversations.sort((a, b) => {
+            const dateA = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
+            const dateB = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
             return dateB - dateA;
           });
+          
+          const newUnseenMessages = {};
+          sortedConversations.forEach(conv => {
+            if (
+              conv?.lastMessage &&
+              conv.lastMessage.sender?._id !== currentUserId &&
+              !conv.lastMessage.read
+            ) {
+              newUnseenMessages[conv._id] = true;
+              console.log(`Conversation ${conv._id}: dernier message non lu détecté`);
+            }
+          });
+          
           setConversations(sortedConversations);
+          setUnseenMessages(newUnseenMessages);
+          setLoading(false);
         } else {
           setConversations([]);
           console.error('La réponse ne contient pas un tableau de conversations:', response.data);
+          setLoading(false);
         }
-
-        setLoading(false);
       } catch (err) {
         setError(err.message);
         setLoading(false);
         setConversations([]);
+        console.error('Erreur lors du chargement des conversations', err.message);
       }
     };
 
     fetchConversations();
-    const intervalId = setInterval(fetchConversations, 10000);
+    const intervalId = setInterval(fetchConversations, 30000);
 
     return () => {
       clearInterval(intervalId);
       if (socketRef.current) {
         socketRef.current.disconnect();
+        console.log('Socket : Déconnexion effectuée');
       }
     };
-  }, [currentUserId]);
+  }, [currentUserId, selectedConversationId]);
+
+  useEffect(() => {
+    console.log("===== MISE À JOUR DE L'ÉTAT UNSEEN MESSAGES =====");
+    console.log("Nouvel état:", unseenMessages);
+  }, [unseenMessages]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -139,12 +211,24 @@ const ConversationsComponent = ({ onConversationSelect }) => {
   };
 
   const truncateMessage = (message, maxLength = 20) => {
-    if (!message || message.length <= maxLength) return message;
+    if (!message || message.length <= maxLength) return message || '';
     return message.substring(0, maxLength) + '...';
   };
 
   const handleConversationSelect = async (conversation) => {
+    if (!conversation || !conversation._id) {
+      console.error('Conversation invalide sélectionnée:', conversation);
+      return;
+    }
+
+    console.log("===== SÉLECTION DE CONVERSATION =====");
+    console.log("ID de la conversation sélectionnée:", conversation._id);
+    
     setSelectedConversationId(conversation._id);
+    setUnseenMessages((prev) => ({
+      ...prev,
+      [conversation._id]: false,
+    }));
 
     const token = localStorage.getItem('jwtToken');
     if (!currentUserId) {
@@ -152,15 +236,13 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       return;
     }
 
-    const payload = {
-      conversationId: conversation._id,
-      userId: currentUserId,
-    };
-
     try {
       const response = await axios.post(
         'http://localhost:5000/MessengerRoute/select-conversation',
-        payload,
+        {
+          conversationId: conversation._id,
+          userId: currentUserId,
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -168,13 +250,22 @@ const ConversationsComponent = ({ onConversationSelect }) => {
         }
       );
 
-      console.log('Réponse du serveur:', response.data);
+      console.log('Réponse du serveur pour la sélection:', response.data);
 
-      const hasOnlineUser = conversation.participants.some(
-        (p) => p._id !== currentUserId && p.isOnline
+      const updatedMessages = response.data.messages || [];
+      setConversations((prevConversations) =>
+        prevConversations.map((conv) =>
+          conv?._id === conversation._id
+            ? { ...conv, messages: updatedMessages, lastMessage: response.data.conversation?.lastMessage || conv.lastMessage }
+            : conv
+        ).filter(conv => conv && conv._id)
       );
 
-      const updatedConversation = conversations.find((conv) => conv._id === conversation._id);
+      const hasOnlineUser = conversation.participants?.some(
+        (p) => p?._id !== currentUserId && p.isOnline
+      ) || false;
+
+      const updatedConversation = conversations.find((conv) => conv?._id === conversation._id) || conversation;
       const mergedMessages = [
         ...(updatedConversation?.messages || []),
         ...(response.data.messages || []),
@@ -208,8 +299,8 @@ const ConversationsComponent = ({ onConversationSelect }) => {
         }
       } else {
         const otherParticipant = conversation.isSelfConversation
-          ? conversation.participants.find((p) => p._id === currentUserId)
-          : conversation.participants.find((p) => p._id !== currentUserId);
+          ? conversation.participants?.find((p) => p?._id === currentUserId)
+          : conversation.participants?.find((p) => p?._id !== currentUserId);
 
         console.log('Données passées à ChatConversation (individuel):', {
           conversation,
@@ -237,31 +328,36 @@ const ConversationsComponent = ({ onConversationSelect }) => {
   const generateGroupName = (participants) => {
     if (!participants || participants.length === 0) return 'Groupe sans nom';
     const participantNames = participants
-      .filter((p) => p._id !== currentUserId)
-      .map((p) => p.firstName);
+      .filter((p) => p?._id !== currentUserId)
+      .map((p) => p?.firstName || 'Inconnu');
     if (participantNames.length === 0) return 'Groupe vide';
     if (participantNames.length <= 2) return participantNames.join(', ');
     return `${participantNames.slice(0, 2).join(', ')}...`;
   };
 
   const getDisplayInfo = (conversation) => {
-    if (!conversation || !currentUserId) {
+    if (!conversation || !conversation._id || !currentUserId) {
+      console.warn('Conversation invalide ou incomplète passée à getDisplayInfo:', conversation);
       return {
         name: 'Conversation inconnue',
         image: 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png',
-        lastMessage: '',
+        lastMessage: 'Aucun message',
         time: '',
         fullDate: '',
         hasOnlineUser: false,
       };
     }
 
-    const hasOnlineUser = conversation.participants.some(
-      (p) => p._id !== currentUserId && p.isOnline
-    );
+    const hasOnlineUser = conversation.participants?.some(
+      (p) => p?._id !== currentUserId && p.isOnline
+    ) || false;
     const defaultMessage = conversation.messages?.length === 0
       ? 'Aucun message'
       : 'Nouveau message';
+
+    if (!conversation.lastMessage) {
+      console.warn(`Conversation ${conversation._id} sans lastMessage, utilisation de la valeur par défaut`);
+    }
 
     if (conversation.isGroup) {
       const groupName = conversation.name || generateGroupName(conversation.participants);
@@ -276,7 +372,7 @@ const ConversationsComponent = ({ onConversationSelect }) => {
     }
 
     if (conversation.isSelfConversation) {
-      const selfParticipant = conversation.participants.find((p) => p._id === currentUserId);
+      const selfParticipant = conversation.participants?.find((p) => p?._id === currentUserId);
       return {
         name: selfParticipant
           ? `${selfParticipant.firstName} ${selfParticipant.lastName} (Moi)`
@@ -289,7 +385,7 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       };
     }
 
-    const otherParticipant = conversation.participants.find((p) => p._id !== currentUserId);
+    const otherParticipant = conversation.participants?.find((p) => p?._id !== currentUserId);
     return {
       name: otherParticipant
         ? `${otherParticipant.firstName} ${otherParticipant.lastName}`
@@ -304,6 +400,12 @@ const ConversationsComponent = ({ onConversationSelect }) => {
 
   if (loading) return <div>Chargement...</div>;
   if (error) return <div>Erreur: {error}</div>;
+
+  console.log('===== RENDU DES CONVERSATIONS =====');
+  console.log('Total des conversations:', conversations.length);
+  console.log('Conversations actuelles:', conversations);
+  console.log('État des messages non lus au rendu:', unseenMessages);
+  console.log('Conversation sélectionnée:', selectedConversationId);
 
   return (
     <div className="conversations">
@@ -367,8 +469,15 @@ const ConversationsComponent = ({ onConversationSelect }) => {
       </div>
 
       <ul className="chat-list">
-        {conversations.map((conversation) => {
+        {conversations.filter(conv => conv && conv._id).map((conversation) => {
           const { name, image, lastMessage, time, fullDate, hasOnlineUser } = getDisplayInfo(conversation);
+          const isUnseen = unseenMessages[conversation._id] === true;
+          
+          console.log(`Conversation ${conversation._id}:`, {
+            name,
+            isUnseen,
+            lastMessage: truncateMessage(lastMessage)
+          });
 
           return (
             <li
@@ -389,13 +498,18 @@ const ConversationsComponent = ({ onConversationSelect }) => {
               </div>
               <div className="chat-details">
                 <div className="chat-header">
-                  <span className="chat-name">{name}</span>
-                  <span className="chat-time">{time}</span>
+                  <span className="chat-name" style={{ fontWeight: isUnseen ? 'bold' : 'normal' }}>{name}</span>
+                  <span className="chat-time" style={{ fontWeight: isUnseen ? 'bold' : 'normal' }}>{time}</span>
                 </div>
                 <div className="chat-message">
-                  <span className="chat-message-text">{truncateMessage(lastMessage)}</span>
+                  <span
+                    className="chat-message-text"
+                    style={{ fontWeight: isUnseen ? 'bold' : 'normal' }}
+                  >
+                    {truncateMessage(lastMessage)}
+                  </span>
                   {fullDate && (
-                    <span className="chat-message-date"> · {fullDate}</span>
+                    <span className="chat-message-date" style={{ fontWeight: isUnseen ? 'bold' : 'normal' }}> · {fullDate}</span>
                   )}
                 </div>
                 <div className={`unread-indicator ${hasOnlineUser ? 'online' : ''}`}></div>

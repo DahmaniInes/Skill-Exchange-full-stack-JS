@@ -362,3 +362,16 @@
   0% { transform: translateY(0); }
   100% { transform: translateY(-3px); }
 }
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Nouveaux styles pour Débloqué */
+.badgeUnlocked {
+  background-color: #06BBCC; /* Gris moyen */
+  color: #fff;
+}
+

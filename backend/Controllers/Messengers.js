@@ -141,11 +141,19 @@ const getUserConversations = async (req, res) => {
 // Fonction existante : getAllUsers
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-password -authKeyTOTP');
+    const users = await User.find({}).select('-password -authKeyTOTP').lean(); // .lean() pour performance
+    console.log("[getAllUsers] Nombre total d'utilisateurs trouvés :", users.length);
+
+    // Ajouter le statut isOnline basé sur onlineUsers
+    const usersWithStatus = users.map((user) => ({
+      ...user,
+      isOnline: onlineUsers.has(user._id.toString()), // Vérifie si l'utilisateur est dans le Set
+    }));
+
     res.status(200).json({
       success: true,
-      count: users.length,
-      data: users,
+      count: usersWithStatus.length,
+      data: usersWithStatus,
     });
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -903,7 +911,43 @@ const unblockUser = async (req, res) => {
   }
 };
 
+
+// Dans messengerController.js
+const upgradeToTeacher = async (req, res) => {
+  try {
+    const { userId } = req.params; // Récupération depuis les paramètres d'URL
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "ID d'utilisateur invalide" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { role: "teacher" } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    res.status(200).json({
+      message: "Rôle mis à jour avec succès (teacher)",
+      user: {
+        id: updatedUser._id,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role
+      }
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du rôle:", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
 module.exports = {
+  upgradeToTeacher,
   getAllUsers,
   deleteConversationForUser,
   getUserConversations,

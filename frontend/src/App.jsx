@@ -23,8 +23,11 @@ import Profile from './pages/profile/ProfilePage';
 import MessengerPage from './pages/MessengerPages/MessengerPage';
 import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
 
+import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
+import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
 
 import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
+
 
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
@@ -84,6 +87,8 @@ function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="MessengerPage" element={<MessengerPage />} />
           <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
+          <Route path="ConfirmPagePaiement" element={<ConfirmPagePaiement />} />
+          <Route path="CancelPagePaiement" element={<CancelPagePaiement />} />
 
           <Route path="*" element={<NotFound />} />
         </Route>

@@ -90,6 +90,14 @@ const UserSchema = new mongoose.Schema(
     privacySettings: { 
       isProfilePublic: { type: Boolean, default: true } 
     },
+    role: {
+      type: String,
+      enum: {
+        values: ["super-admin", "admin", "user", "student", "teacher"],
+        message: 'Rôle invalide'
+      },
+      default: "user"
+    },
 
     // Notifications personnalisables
     notifications: {
@@ -103,6 +111,25 @@ const UserSchema = new mongoose.Schema(
     //  Statut en ligne
     status: { type: String, enum: ["online", "offline", "away"], default: "offline" },
 
+
+
+
+    // Nouveau champ : Liste des professeurs ayant payé (pour user et student uniquement)
+    purchasedTeachers: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      validate: {
+        validator: function (v) {
+          // Autoriser ce champ uniquement pour les rôles "user" et "student"
+          return (
+            (this.role === "user" || this.role === "student") &&
+            Array.isArray(v)
+          );
+        },
+        message:
+          "Le champ purchasedTeachers est réservé aux rôles 'user' et 'student'",
+      },
+    },
   },
   { timestamps: true } // Ajoute automatiquement createdAt et updatedAt
 

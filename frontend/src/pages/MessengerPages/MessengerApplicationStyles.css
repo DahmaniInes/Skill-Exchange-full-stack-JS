@@ -570,6 +570,9 @@ body {
 }
 
 
+.chat-message-text.unseen {
+  font-weight: bold;
+}
 
 
 }
