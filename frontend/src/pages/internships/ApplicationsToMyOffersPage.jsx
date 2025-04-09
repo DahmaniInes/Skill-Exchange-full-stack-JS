@@ -179,6 +179,7 @@ const ApplicationManagementTable = () => {
               <TableCell>Status</TableCell>
               <TableCell>Cover Letter</TableCell>
               <TableCell>Applied At</TableCell>
+              <TableCell>Student Progress</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -212,6 +213,19 @@ const ApplicationManagementTable = () => {
                   </IconButton>
                 </TableCell>
                 <TableCell>{new Date(app.appliedAt).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {app.status === "accepted" && (
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      size="small"
+                      onClick={() => window.location.href = `/applications/${app._id}/progress`}
+                    >
+                      View Progress
+                    </Button>
+                  )}
+                </TableCell>
+
               </TableRow>
             ))}
           </TableBody>

@@ -18,6 +18,8 @@ const StudentInternshipListPage = () => {
 
   const navigate = useNavigate();
 
+  
+
   useEffect(() => {
     const fetchInternships = async () => {
       try {

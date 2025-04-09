@@ -28,6 +28,9 @@ import StudentInternshipListPage from './pages/internships/StudentInternshipList
 import ApplyInternshipPage from './pages/internships/ApplyInternshipPage';
 import ApplicationsToMyOffersPage from './pages/internships/ApplicationsToMyOffersPage';
 import StudentApplicationsTable from './pages/internships/StudentApplicationsTable';
+import ManageInternshipTasksPage from "./pages/internships/ManageInternshipTasksPage";
+import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage";
+
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
@@ -86,6 +89,9 @@ function App() {
         <Route path="/internships/apply/:id" element={<ApplyInternshipPage />} />
         <Route path="/internships/applications" element={<ApplicationsToMyOffersPage />} />
         <Route path="/internships/student/applications" element={<StudentApplicationsTable />} />
+        <Route path="/internships/:id/tasks" element={<ManageInternshipTasksPage />} />
+        <Route path="/applications/:applicationId/progress" element={<ApplicationProgressPage />} />
+
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

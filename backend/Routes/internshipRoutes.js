@@ -6,6 +6,7 @@ const Skill = require("../Models/Skill");
 const User = require("../Models/User");
 const verifySession = require("../middleware/verifySession");
 const { upload } = require("../Config/multerConfig");
+const InternshipTaskProgress = require("../Models/InternshipTaskProgress");
 
 // Middleware to attach full user object from req.userId
 const attachUser = async (req, res, next) => {
@@ -43,9 +44,10 @@ router.get("/my-offers", verifySession, attachUser, async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const offers = await InternshipOffer.find({ createdBy: userId })
-      .populate("skills", "name categories imageUrl")
-      .populate("createdBy", "firstName lastName email");
+    const offers = await InternshipOffer.find({ assignedTo: null })
+        .populate("skills", "name categories imageUrl")
+        .populate("createdBy", "firstName lastName email");
+
 
     res.json(offers);
   } catch (err) {
@@ -224,6 +226,12 @@ router.post(
           .json({ message: "Only students can apply to internships." });
       }
 
+      const offer = await InternshipOffer.findById(internshipOfferId);
+      if (offer.assignedTo) {
+        return res.status(403).json({ message: "This internship has already been assigned." });
+      }
+
+
       const alreadyApplied = await InternshipApplication.findOne({
         student,
         internshipOffer: internshipOfferId,
@@ -312,7 +320,33 @@ router.put(
           .json({ message: "Not authorized to update this application" });
       }
 
+
+
       application.status = status;
+
+      if (status === "accepted") {
+        const offer = await InternshipOffer.findById(application.internshipOffer._id);
+        offer.assignedTo = application.student;
+        await offer.save();
+      
+        await Promise.all(
+          offer.tasks.map(task =>
+            InternshipTaskProgress.create({
+              internshipOffer: offer._id,
+              student: application.student,
+              taskId: task._id,
+              status: "not_started"
+            })
+          )
+        );
+      
+        await InternshipApplication.updateMany(
+          { internshipOffer: offer._id, _id: { $ne: application._id } },
+          { $set: { status: "rejected" } }
+        );
+      }
+      
+      
       await application.save();
 
       res.json({ message: "Application status updated", application });
@@ -335,5 +369,108 @@ router.get("/applications/student", verifySession, attachUser, async (req, res) 
     res.status(500).json({ message: "Failed to fetch applications" });
   }
 });
+
+// Get task progress for an assigned student
+router.get("/offers/:id/tasks/progress", verifySession, attachUser, async (req, res) => {
+  try {
+    const offer = await InternshipOffer.findById(req.params.id);
+    if (!offer || !offer.assignedTo.equals(req.user._id)) {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    const progress = await InternshipTaskProgress.find({
+      internshipOffer: offer._id,
+      student: req.user._id
+    });
+
+    const tasksWithProgress = offer.tasks.map(task => {
+      const prog = progress.find(p => p.taskId.equals(task._id));
+      return {
+        ...task.toObject(),
+        progress: prog ? prog.status : "not_started"
+      };
+    });
+
+    res.json(tasksWithProgress);
+  } catch (err) {
+    console.error("Error fetching task progress:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update task progress
+router.put("/offers/:id/tasks/:taskId/status", verifySession, attachUser, async (req, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { status } = req.body;
+
+    if (!['not_started', 'in_progress', 'completed'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value." });
+    }
+
+    const offer = await InternshipOffer.findById(id);
+    if (!offer || !offer.assignedTo.equals(req.user._id)) {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    const task = offer.tasks.id(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    const updated = await InternshipTaskProgress.findOneAndUpdate(
+      { internshipOffer: id, student: req.user._id, taskId },
+      { status, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: "Task status updated", progress: updated });
+  } catch (err) {
+    console.error("Error updating task progress:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/applications/:id/progress", verifySession, attachUser, async (req, res) => {
+  try {
+    const application = await InternshipApplication.findById(req.params.id)
+      .populate("student", "firstName lastName")
+      .populate("internshipOffer");
+
+    if (!application || !application.internshipOffer || !application.student) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    if (!application.internshipOffer.createdBy.equals(req.user._id)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const progress = await InternshipTaskProgress.find({
+      internshipOffer: application.internshipOffer._id,
+      student: application.student._id,
+    });
+
+    const mergedTasks = application.internshipOffer.tasks.map((task) => {
+      const matchingProgress = progress.find((p) => p.taskId.equals(task._id));
+      return {
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        progress: matchingProgress?.status || "not_started",
+      };
+    });
+
+    res.json({
+      studentName: `${application.student.firstName} ${application.student.lastName}`,
+      internshipTitle: application.internshipOffer.title,
+      tasks: mergedTasks,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error loading progress" });
+  }
+});
+
+
 
 module.exports = router;

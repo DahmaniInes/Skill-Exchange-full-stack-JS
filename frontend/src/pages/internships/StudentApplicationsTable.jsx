@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
   Table, TableBody, TableCell, TableHead, TableRow,
-  Typography, Box, IconButton
+  Typography, Box, IconButton, Button
 } from "@mui/material";
 import { Download } from "lucide-react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom"; // 🔁 For redirection
 
 const getStatusTag = (status) => {
   let color = "#f0ad4e"; // default: orange for "pending"
@@ -35,6 +36,7 @@ const getStatusTag = (status) => {
 
 const StudentApplicationsTable = () => {
   const [applications, setApplications] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchStudentApps = async () => {
@@ -68,6 +70,7 @@ const StudentApplicationsTable = () => {
               <TableCell>Status</TableCell>
               <TableCell>CV</TableCell>
               <TableCell>Applied At</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -87,6 +90,17 @@ const StudentApplicationsTable = () => {
                 </TableCell>
                 <TableCell>
                   {new Date(app.appliedAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  {app.status === "accepted" && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => navigate(`/internships/${app.internshipOffer._id}/tasks`)}
+                    >
+                      Manage Tasks
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
