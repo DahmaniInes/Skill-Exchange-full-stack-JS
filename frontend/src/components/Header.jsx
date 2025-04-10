@@ -72,12 +72,12 @@ function Header() {
         // Récupérer le rôle via une requête API
         const fetchUserRole = async () => {
           try {
-            const response = await axiosInstance.get('/users/profile'); // Utiliser l'endpoint existant
-            setUserRole(response.data.role); // Récupérer le rôle depuis la réponse
+            const response = await axiosInstance.get('/users/profile');
+            setUserRole(response.data.role);
             console.log('Rôle récupéré:', response.data.role);
           } catch (error) {
             console.error('Erreur lors de la récupération du rôle:', error.response?.data || error.message);
-            setUserRole(null); // En cas d'erreur, rôle reste null
+            setUserRole(null);
           }
         };
         fetchUserRole();
@@ -158,9 +158,9 @@ function Header() {
     };
   }, [currentUserId]);
 
-  // Réinitialiser les messages non lus quand on visite la page Messenger
+  // Réinitialiser les messages non lus quand on visite la page Messenger (non-admin uniquement)
   useEffect(() => {
-    if (location.pathname === "/MessengerDefaultPage") {
+    if (location.pathname === "/MessengerDefaultPage" && userRole !== "admin") {
       setUnseenMessages({});
       const markAllAsRead = async () => {
         try {
@@ -174,7 +174,7 @@ function Header() {
       };
       markAllAsRead();
     }
-  }, [location.pathname, currentUserId]);
+  }, [location.pathname, currentUserId, userRole]);
 
   // Logout
   const handleLogout = async () => {
@@ -182,7 +182,7 @@ function Header() {
       const response = await axiosInstance.post("/users/logout");
       console.log("Logout successful:", response.data);
       localStorage.removeItem("jwtToken");
-      setUserRole(null); // Réinitialiser le rôle lors de la déconnexion
+      setUserRole(null);
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error.response?.data || error.message);
@@ -305,10 +305,10 @@ function Header() {
     };
   }, []);
 
-  // Calculer le nombre total de messages non lus
-  const unseenCount = Object.values(unseenMessages).filter(Boolean).length;
+  // Calculer le nombre total de messages non lus (pour non-admin uniquement)
+  const unseenCount = userRole !== "admin" ? Object.values(unseenMessages).filter(Boolean).length : 0;
 
-  // Gestion du clic sur le lien Messenger
+  // Gestion du clic sur le lien Messenger (non-admin uniquement)
   const handleMessengerClick = (e) => {
     const token = localStorage.getItem('jwtToken');
     if (!token) {
@@ -413,7 +413,7 @@ function Header() {
       >
         <Link to="/" className="navbar-brand d-flex align-items-center px-4 px-lg-5">
           <h2 className="m-0 text-primary">
-            <i className="fa fa-book me-3"></i>eLEARNING
+            <i className="fa fa-book me-2"></i>eLEARNING
           </h2>
         </Link>
         
@@ -428,27 +428,25 @@ function Header() {
         
         <div className="collapse navbar-collapse" id="navbarCollapse">
           <div className="navbar-nav ms-auto p-4 p-lg-0">
-            {/* Menu pour tous les utilisateurs */}
-            <Link to="/" className={`nav-item nav-link ${location.pathname === "/" ? "active" : ""}`}>
-              Home
-            </Link>
-
             {/* Menu conditionnel basé sur le rôle */}
             {userRole === "admin" ? (
               <>
                 <Link to="/reports" className={`nav-item nav-link ${location.pathname === "/reports" ? "active" : ""}`}>
-                  Reports
+                  <i className="fa fa-chart-bar me-2"></i>Reports
                 </Link>
                 <Link to="/skillsmarketplace" className={`nav-item nav-link ${location.pathname === "/skillsmarketplace" ? "active" : ""}`}>
-                  SkillsMarketPlace
+                  <i className="fa fa-shopping-cart me-2"></i>SkillsMarketPlace
                 </Link>
                 <Link to="/stage" className={`nav-item nav-link ${location.pathname === "/stage" ? "active" : ""}`}>
-                  Stage
+                  <i className="fa fa-graduation-cap me-2"></i>Stage
                 </Link>
               </>
             ) : (
               // Menu par défaut pour tous les non-admins (user, student, teacher, ou non connecté)
               <>
+                <Link to="/" className={`nav-item nav-link ${location.pathname === "/" ? "active" : ""}`}>
+                  Home
+                </Link>
                 <Link to="/about" className={`nav-item nav-link ${location.pathname === "/about" ? "active" : ""}`}>
                   About
                 </Link>
@@ -471,45 +469,41 @@ function Header() {
                     </Link>
                   </div>
                 </div>
+                <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
+                  Contact
+                </Link>
+                <Link 
+                  to="/MessengerDefaultPage" 
+                  className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
+                  onClick={handleMessengerClick}
+                >
+                  <div style={{ position: "relative" }}>
+                    <i className="fa fa-envelope me-2"></i>
+                    {unseenCount > 0 && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "-8px",
+                          right: "-8px",
+                          backgroundColor: "red",
+                          color: "white",
+                          borderRadius: "50%",
+                          width: "16px",
+                          height: "16px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "10px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {unseenCount}
+                      </span>
+                    )}
+                  </div>
+                </Link>
               </>
             )}
-
-            {/* Menu commun à tous */}
-            <div className="d-flex align-items-center position-relative">
-              <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
-                Contact
-              </Link>
-              <Link 
-                to="/MessengerDefaultPage" 
-                className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
-                onClick={handleMessengerClick}
-              >
-                <div style={{ position: "relative" }}>
-                  <i className="fa fa-envelope me-2"></i>
-                  {unseenCount > 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "-8px",
-                        right: "-8px",
-                        backgroundColor: "red",
-                        color: "white",
-                        borderRadius: "50%",
-                        width: "16px",
-                        height: "16px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {unseenCount}
-                    </span>
-                  )}
-                </div>
-              </Link>
-            </div>
           </div>
 
           {/* Ajout des nouvelles fonctionnalités */}
@@ -532,7 +526,7 @@ function Header() {
                 {darkMode === 'Light' ? '☀️' : darkMode === 'Dark' ? '🌙' : '🌗'}
               </button>
               <ul className="dropdown-menu">
-                <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Light')}>☀️ Light</a></li>
+                <li><a className="dropdown-item" href="#" onClick={() => setLanguage('Light')}>☀️ Light</a></li>
                 <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Dark')}>🌙 Dark</a></li>
                 <li><a className="dropdown-item" href="#" onClick={() => setDarkMode('Auto')}>🌗 Auto</a></li>
               </ul>
@@ -552,7 +546,7 @@ function Header() {
                 className="rounded-circle me-2 border border-2 border-primary" 
                 style={{ width: '40px', height: '40px' }}
               />
-              <span className="fw-semibold">{userRole || "User"}</span> {/* Afficher le rôle */}
+              <span className="fw-semibold">{userRole || "User"}</span>
             </a>
             {showProfileMenu && (
               <div className="dropdown-menu fade-down m-0 dropdown-menu-end">
@@ -573,9 +567,12 @@ function Header() {
             )}
           </div>
 
-          <Link to="/join" className="btn btn-primary py-4 px-lg-5 d-none d-lg-block">
-            Join Now <i className="fa fa-arrow-right ms-3"></i>
-          </Link>
+          {/* Bouton Join Now uniquement pour non-admin */}
+          {userRole !== "admin" && (
+            <Link to="/join" className="btn btn-primary py-4 px-lg-5 d-none d-lg-block">
+              Join Now <i className="fa fa-arrow-right ms-3"></i>
+            </Link>
+          )}
         </div>
       </nav>
 
