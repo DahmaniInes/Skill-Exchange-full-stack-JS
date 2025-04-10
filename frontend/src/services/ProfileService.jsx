@@ -89,9 +89,18 @@ const ProfileService = {
   // Password Methods
   updatePassword: async (oldPassword, newPassword) => {
     try {
-      const response = await api.put('/me/password', { oldPassword, newPassword });
+      console.log("Sending password update request with:", { oldPassword, newPassword });
+      const response = await api.put('/me/password', 
+        { oldPassword, newPassword }, // Assurez-vous que ces noms correspondent au backend
+        { 
+          headers: { 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
       return response.data;
     } catch (error) {
+      console.error("Password update error:", error.response?.data || error.message);
       throw error.response?.data || new Error('Erreur de modification du mot de passe');
     }
   },
@@ -231,22 +240,49 @@ const ProfileService = {
 
   getUserProfile: async () => {
     try {
-      const response = await api.get('/me?fields=all');
-      return response.data;
+      // Assurez-vous que les headers d'authentification sont inclus
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          // Assurez-vous que votre token est inclus
+          'Authorization': `Bearer ${localStorage.getItem('token')}` // ou votre méthode pour récupérer le token
+        }
+      };
+      
+      const DEFAULT_AVATAR = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
+      
+      const response = await api.get('/me', config);
+      
+      // Extraction correcte selon la structure de réponse du backend
+      const userData = response.data.data?.user || {};
+      
+      if (!userData.profilePicture || userData.profilePicture === '') {
+        userData.profilePicture = DEFAULT_AVATAR;
+      }
+      
+      return userData;
     } catch (error) {
-      throw new Error('Failed to load profile');
+      console.error("Erreur de récupération du profil:", error.response?.data || error.message);
+      throw new Error('Échec de chargement du profil');
     }
   },
-
-  updateProfile: async (updatedFields) => {
+  validatePassword: async (password) => {
     try {
-      const response = await api.put('/profile', updatedFields);
+      // Spécifier l'en-tête Content-Type pour cette requête spécifique
+      const response = await api.post('/me/validate-password', 
+        { password },
+        { 
+          headers: { 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Update failed');
+      throw error.response?.data || new Error('Mot de passe invalide');
     }
   },
-
+ 
   updatePrivacySettings: async (settings) => {
     try {
       const response = await api.put('/privacy-settings', settings);

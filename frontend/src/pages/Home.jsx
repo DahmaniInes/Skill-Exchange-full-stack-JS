@@ -1,14 +1,10 @@
-import React from 'react';
-import carousel1 from '../assets/img/carousel-1.jpg';
-import carousel2 from '../assets/img/carousel-2.jpg';
+import React, { useState, useEffect } from 'react';
+import CourseCard from '../components/CourseCard';
 import about from '../assets/img/about.jpg';
 import cat1 from '../assets/img/cat-1.jpg';
 import cat2 from '../assets/img/cat-2.jpg';
 import cat3 from '../assets/img/cat-3.jpg';
 import cat4 from '../assets/img/cat-4.jpg';
-import course1 from '../assets/img/course-1.jpg';
-import course2 from '../assets/img/course-2.jpg';
-import course3 from '../assets/img/course-3.jpg';
 import team1 from '../assets/img/team-1.jpg';
 import team2 from '../assets/img/team-2.jpg';
 import team3 from '../assets/img/team-3.jpg';
@@ -53,6 +49,27 @@ const Home = () => {
             });
         };
     }, []);*/
+
+        const [courses, setCourses] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+
+        useEffect(() => {
+            const fetchCourses = async () => {
+                try {
+                    const response = await fetch('/api/courses');
+                    if (!response.ok) throw new Error('Échec du chargement');
+                    const data = await response.json();
+                    setCourses(data);
+                } catch (err) {
+                    console.error("Erreur:", err);
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchCourses();
+        }, []);
 
     return (
         <div>
@@ -113,7 +130,7 @@ const Home = () => {
                         </div>
                         <div className="col-lg-6 wow fadeInUp" data-wow-delay="0.3s">
                             <h6 className="section-title bg-white text-start text-primary pe-3">About Us</h6>
-                            <h1 className="mb-4">Welcome to eLEARNING</h1>
+                            <h1 className="mb-4">Welcome to E-learning</h1>
                             <p className="mb-4">Tempor erat elitr rebum at clita. Diam dolor diam ipsum sit. Aliqu diam amet diam et eos. Clita erat ipsum et lorem et sit.</p>
                             <p className="mb-4">Tempor erat elitr rebum at clita. Diam dolor diam ipsum sit. Aliqu diam amet diam et eos. Clita erat ipsum et lorem et sit, sed stet lorem sit clita duo justo magna dolore erat amet</p>
                             <div className="row gy-2 gx-4 mb-4">
@@ -148,7 +165,7 @@ const Home = () => {
                 <div className="container">
                     <div className="text-center wow fadeInUp" data-wow-delay="0.1s">
                         <h6 className="section-title bg-white text-center text-primary px-3">Categories</h6>
-                        <h1 className="mb-5">Courses Categories</h1>
+                        <h1 className="mb-5">Categories des cours</h1>
                     </div>
                     <div className="row g-3">
                         <div className="col-lg-7 col-md-6">
@@ -158,7 +175,7 @@ const Home = () => {
                                         <img className="img-fluid" src={cat1} alt="" />
                                         <div className="bg-white text-center position-absolute bottom-0 end-0 py-2 px-3" style={{ margin: '1px' }}>
                                             <h5 className="m-0">Web Design</h5>
-                                            <small className="text-primary">49 Courses</small>
+                                            <small className="text-primary">49 Cours</small>
                                         </div>
                                     </a>
                                 </div>
@@ -167,7 +184,7 @@ const Home = () => {
                                         <img className="img-fluid" src={cat2} alt="" />
                                         <div className="bg-white text-center position-absolute bottom-0 end-0 py-2 px-3" style={{ margin: '1px' }}>
                                             <h5 className="m-0">Graphic Design</h5>
-                                            <small className="text-primary">49 Courses</small>
+                                            <small className="text-primary">49 Cours</small>
                                         </div>
                                     </a>
                                 </div>
@@ -176,7 +193,7 @@ const Home = () => {
                                         <img className="img-fluid" src={cat3} alt="" />
                                         <div className="bg-white text-center position-absolute bottom-0 end-0 py-2 px-3" style={{ margin: '1px' }}>
                                             <h5 className="m-0">Video Editing</h5>
-                                            <small className="text-primary">49 Courses</small>
+                                            <small className="text-primary">49 Cours</small>
                                         </div>
                                     </a>
                                 </div>
@@ -187,7 +204,7 @@ const Home = () => {
                                 <img className="img-fluid position-absolute w-100 h-100" src={cat4} alt="" style={{ objectFit: 'cover' }} />
                                 <div className="bg-white text-center position-absolute bottom-0 end-0 py-2 px-3" style={{ margin: '1px' }}>
                                     <h5 className="m-0">Online Marketing</h5>
-                                    <small className="text-primary">49 Courses</small>
+                                    <small className="text-primary">49 Cours</small>
                                 </div>
                             </a>
                         </div>
@@ -199,96 +216,29 @@ const Home = () => {
             {/* Courses Start */}
             <div className="container-xxl py-5">
                 <div className="container">
-                    <div className="text-center wow fadeInUp" data-wow-delay="0.1s">
-                        <h6 className="section-title bg-white text-center text-primary px-3">Courses</h6>
-                        <h1 className="mb-5">Popular Courses</h1>
+                <div className="text-center wow fadeInUp" data-wow-delay="0.1s">
+                    <h6 className="section-title bg-white text-center text-primary px-3">Cours</h6>
+                </div>
+                
+                {loading ? (
+                    <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Chargement...</span>
                     </div>
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-5 text-danger">
+                    Erreur: {error}
+                    </div>
+                ) : (
                     <div className="row g-4 justify-content-center">
-                        <div className="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
-                            <div className="course-item bg-light">
-                                <div className="position-relative overflow-hidden">
-                                    <img className="img-fluid" src={course1} alt="" />
-                                    <div className="w-100 d-flex justify-content-center position-absolute bottom-0 start-0 mb-4">
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3 border-end" style={{ borderRadius: '30px 0 0 30px' }}>Read More</a>
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3" style={{ borderRadius: '0 30px 30px 0' }}>Join Now</a>
-                                    </div>
-                                </div>
-                                <div className="text-center p-4 pb-0">
-                                    <h3 className="mb-0">$149.00</h3>
-                                    <div className="mb-3">
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small>(123)</small>
-                                    </div>
-                                    <h5 className="mb-4">Web Design & Development Course for Beginners</h5>
-                                </div>
-                                <div className="d-flex border-top">
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-user-tie text-primary me-2"></i>John Doe</small>
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-clock text-primary me-2"></i>1.49 Hrs</small>
-                                    <small className="flex-fill text-center py-2"><i className="fa fa-user text-primary me-2"></i>30 Students</small>
-                                </div>
-                            </div>
+                    {courses.slice(0, 3).map((course, index) => (
+                        <div key={course.id} className="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay={`${0.1 * (index + 1)}s`}>
+                        <CourseCard course={course} />
                         </div>
-                        <div className="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.3s">
-                            <div className="course-item bg-light">
-                                <div className="position-relative overflow-hidden">
-                                    <img className="img-fluid" src={course2} alt="" />
-                                    <div className="w-100 d-flex justify-content-center position-absolute bottom-0 start-0 mb-4">
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3 border-end" style={{ borderRadius: '30px 0 0 30px' }}>Read More</a>
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3" style={{ borderRadius: '0 30px 30px 0' }}>Join Now</a>
-                                    </div>
-                                </div>
-                                <div className="text-center p-4 pb-0">
-                                    <h3 className="mb-0">$149.00</h3>
-                                    <div className="mb-3">
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small>(123)</small>
-                                    </div>
-                                    <h5 className="mb-4">Web Design & Development Course for Beginners</h5>
-                                </div>
-                                <div className="d-flex border-top">
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-user-tie text-primary me-2"></i>John Doe</small>
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-clock text-primary me-2"></i>1.49 Hrs</small>
-                                    <small className="flex-fill text-center py-2"><i className="fa fa-user text-primary me-2"></i>30 Students</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.5s">
-                            <div className="course-item bg-light">
-                                <div className="position-relative overflow-hidden">
-                                    <img className="img-fluid" src={course3} alt="" />
-                                    <div className="w-100 d-flex justify-content-center position-absolute bottom-0 start-0 mb-4">
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3 border-end" style={{ borderRadius: '30px 0 0 30px' }}>Read More</a>
-                                        <a href="#" className="flex-shrink-0 btn btn-sm btn-primary px-3" style={{ borderRadius: '0 30px 30px 0' }}>Join Now</a>
-                                    </div>
-                                </div>
-                                <div className="text-center p-4 pb-0">
-                                    <h3 className="mb-0">$149.00</h3>
-                                    <div className="mb-3">
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small className="fa fa-star text-primary"></small>
-                                        <small>(123)</small>
-                                    </div>
-                                    <h5 className="mb-4">Web Design & Development Course for Beginners</h5>
-                                </div>
-                                <div className="d-flex border-top">
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-user-tie text-primary me-2"></i>John Doe</small>
-                                    <small className="flex-fill text-center border-end py-2"><i className="fa fa-clock text-primary me-2"></i>1.49 Hrs</small>
-                                    <small className="flex-fill text-center py-2"><i className="fa fa-user text-primary me-2"></i>30 Students</small>
-                                </div>
-                            </div>
-                        </div>
+                    ))}
                     </div>
+                )}
                 </div>
             </div>
             {/* Courses End */}

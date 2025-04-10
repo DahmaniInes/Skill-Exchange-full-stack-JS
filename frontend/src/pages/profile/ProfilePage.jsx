@@ -1,365 +1,296 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Mail, Phone, MapPin, Globe, Edit3, Award, BookOpen, 
-  Linkedin, Github, Twitter, Briefcase, 
-  GraduationCap, Star, FileText, Lock, Bell, 
-  ShieldCheck, Activity, Settings, CheckCircle2, Layers
+  Mail, Phone, MapPin, Globe, Edit3, LockKeyhole,
+  Linkedin, Github, Twitter, Briefcase, Bell,
+  GraduationCap, Star, FileText, 
+  ShieldCheck, Activity, CheckCircle2, Layers
 } from 'lucide-react';
 import ProfileService from '../../services/ProfileService';
 import './ProfilePage.css';
+import { useNavigate } from 'react-router-dom';
+
+// Dans votre composant, ajoutez:
+
 
 const ProfilePage = () => {
   const [activeSection, setActiveSection] = useState('overview');
-  const [isEditMode, setIsEditMode] = useState(false);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+  // Composants internes
+  const SectionCard = ({ children, title }) => (
+    <div className="section-card">
+      {title && <h3 className="card-title">{title}</h3>}
+      {children}
+    </div>
+  );
 
-  // Fetch user data
+  const TimelineItem = ({ title, subtitle, date, description }) => (
+    <div className="timeline-item">
+      <div className="timeline-marker"></div>
+      <div className="timeline-content">
+        <h4>{title}</h4>
+        <p className="subtitle">{subtitle}</p>
+        <div className="timeline-date">{date}</div>
+        {description && <p className="description">{description}</p>}
+      </div>
+    </div>
+  );
+
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchProfile = async () => {
       try {
         const data = await ProfileService.getUserProfile();
         setUserData(data);
-      } catch (error) {
-        setError(error.message);
+      } catch (err) {
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-    
-    fetchUserProfile();
+    fetchProfile();
   }, []);
 
-  // Update profile handler
-  const handleUpdateProfile = async (updatedFields) => {
+  const updateField = async (field, value) => {
     try {
-      setLoading(true);
-      const updatedUser = await ProfileService.updateProfile(updatedFields);
-      setUserData(prev => ({ ...prev, ...updatedUser }));
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle CV upload
-  const handleCVUpload = async (file) => {
-    try {
-      const result = await ProfileService.uploadCV(file);
-      handleUpdateProfile({ cv: result.url });
+      await ProfileService.updateProfile({ [field]: value });
+      setUserData(prev => ({ ...prev, [field]: value }));
     } catch (error) {
       setError(error.message);
     }
   };
 
-  // Update privacy settings
-  const updatePrivacySettings = async (newSettings) => {
-    try {
-      await ProfileService.updatePrivacySettings(newSettings);
-      setUserData(prev => ({
-        ...prev,
-        privacySettings: { ...prev.privacySettings, ...newSettings }
-      }));
-    } catch (error) {
-      setError(error.message);
-    }
-  };
-
-  if (loading) return <div className="loading-spinner"></div>;
-  if (error) return <div className="error-message">{error}</div>;
+  if (loading) return <div className="spinner-container"><div className="spinner"></div></div>;
+  if (error) return <div className="error-card">⚠️ Error: {error}</div>;
   if (!userData) return null;
 
-  // Destructure user data with defaults
   const {
-    firstName = 'Utilisateur',
-    lastName = '',
-    email = 'N/A',
-    phone = 'Non renseigné',
+    firstName = 'John',
+    lastName = 'Doe',
+    email = 'john.doe@example.com',
+    phone = '+1 234 567 890',
     profilePicture = '/default-avatar.png',
-    bio = 'Aucune bio disponible',
-    location = 'Non spécifiée',
-    isActive = false,
-    jobTitle = 'Poste non renseigné',
-    company = 'Entreprise non renseignée',
+    bio = 'Professional with extensive experience in digital solutions',
+    location = 'New York, USA',
+    jobTitle = 'Senior Developer',
+    company = 'Tech Corp',
     experience = [],
     education = [],
     socialLinks = {},
     skills = [],
     cv = null,
-    averageRating = 0,
+    averageRating = 4.8,
     ratings = [],
     privacySettings = { isProfilePublic: true },
     notifications = {},
-    status = 'offline'
+    status = 'online'
   } = userData;
 
-    // Render function for experience and education timeline
-    const renderTimeline = (items, type) => (
-        <div className="professional-timeline">
-            {items.map((item, index) => (
-                <div key={index} className="timeline-item">
-                    <div className="timeline-marker"></div>
-                    <div className="timeline-content">
-                        {type === 'experience' ? (
-                            <>
-                                <h3>{item.title}</h3>
-                                <p className="timeline-subtitle">{item.company}</p>
-                            </>
-                        ) : (
-                            <>
-                                <h3>{item.degree}</h3>
-                                <p className="timeline-subtitle">{item.school}</p>
-                            </>
-                        )}
-                        <div className="timeline-date">
-                            {new Date(item.startDate).toLocaleDateString()} - 
-                            {item.endDate 
-                                ? new Date(item.endDate).toLocaleDateString() 
-                                : 'Présent'}
-                        </div>
-                        {item.description && <p className="timeline-description">{item.description}</p>}
-                    </div>
-                </div>
+  return (
+    <div className="profile-container">
+      {/* Header Section */}
+      <header className="profile-header">
+        <div className="avatar-card">
+          <div className="avatar-wrapper">
+          <img 
+  src={profilePicture} 
+  alt={`${firstName} ${lastName}`}
+  onError={(e) => {
+    console.log("Image error, falling back to default");
+    e.target.src = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
+  }}
+/>
+            <div className="rating-badge">
+              <Star fill="#FFD700" size={18} />
+              <span>{averageRating.toFixed(1)}</span>
+            </div>
+          </div>
+          <div className="header-info">
+            <div className="name-container">
+              <h1>{firstName} {lastName}</h1>
+              <div className="job-container">
+                <span className="job-title">{jobTitle}</span>
+                <span className="company-name">@{company}</span>
+              </div>
+            </div>
+            <div className="status-badge">
+              <div className={`status-dot ${status}`}></div>
+              <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="action-buttons">
+  <button 
+    className="action-btn edit-btn" 
+    onClick={() => navigate('/profileForm')}
+  >
+    <Edit3 size={14} />
+    Edit Profile
+  </button>
+  <button 
+    className="action-btn password-btn" 
+    onClick={() => navigate('/SecuritySettings')}
+  >
+    <LockKeyhole size={14} />
+    Change Password
+  </button>
+</div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="navigation-cards">
+        {['Overview', 'Experience', 'Skills', 'Social', 'Settings'].map((item) => (
+          <button 
+            key={item}
+            className={`nav-card ${activeSection === item.toLowerCase() ? 'active' : ''}`}
+            onClick={() => setActiveSection(item.toLowerCase())}
+          >
+            {item}
+          </button>
+        ))}
+      </nav>
+
+      {/* Dynamic Sections */}
+      {activeSection === 'overview' && (
+        <SectionCard title="Professional Overview">
+          <div className="info-grid">
+            <div className="info-item">
+              <Mail className="info-icon" />
+              <div>
+                <h5>Email</h5>
+                <p>{email}</p>
+              </div>
+            </div>
+            <div className="info-item">
+              <Phone className="info-icon" />
+              <div>
+                <h5>Phone</h5>
+                <p>{phone}</p>
+              </div>
+            </div>
+            <div className="info-item">
+              <MapPin className="info-icon" />
+              <div>
+                <h5>Location</h5>
+                <p>{location}</p>
+              </div>
+            </div>
+          </div>
+          {bio && <div className="bio-card">
+            <h4>About Me</h4>
+            <p>{bio}</p>
+          </div>}
+        </SectionCard>
+      )}
+
+      {activeSection === 'experience' && (
+        <SectionCard title="Professional Journey">
+          <div className="timeline-section">
+            <h4>Work Experience</h4>
+            {experience.map((exp, index) => (
+              <TimelineItem
+                key={index}
+                title={exp.title}
+                subtitle={exp.company}
+                date={`${new Date(exp.startDate).toLocaleDateString()} - ${exp.endDate ? new Date(exp.endDate).toLocaleDateString() : 'Present'}`}
+                description={exp.description}
+              />
             ))}
-        </div>
-    );
+          </div>
+          <div className="timeline-section">
+            <h4>Education</h4>
+            {education.map((edu, index) => (
+              <TimelineItem
+                key={index}
+                title={edu.degree}
+                subtitle={edu.school}
+                date={`${new Date(edu.startDate).toLocaleDateString()} - ${edu.endDate ? new Date(edu.endDate).toLocaleDateString() : 'Present'}`}
+              />
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
-    // Define renderSections object completely
-    const renderSections = {
-        overview: () => (
-            <div className="profile-section-content">
-                <div className="info-cards">
-                    <div className="info-card">
-                        <Mail className="info-card-icon" />
-                        <div>
-                            <h4>Email</h4>
-                            <p>{email}</p>
-                        </div>
-                    </div>
-                    <div className="info-card">
-                        <Phone className="info-card-icon" />
-                        <div>
-                            <h4>Téléphone</h4>
-                            <p>{phone}</p>
-                        </div>
-                    </div>
-                    <div className="info-card">
-                        <MapPin className="info-card-icon" />
-                        <div>
-                            <h4>Localisation</h4>
-                            <p>{location}</p>
-                        </div>
-                    </div>
+      {activeSection === 'skills' && (
+        <SectionCard title="Core Competencies">
+          <div className="skills-grid">
+            {skills.map((skill, index) => (
+              <div key={index} className="skill-card">
+                <div className="skill-header">
+                  <h5>{skill.name}</h5>
+                  <span className={`skill-level ${skill.level.toLowerCase()}`}>
+                    {skill.level}
+                  </span>
                 </div>
-                {bio && (
-                    <div className="bio-section">
-                        <h3>Biographie</h3>
-                        <p>{bio}</p>
-                    </div>
-                )}
-            </div>
-        ),
-        professional: () => (
-            <div className="profile-section-content">
-                <div className="current-job-card">
-                    <div className="job-header">
-                        <h3>{jobTitle}</h3>
-                        <span className={`status-badge ${isActive ? 'active' : 'inactive'}`}>
-                            {isActive ? 'Actif' : 'Inactif'}
-                        </span>
-                    </div>
-                    <p>{company}</p>
+                {skill.description && <p className="skill-description">{skill.description}</p>}
+                <div className="skill-progress">
+                  <div 
+                    className="progress-bar" 
+                    style={{ width: `${(skill.yearsOfExperience/10)*100}%` }}
+                  ></div>
                 </div>
-                
-                {experience.length > 0 && (
-                    <div className="timeline-section">
-                        <h3>Expérience Professionnelle</h3>
-                        {renderTimeline(experience, 'experience')}
-                    </div>
-                )}
-                
-                {education.length > 0 && (
-                    <div className="timeline-section">
-                        <h3>Formation</h3>
-                        {renderTimeline(education, 'education')}
-                    </div>
-                )}
-            </div>
-        ),
-        skills: () => (
-            <div className="profile-section-content">
-                <div className="skills-grid">
-                    {skills.length > 0 ? (
-                        skills.map((skill, index) => (
-                            <div key={index} className="skill-card">
-                                <div className="skill-header">
-                                    <span className="skill-name">{skill.name}</span>
-                                    <div className="skill-level-indicator">
-                                        <div 
-                                            className={`skill-level-bar ${skill.level.toLowerCase()}`}
-                                            title={skill.level}
-                                        >
-                                            {skill.level === 'Beginner' && '●'}
-                                            {skill.level === 'Intermediate' && '● ●'}
-                                            {skill.level === 'Expert' && '● ● ●'}
-                                        </div>
-                                    </div>
-                                </div>
-                                {skill.description && (
-                                    <p className="skill-description">
-                                        {skill.description}
-                                    </p>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <div className="no-skills-message">
-                            <Layers size={32} color="#06BBCC" opacity={0.5} />
-                            <p>Aucune compétence renseignée</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        ),
-        social: () => (
-            <div className="profile-section-content">
-                <div className="social-links">
-                    {Object.entries(socialLinks)
-                        .filter(([_, link]) => link)
-                        .map(([platform, link]) => {
-                            const icons = {
-                                portfolio: <Globe />,
-                                github: <Github />,
-                                linkedin: <Linkedin />,
-                                twitter: <Twitter />
-                            };
-                            return (
-                                <a 
-                                    key={platform} 
-                                    href={link} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="social-link"
-                                >
-                                    {icons[platform]}
-                                    <span>{platform.charAt(0).toUpperCase() + platform.slice(1)}</span>
-                                </a>
-                            );
-                        })}
-                </div>
-                {cv && (
-                    <a href={cv} target="_blank" rel="noopener noreferrer" className="cv-download">
-                        <FileText />
-                        Télécharger mon CV
-                    </a>
-                )}
-            </div>
-        ),
-        privacy: () => (
-            <div className="profile-section-content">
-                <div className="privacy-settings">
-                    <div className="setting-group">
-                        <h3 className="section-title">Paramètres de Confidentialité</h3>
-                        <div className="setting-item">
-                            <ShieldCheck color="#06BBCC" />
-                            <span>Profil Public</span>
-                            <CheckCircle2 
-                                color={privacySettings.isProfilePublic ? '#06BBCC' : 'gray'}
-                            />
-                        </div>
-                    </div>
-                    <div className="setting-group">
-                        <h3 className="section-title">Préférences de Notification</h3>
-                        {Object.entries(notifications).map(([key, value]) => (
-                            <div key={key} className="setting-item">
-                                <Bell color="#06BBCC" />
-                                <span>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</span>
-                                <CheckCircle2 color={value ? '#06BBCC' : 'gray'} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        )
-    };
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
-    // Enhanced navigation sections
-    const navigationSections = [
-        { key: 'overview', icon: <BookOpen size={16} />, label: 'Aperçu', ariaLabel: 'Voir l\'aperçu du profil' },
-        { key: 'professional', icon: <Briefcase size={16} />, label: 'Professionnel', ariaLabel: 'Informations professionnelles' },
-        { key: 'skills', icon: <Layers size={16} />, label: 'Compétences', ariaLabel: 'Compétences et domaines d\'expertise' },
-        { key: 'social', icon: <Globe size={16} />, label: 'Liens', ariaLabel: 'Liens sociaux et CV' },
-        { key: 'privacy', icon: <Lock size={16} />, label: 'Paramètres', ariaLabel: 'Paramètres de confidentialité' }
-    ];
+      {activeSection === 'social' && (
+        <SectionCard title="Digital Presence">
+          <div className="social-grid">
+            {Object.entries(socialLinks).map(([platform, url]) => (
+              <a 
+                key={platform} 
+                href={url} 
+                className="social-card"
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                {{
+                  portfolio: <Globe />,
+                  github: <Github />,
+                  linkedin: <Linkedin />,
+                  twitter: <Twitter />
+                }[platform] || <Globe />}
+                <span>{platform.charAt(0).toUpperCase() + platform.slice(1)}</span>
+              </a>
+            ))}
+          </div>
+          {cv && <div className="cv-card">
+            <FileText />
+            <a href={cv} download>Download Full CV</a>
+          </div>}
+        </SectionCard>
+      )}
 
-    // Enhanced header rendering
-    const renderHeader = () => (
-        <div className="profile-header">
-            <div className="avatar-container">
-                <div className="avatar-wrapper">
-                    <img 
-                        src={profilePicture} 
-                        alt={`Avatar de ${firstName} ${lastName}`}
-                        className="profile-avatar"
-                    />
-                    <button 
-                        className="edit-avatar-btn" 
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        aria-label="Modifier le profil"
-                    >
-                        {isEditMode ? <CheckCircle2 color="#06BBCC" /> : <Edit3 />}
-                    </button>
+      {activeSection === 'settings' && (
+        <SectionCard title="Account Settings">
+          <div className="settings-grid">
+            <div className="privacy-card">
+              <h4>Privacy Settings</h4>
+              <div className="setting-item">
+                <ShieldCheck />
+                <span>Public Profile</span>
+                <CheckCircle2 className={privacySettings.isProfilePublic ? 'active' : 'inactive'} />
+              </div>
+            </div>
+            <div className="notifications-card">
+              <h4>Notifications</h4>
+              {Object.entries(notifications).map(([key, value]) => (
+                <div key={key} className="setting-item">
+                  <Bell />
+                  <span>{key.replace(/([A-Z])/g, ' $1')}</span>
+                  <CheckCircle2 className={value ? 'active' : 'inactive'} />
                 </div>
+              ))}
             </div>
-            <div className="header-info">
-                <div className="name-section">
-                    <h1>{firstName} {lastName}</h1>
-                    {isActive && <span className="verified-badge">Vérifié</span>}
-                </div>
-                <p className="job-title">{jobTitle} @ {company}</p>
-                <div className="profile-stats">
-                    <div className="rating">
-                        <Star fill="#FFC107" stroke="#FFC107" />
-                        <span>{averageRating.toFixed(1)} ({ratings.length} avis)</span>
-                    </div>
-                    <div className="status-indicator">
-                        <Activity />
-                        <span className={`status-dot ${status}`}></span>
-                        <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="professional-profile">
-            {renderHeader()}
-
-            <div className="profile-navigation">
-                {navigationSections.map(section => (
-                    <button 
-                        key={section.key}
-                        className={`nav-button ${activeSection === section.key ? 'active' : ''}`}
-                        onClick={() => setActiveSection(section.key)}
-                        aria-label={section.ariaLabel}
-                    >
-                        {React.cloneElement(section.icon, { 
-                            color: activeSection === section.key ? 'white' : '#06BBCC',
-                            strokeWidth: activeSection === section.key ? 2 : 1
-                        })}
-                        {section.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="profile-content">
-                {renderSections[activeSection]()}
-            </div>
-        </div>
-    );
+          </div>
+        </SectionCard>
+      )}
+    </div>
+  );
 };
 
 export default ProfilePage;
