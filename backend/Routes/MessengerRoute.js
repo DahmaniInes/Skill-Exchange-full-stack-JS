@@ -355,13 +355,9 @@ router.post('/reportUser', verifyToken, async (req, res) => {
 
 
 
-router.get('/reports', verifyToken, async (req, res) => {
+// Récupérer tous les signalements (reports) sans authentification
+router.get('/reports', async (req, res) => {
   try {
-    // Vérifier si l'utilisateur est un administrateur
-    const user = await User.findById(req.userId);
-   
-
-    // Récupérer tous les signalements
     const reports = await Report.find()
       .populate('reporter', 'firstName lastName email')
       .populate('reportedUser', 'firstName lastName email')

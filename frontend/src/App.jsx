@@ -23,7 +23,7 @@ import Profile from './pages/profile/ProfilePage';
 import MessengerPage from './pages/MessengerPages/MessengerPage';
 import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
 
-import ReportUserPage from './pages/ReportUserPage';
+import ReportUserPage from './pages/MessengerPages/ReportUserPage';
 
 import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
 import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
