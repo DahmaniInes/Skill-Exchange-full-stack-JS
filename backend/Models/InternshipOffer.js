@@ -1,4 +1,3 @@
-// models/InternshipOffer.js
 const mongoose = require('mongoose');
 
 const TaskSchema = new mongoose.Schema({
@@ -35,6 +34,11 @@ const InternshipOfferSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+
+  completed: { type: Boolean, default: false },
+  completionDate: { type: Date, default: null },
+  certificateUrl: { type: String, default: null },
+
 
   createdAt: {
     type: Date,

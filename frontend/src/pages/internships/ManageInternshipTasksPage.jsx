@@ -12,6 +12,7 @@ import {
   MenuItem,
   Chip,
   LinearProgress,
+  Button,
 } from "@mui/material";
 import { toast } from "react-toastify";
 
@@ -25,25 +26,24 @@ const ManageInternshipTasksPage = () => {
   const { id } = useParams();
   const [tasks, setTasks] = useState([]);
   const [internshipTitle, setInternshipTitle] = useState("");
+  const [certificateUrl, setCertificateUrl] = useState(null);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const fetchTasks = async () => {
     try {
       const token = localStorage.getItem("token");
 
-      const [tasksRes, offerRes] = await Promise.all([
-        axios.get(
-          `http://localhost:5000/api/internships/offers/${id}/tasks/progress`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        ),
-        axios.get(`http://localhost:5000/api/internships/${id}`, {
+      const res = await axios.get(
+        `http://localhost:5000/api/internships/offers/${id}/tasks/progress`,
+        {
           headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+        }
+      );
 
-      setTasks(tasksRes.data);
-      setInternshipTitle(offerRes.data.title || "Internship");
+      setTasks(res.data.tasks);
+      setInternshipTitle(res.data.internshipTitle || "Internship");
+      setCertificateUrl(res.data.certificateUrl);
+      setIsCompleted(res.data.isCompleted);
     } catch (err) {
       toast.error("Unable to load internship data");
     }
@@ -91,6 +91,18 @@ const ManageInternshipTasksPage = () => {
         sx={{ mb: 4, height: 8, borderRadius: 5 }}
       />
 
+      {certificateUrl && (
+        <Box mb={4}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => window.open(certificateUrl, "_blank")}
+          >
+            Download Certificate
+          </Button>
+        </Box>
+      )}
+
       <Grid container spacing={3}>
         {tasks.map((task) => (
           <Grid item xs={12} md={6} lg={4} key={task._id}>
@@ -123,6 +135,7 @@ const ManageInternshipTasksPage = () => {
                   value={task.progress}
                   onChange={(e) => handleStatusChange(task._id, e.target.value)}
                   sx={{ minWidth: 140 }}
+                  disabled={isCompleted}
                 >
                   <MenuItem value="not_started">Not Started</MenuItem>
                   <MenuItem value="in_progress">In Progress</MenuItem>

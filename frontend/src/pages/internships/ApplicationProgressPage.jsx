@@ -9,6 +9,8 @@ import {
   CardContent,
   Chip,
   LinearProgress,
+  Button,
+  CircularProgress,
 } from "@mui/material";
 import { toast } from "react-toastify";
 
@@ -23,6 +25,9 @@ const ApplicationProgressPage = () => {
   const [tasks, setTasks] = useState([]);
   const [studentName, setStudentName] = useState("");
   const [internshipTitle, setInternshipTitle] = useState("");
+  const [internshipId, setInternshipId] = useState("");
+  const [certificateUrl, setCertificateUrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchProgress = async () => {
     try {
@@ -37,8 +42,33 @@ const ApplicationProgressPage = () => {
       setTasks(res.data.tasks);
       setStudentName(res.data.studentName);
       setInternshipTitle(res.data.internshipTitle);
+      setInternshipId(res.data.internshipId);
+      setCertificateUrl(res.data.certificateUrl || null); 
     } catch (err) {
       toast.error("Failed to load progress");
+    }
+  };
+
+  const handleEndInternship = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        `http://localhost:5000/api/internships/offers/${internshipId}/complete`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("Internship completed and certificate generated!");
+      if (res.data.certificateUrl) {
+        setCertificateUrl(res.data.certificateUrl); 
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to complete internship"
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,9 +77,10 @@ const ApplicationProgressPage = () => {
   }, [applicationId]);
 
   const completedCount = tasks.filter((t) => t.progress === "completed").length;
-  const progressPercent = tasks.length > 0
-    ? Math.round((completedCount / tasks.length) * 100)
-    : 0;
+  const progressPercent =
+    tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  const allCompleted = completedCount === tasks.length && tasks.length > 0;
 
   return (
     <Box maxWidth="1000px" mx="auto" my={5}>
@@ -69,6 +100,35 @@ const ApplicationProgressPage = () => {
         sx={{ mb: 4 }}
       />
 
+      {certificateUrl && (
+        <Box mb={2}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => window.open(certificateUrl, "_blank")}
+          >
+            Download Certificate
+          </Button>
+        </Box>
+      )}
+
+      {allCompleted && !certificateUrl && (
+        <Box mb={4}>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleEndInternship}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "End Internship & Generate Certificate"
+            )}
+          </Button>
+        </Box>
+      )}
+
       <Grid container spacing={3}>
         {tasks.map((task) => (
           <Grid item xs={12} md={6} lg={4} key={task._id}>
@@ -83,7 +143,11 @@ const ApplicationProgressPage = () => {
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
                   {task.title}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  gutterBottom
+                >
                   {task.description}
                 </Typography>
                 <Chip
