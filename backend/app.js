@@ -7,19 +7,29 @@ var logger = require("morgan");
 var session = require("express-session");
 var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
+const http = require('http');
+const cors = require("cors");
+const { SessionsClient } = require('@google-cloud/dialogflow');
+
+// Import route modules
 const authRoutes = require("./Routes/authRoutes");
 var indexRouter = require("./routes/index");
 var usersRouter = require("./Routes/users");
 var loginRouter = require('./Routes/authGOOGLE');
 var loginGit = require('./Routes/authGitHub');
 var MessengerRoute = require('./Routes/MessengerRoute');
+const skillRoutes = require("./Routes/skillRoutes");
+const profileRoutes = require("./Routes/profileRoutes");
+const storyRoutes = require("./Routes/storyRoutes");
+const roadmapRoutes = require('./Routes/roadmapRoutes');
+const internshipRoutes = require('./Routes/internshipRoutes');
+const authOATH = require('./Routes/oath-totp');
 
+// Initialize Express
 const app = express();
-const cors = require("cors");
+const server = http.createServer(app);
 
 // Socket.IO Setup
-const http = require('http');
-const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, {
   cors: {
@@ -31,30 +41,42 @@ const io = new Server(server, {
 
 const onlineUsers = require("./Utils/onlineUsers");
 
-// Configurer Socket.IO avec onlineUsers
+// Configure Socket.IO with onlineUsers
 require("./middleware/messengerSocket")(io, onlineUsers);
 
-// Middleware pour ajouter io à req (déplacé avant les routes)
+// View engine setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Set up core middleware
+app.use(logger("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+
+// Add io to req
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
+// Configure CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend URL
-  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-UserId'], // Add 'Authorization' to the allowed headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Client-Version',
+    'X-Requested-With',
+    'X-Session-UserId'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'Authorization']
 }));
+app.options('*', cors());
 
-// Middleware Setup
-app.use(logger("dev"));
-app.use(express.json()); // Utilisation unique de express.json() (suppression de la redondance)
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
-
-// Session Setup
+// Set up session
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -66,24 +88,63 @@ app.use(
       httpOnly: true, // Prevent client-side access
       secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS in production
       sameSite: 'None', // Allow cross-origin requests
-    },
+    }
   })
 );
 
-// Routes
+// Static files
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Dialogflow setup
+const sessionClient = new SessionsClient({
+  keyFilename: 'path/to/service-account-key.json',
+});
+
+const projectId = 'your-project-id';
+const sessionId = 'your-session-id';
+
+// Dialogflow chat endpoint
+app.post('/chat', async (req, res) => {
+  const sessionPath = sessionClient.projectAgentSessionPath(projectId, sessionId);
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: req.body.message,
+        languageCode: 'fr-FR',
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    res.json({ response: result.fulfillmentText });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register all routes
 app.use("/api", authRoutes);
+app.use("/api/skills", skillRoutes);
+app.use("/api/stories", storyRoutes);
+app.use("/api/internships", internshipRoutes);
+app.use("/api/roadmaps", roadmapRoutes);
+app.use("/api", profileRoutes);
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
-app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
-app.use("/auth", require('./Routes/oath-totp'));
+app.use("/auth", authOATH);
 app.use("/MessengerRoute", MessengerRoute);
 
-// 📌 Routes API de test
-const profileRoutes = require("./Routes/profileRoutes");
-app.use("/api", profileRoutes);
+// Example route to render a view
+app.get('/', (req, res) => {
+  res.render('index'); // Ensure there is an index.ejs file in the views folder
+});
 
-// 📌 Gestion des fichiers statiques en production
+// Production static file handling
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(__dirname, "../frontend/dist");
   app.use(express.static(frontendPath));
@@ -102,33 +163,29 @@ app.use(function (req, res, next) {
 app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
+  
+  // Send error as JSON if it's an API request
+  if (req.path.startsWith('/api')) {
+    return res.status(err.status || 500).json({
+      error: err.message,
+      stack: req.app.get("env") === "development" ? err.stack : undefined
+    });
+  }
+  
+  // Otherwise render the error page
   res.status(err.status || 500);
   res.render("error");
 });
 
-// Set EJS as the template engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// Example route to render a view
-app.get('/', (req, res) => {
-  res.render('index');
-});
-
-// Connect to MongoDB and start the server only after successful connection
+// Connect to MongoDB and start the server
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("Successfully connected to MongoDB"); // Log pour confirmer la connexion
-    startServer(); // Démarrer le serveur après la connexion réussie
+    console.log("Successfully connected to MongoDB");
+    server.listen(5000, () => console.log("Server running on port 5000"));
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);
-    process.exit(1); // Arrêter le processus si la connexion échoue
+    process.exit(1);
   });
-
-// Fonction pour démarrer le serveur après la connexion MongoDB
-function startServer() {
-  server.listen(5000, () => console.log("Server running on port 5000"));
-}
 
 module.exports = app;
