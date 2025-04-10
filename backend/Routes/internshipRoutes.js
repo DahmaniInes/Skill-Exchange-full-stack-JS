@@ -700,4 +700,151 @@ router.post(
   }
 );
 
+/**for the amdin */
+router.get("/admin/internships", verifySession, attachUser, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+  try {
+    const internships = await InternshipOffer.find()
+      .populate("createdBy", "firstName lastName email role")
+      .populate("skills", "name")
+      .populate("assignedTo", "firstName lastName email");
+
+    res.json(internships);
+  } catch (err) {
+    console.error("Admin internships error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/admin/applications", verifySession, attachUser, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+  try {
+    const applications = await InternshipApplication.find()
+      .populate("student", "firstName lastName email")
+      .populate("internshipOffer", "title entrepriseName createdBy")
+      .sort({ appliedAt: -1 });
+
+    res.json(applications);
+  } catch (err) {
+    console.error("Admin applications error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/admin/internships/:offerId/student/:studentId/progress", verifySession, attachUser, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+  const { offerId, studentId } = req.params;
+
+  try {
+    const offer = await InternshipOffer.findById(offerId).populate("skills", "name");
+
+    if (!offer) return res.status(404).json({ message: "Internship not found" });
+
+    const progress = await InternshipTaskProgress.find({
+      internshipOffer: offer._id,
+      student: studentId,
+    });
+
+    const tasksWithProgress = offer.tasks.map((task) => {
+      const prog = progress.find((p) => p.taskId.equals(task._id));
+      return {
+        ...task.toObject(),
+        progress: prog ? prog.status : "not_started",
+      };
+    });
+
+    res.json({
+      internship: offer.title,
+      entreprise: offer.entrepriseName,
+      startDate: offer.startDate,
+      assignedTo: studentId,
+      tasks: tasksWithProgress,
+    });
+  } catch (err) {
+    console.error("Admin task progress error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/admin/internships/completed", verifySession, attachUser, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+  try {
+    const completed = await InternshipOffer.find({ completed: true })
+      .populate("assignedTo", "firstName lastName email")
+      .select("title entrepriseName startDate completionDate certificateUrl assignedTo");
+
+    res.json(completed);
+  } catch (err) {
+    console.error("Completed internships error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/admin/dashboard-stats", verifySession, attachUser, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+  try {
+    const [
+      totalInternships,
+      assignedCount,
+      completedCount,
+      totalApplications,
+      topAppliedOffers
+    ] = await Promise.all([
+      InternshipOffer.countDocuments(),
+      InternshipOffer.countDocuments({ assignedTo: { $ne: null } }),
+      InternshipOffer.countDocuments({ completed: true }),
+      InternshipApplication.countDocuments(),
+      InternshipApplication.aggregate([
+        {
+          $group: {
+            _id: "$internshipOffer",
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "internshipoffers",
+            localField: "_id",
+            foreignField: "_id",
+            as: "offer"
+          }
+        },
+        {
+          $unwind: "$offer"
+        },
+        {
+          $project: {
+            title: "$offer.title",
+            entrepriseName: "$offer.entrepriseName",
+            count: 1
+          }
+        }
+      ])
+    ]);
+
+    res.json({
+      totalInternships,
+      assignedCount,
+      unassignedCount: totalInternships - assignedCount,
+      completedCount,
+      totalApplications,
+      topAppliedOffers
+    });
+  } catch (err) {
+    console.error("Dashboard stats error:", err);
+    res.status(500).json({ message: "Failed to load dashboard stats" });
+  }
+});
+
+
+
+
+
 module.exports = router;

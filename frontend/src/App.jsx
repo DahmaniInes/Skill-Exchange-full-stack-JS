@@ -30,6 +30,7 @@ import ApplicationsToMyOffersPage from './pages/internships/ApplicationsToMyOffe
 import StudentApplicationsTable from './pages/internships/StudentApplicationsTable';
 import ManageInternshipTasksPage from "./pages/internships/ManageInternshipTasksPage";
 import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage";
+import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -82,15 +83,23 @@ function App() {
         <Route path="skills/:skillId" element={<SkillDetails />} /> 
         <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
+
+        {/* Entrepreneur Routes for Internship Management */}
         <Route path="/internship-create" element={<InternshipFormPage />} />
         <Route path="/edit-internship/:id" element={<EditInternshipPage />} />
         <Route path="internships/entreprise" element={<UserInternshipListPage />} />
+        <Route path="/internships/applications" element={<ApplicationsToMyOffersPage />} />
+        <Route path="/applications/:applicationId/progress" element={<ApplicationProgressPage />} />
+        {/* Student Routes for Internship Management */}
         <Route path="internships" element={<StudentInternshipListPage />} />
         <Route path="/internships/apply/:id" element={<ApplyInternshipPage />} />
-        <Route path="/internships/applications" element={<ApplicationsToMyOffersPage />} />
         <Route path="/internships/student/applications" element={<StudentApplicationsTable />} />
         <Route path="/internships/:id/tasks" element={<ManageInternshipTasksPage />} />
-        <Route path="/applications/:applicationId/progress" element={<ApplicationProgressPage />} />
+
+        {/*Admin Routes for Internship Management */}
+        <Route path="/admin/internships" element={<AdminDashboardPage />} />
+
+
 
         <Route path="*" element={<NotFound />} />
       </Route>
