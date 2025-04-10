@@ -30,7 +30,9 @@ const storage = new CloudinaryStorage({
     allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'mov', 'pdf', 'mp3', 'wav', 'ogg'],
     resource_type: 'auto',
     transformation: [{ width: 800, crop: 'limit' }],
-    type: 'upload', // Au lieu de 'authenticated'
+    type: 'upload', // Ressources publiques
+    access_mode: 'public',
+    //upload_preset: 'fl_attachment', // Si présent, c'est le préréglage utilisé
     sign_url: false,
     invalidate: true,
     audio_codec: 'aac',

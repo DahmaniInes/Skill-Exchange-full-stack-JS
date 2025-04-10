@@ -26,6 +26,7 @@ function Header() {
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') || 'Auto');
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'English');
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // Rôle de l'utilisateur
   const [unseenMessages, setUnseenMessages] = useState({});
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
   const navigate = useNavigate();
@@ -67,9 +68,24 @@ function Header() {
         const decoded = jwtDecode(token);
         setCurrentUserId(decoded.userId);
         console.log('Utilisateur connecté avec ID:', decoded.userId);
+
+        // Récupérer le rôle via une requête API
+        const fetchUserRole = async () => {
+          try {
+            const response = await axiosInstance.get('/users/profile'); // Utiliser l'endpoint existant
+            setUserRole(response.data.role); // Récupérer le rôle depuis la réponse
+            console.log('Rôle récupéré:', response.data.role);
+          } catch (error) {
+            console.error('Erreur lors de la récupération du rôle:', error.response?.data || error.message);
+            setUserRole(null); // En cas d'erreur, rôle reste null
+          }
+        };
+        fetchUserRole();
       } catch (error) {
         console.error('Erreur lors du décodage du token JWT:', error);
       }
+    } else {
+      console.log('Aucun token trouvé, utilisateur non connecté');
     }
 
     // Initialisation de Socket.IO
@@ -97,7 +113,6 @@ function Header() {
         return;
       }
 
-      // Vérifier si le message est non lu et n'est pas envoyé par l'utilisateur actuel
       if (
         message.sender?._id !== currentUserId &&
         !message.read &&
@@ -111,7 +126,6 @@ function Header() {
       }
     });
 
-    // Charger les conversations initiales pour initialiser unseenMessages
     const fetchConversations = async () => {
       try {
         const response = await axiosInstance.get('/MessengerRoute/conversations');
@@ -168,6 +182,7 @@ function Header() {
       const response = await axiosInstance.post("/users/logout");
       console.log("Logout successful:", response.data);
       localStorage.removeItem("jwtToken");
+      setUserRole(null); // Réinitialiser le rôle lors de la déconnexion
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error.response?.data || error.message);
@@ -317,7 +332,7 @@ function Header() {
                   <div className="col-sm-10 col-lg-8">
                     <h5 className="text-primary text-uppercase mb-3 animated slideInDown">Best Online Courses</h5>
                     <h1 className="display-3 text-white animated slideInDown">The Best Online Learning Platform</h1>
-                    <p className="fs-5 text-white mb-4 pb-2">Vero elitr justo clita lorem. Ipsum dolor at sed stet sit diam no. Kasd rebum ipsum et diam justo clita et kasd rebum sea sanctus eirmod elitr.</p>
+                    <p className="fs-5 text-white mb-4 pb-2">Vero elitr justo clita lorem. Ipsum dolor at sed stet sit diam no.</p>
                     <Link to="/about" className="btn btn-primary py-md-3 px-md-5 me-3 animated slideInLeft">Read More</Link>
                     <Link to="/join" className="btn btn-light py-md-3 px-md-5 animated slideInRight">Join Now</Link>
                   </div>
@@ -333,7 +348,7 @@ function Header() {
                   <div className="col-sm-10 col-lg-8">
                     <h5 className="text-primary text-uppercase mb-3 animated slideInDown">Best Online Courses</h5>
                     <h1 className="display-3 text-white animated slideInDown">Get Educated Online From Your Home</h1>
-                    <p className="fs-5 text-white mb-4 pb-2">Vero elitr justo clita lorem. Ipsum dolor at sed stet sit diam no. Kasd rebum ipsum et diam justo clita et kasd rebum sea sanctus eirmod elitr.</p>
+                    <p className="fs-5 text-white mb-4 pb-2">Vero elitr justo clita lorem. Ipsum dolor at sed stet sit diam no.</p>
                     <Link to="/about" className="btn btn-primary py-md-3 px-md-5 me-3 animated slideInLeft">Read More</Link>
                     <Link to="/join" className="btn btn-light py-md-3 px-md-5 animated slideInRight">Join Now</Link>
                   </div>
@@ -360,7 +375,7 @@ function Header() {
       >
         <div
           style={{
-            displaynone: "none",
+            display: "none",
             top: 0,
             left: 0,
             right: 0,
@@ -384,7 +399,7 @@ function Header() {
         </div>
       </div>
 
-      {/* Navbar avec les améliorations */}
+      {/* Navbar avec personnalisation basée sur le rôle */}
       <nav
         className="navbar navbar-expand-lg bg-white navbar-light shadow p-0"
         style={{
@@ -413,66 +428,88 @@ function Header() {
         
         <div className="collapse navbar-collapse" id="navbarCollapse">
           <div className="navbar-nav ms-auto p-4 p-lg-0">
+            {/* Menu pour tous les utilisateurs */}
             <Link to="/" className={`nav-item nav-link ${location.pathname === "/" ? "active" : ""}`}>
               Home
             </Link>
-            <Link to="/about" className={`nav-item nav-link ${location.pathname === "/about" ? "active" : ""}`}>
-              About
-            </Link>
-            <Link to="/courses" className={`nav-item nav-link ${location.pathname === "/courses" ? "active" : ""}`}>
-              Courses
-            </Link>
-            <div className="nav-item dropdown">
-              <a href="#" className="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                Pages
-              </a>
-              <div className="dropdown-menu fade-down m-0">
-                <Link to="/team" className={`dropdown-item ${location.pathname === "/team" ? "active" : ""}`}>
-                  Our Team
+
+            {/* Menu conditionnel basé sur le rôle */}
+            {userRole === "admin" ? (
+              <>
+                <Link to="/reports" className={`nav-item nav-link ${location.pathname === "/reports" ? "active" : ""}`}>
+                  Reports
                 </Link>
-                <Link to="/testimonial" className={`dropdown-item ${location.pathname === "/testimonial" ? "active" : ""}`}>
-                  Testimonial
+                <Link to="/skillsmarketplace" className={`nav-item nav-link ${location.pathname === "/skillsmarketplace" ? "active" : ""}`}>
+                  SkillsMarketPlace
                 </Link>
-                <Link to="/notfound" className={`dropdown-item ${location.pathname === "/notfound" ? "active" : ""}`}>
-                  404 Page
+                <Link to="/stage" className={`nav-item nav-link ${location.pathname === "/stage" ? "active" : ""}`}>
+                  Stage
                 </Link>
-              </div>
-            </div>
+              </>
+            ) : (
+              // Menu par défaut pour tous les non-admins (user, student, teacher, ou non connecté)
+              <>
+                <Link to="/about" className={`nav-item nav-link ${location.pathname === "/about" ? "active" : ""}`}>
+                  About
+                </Link>
+                <Link to="/courses" className={`nav-item nav-link ${location.pathname === "/courses" ? "active" : ""}`}>
+                  Courses
+                </Link>
+                <div className="nav-item dropdown">
+                  <a href="#" className="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                    Pages
+                  </a>
+                  <div className="dropdown-menu fade-down m-0">
+                    <Link to="/team" className={`dropdown-item ${location.pathname === "/team" ? "active" : ""}`}>
+                      Our Team
+                    </Link>
+                    <Link to="/testimonial" className={`dropdown-item ${location.pathname === "/testimonial" ? "active" : ""}`}>
+                      Testimonial
+                    </Link>
+                    <Link to="/notfound" className={`dropdown-item ${location.pathname === "/notfound" ? "active" : ""}`}>
+                      404 Page
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Menu commun à tous */}
             <div className="d-flex align-items-center position-relative">
               <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
                 Contact
               </Link>
               <Link 
-  to="/MessengerDefaultPage" 
-  className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
-  onClick={handleMessengerClick}
->
-  <div style={{ position: "relative" }}>
-    <i className="fa fa-envelope me-2"></i>
-    {unseenCount > 0 && (
-      <span
-        style={{
-          position: "absolute",
-          top: "-8px",
-          right: "-8px",
-          backgroundColor: "red",
-          color: "white",
-          borderRadius: "50%",
-          width: "16px",
-          height: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "10px",
-          fontWeight: "bold",
-        }}
-      >
-        {unseenCount}
-      </span>
-    )}
-  </div>
-</Link>
-    </div>
+                to="/MessengerDefaultPage" 
+                className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
+                onClick={handleMessengerClick}
+              >
+                <div style={{ position: "relative" }}>
+                  <i className="fa fa-envelope me-2"></i>
+                  {unseenCount > 0 && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "-8px",
+                        right: "-8px",
+                        backgroundColor: "red",
+                        color: "white",
+                        borderRadius: "50%",
+                        width: "16px",
+                        height: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {unseenCount}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </div>
           </div>
 
           {/* Ajout des nouvelles fonctionnalités */}
@@ -515,7 +552,7 @@ function Header() {
                 className="rounded-circle me-2 border border-2 border-primary" 
                 style={{ width: '40px', height: '40px' }}
               />
-              <span className="fw-semibold">User</span>
+              <span className="fw-semibold">{userRole || "User"}</span> {/* Afficher le rôle */}
             </a>
             {showProfileMenu && (
               <div className="dropdown-menu fade-down m-0 dropdown-menu-end">

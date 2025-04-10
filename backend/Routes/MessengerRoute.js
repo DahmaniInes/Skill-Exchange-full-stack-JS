@@ -349,4 +349,37 @@ router.post('/reportUser', verifyToken, async (req, res) => {
   }
 });
 
+
+
+
+
+
+
+router.get('/reports', verifyToken, async (req, res) => {
+  try {
+    // Vérifier si l'utilisateur est un administrateur
+    const user = await User.findById(req.userId);
+   
+
+    // Récupérer tous les signalements
+    const reports = await Report.find()
+      .populate('reporter', 'firstName lastName email')
+      .populate('reportedUser', 'firstName lastName email')
+      .populate('conversation', 'groupName participants');
+
+    res.status(200).json({
+      success: true,
+      message: 'Liste des signalements récupérée avec succès',
+      data: reports,
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des signalements:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la récupération des signalements',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

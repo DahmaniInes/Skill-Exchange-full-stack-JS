@@ -589,7 +589,7 @@ const handleCallResponse = (accepted) => {
   };
 
 
-  
+
 
   const handleContextMenuClick = (e, messageId, isSent) => {
     e.preventDefault();

@@ -25,8 +25,12 @@ const ReportSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'reviewed', 'resolved'],
-    default: 'pending',
+    enum: ['pending', 'reviewed', 'blocked_3days', 'blocked_permanent', 'resolved'],
+        default: 'pending',
+  },
+  blockedUntil: {
+    type: Date,
+    default: null,
   },
   createdAt: {
     type: Date,

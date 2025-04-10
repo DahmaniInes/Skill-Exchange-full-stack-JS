@@ -23,6 +23,8 @@ import Profile from './pages/profile/ProfilePage';
 import MessengerPage from './pages/MessengerPages/MessengerPage';
 import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
 
+import ReportUserPage from './pages/ReportUserPage';
+
 import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
 import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
 
@@ -86,6 +88,7 @@ function App() {
           <Route path="SecuritySettings" element={<SecuritySettings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="MessengerPage" element={<MessengerPage />} />
+          <Route path="ReportUserPage" element={<ReportUserPage />} />
           <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
           <Route path="ConfirmPagePaiement" element={<ConfirmPagePaiement />} />
           <Route path="CancelPagePaiement" element={<CancelPagePaiement />} />

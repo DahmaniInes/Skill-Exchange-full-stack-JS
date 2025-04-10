@@ -877,7 +877,7 @@ const upgradeToTeacher = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { $set: { role: "teacher" } },
+      { $set: { role: "admin" } },
       { new: true }
     );
 

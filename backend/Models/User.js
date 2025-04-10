@@ -8,7 +8,6 @@ const UserSchema = new mongoose.Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ["super-admin", "admin", "user"], default: "user" },
     phone: { type: String, default: null },
     profilePicture: { type: String, default: null },
     skills: [{ type: String }],
@@ -93,7 +92,7 @@ const UserSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ["super-admin", "admin", "user", "student", "teacher"],
+        values: [ "admin", "user", "student", "teacher"],
         message: 'Rôle invalide'
       },
       default: "user"
