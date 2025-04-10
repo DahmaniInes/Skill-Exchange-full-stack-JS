@@ -9,12 +9,15 @@ import {
   TableCell,
   TableBody,
   IconButton,
+  TextField,
 } from "@mui/material";
 import { Download } from "lucide-react";
 import { toast } from "react-toastify";
 
 const AllApplicationsTable = () => {
   const [applications, setApplications] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,6 +30,7 @@ const AllApplicationsTable = () => {
           }
         );
         setApplications(res.data);
+        setFiltered(res.data);
       } catch (err) {
         toast.error("Failed to load applications");
       }
@@ -34,13 +38,40 @@ const AllApplicationsTable = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!search.trim()) {
+      setFiltered(applications);
+    } else {
+      const term = search.toLowerCase();
+      const filteredData = applications.filter(
+        (app) =>
+          app.student?.firstName?.toLowerCase().includes(term) ||
+          app.student?.lastName?.toLowerCase().includes(term) ||
+          app.internshipOffer?.title?.toLowerCase().includes(term)
+      );
+      setFiltered(filteredData);
+    }
+  }, [search, applications]);
+
   return (
     <Box>
       <Typography variant="h6" mb={2}>
         All Internship Applications
       </Typography>
 
-      {applications.length > 0 ? (
+      <Box mb={3}>
+        <TextField
+          label="Search by student or offer"
+          variant="outlined"
+          size="small"
+          fullWidth
+          sx={{ maxWidth: 400 }}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </Box>
+
+      {filtered.length > 0 ? (
         <Table>
           <TableHead>
             <TableRow>
@@ -52,7 +83,7 @@ const AllApplicationsTable = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {applications.map((app) => (
+            {filtered.map((app) => (
               <TableRow key={app._id}>
                 <TableCell>
                   {app.student?.firstName} {app.student?.lastName}
@@ -73,7 +104,7 @@ const AllApplicationsTable = () => {
         </Table>
       ) : (
         <Typography align="center" sx={{ mt: 4, color: "#777" }}>
-          No internship applications have been submitted yet.
+          No internship applications match your search.
         </Typography>
       )}
     </Box>
