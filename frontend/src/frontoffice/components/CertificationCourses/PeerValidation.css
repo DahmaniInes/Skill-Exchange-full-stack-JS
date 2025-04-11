@@ -1,0 +1,22 @@
+.peer-validation-card {
+    background-color: #fdfdfd;
+    max-width: 600px;
+    margin: 40px auto;
+    border-radius: 12px;
+  }
+  
+  .peer-validation-card h2 {
+    color: #2c3e50;
+    font-weight: 600;
+  }
+  
+  .peer-validation-card input:focus {
+    border-color: #198754;
+    box-shadow: 0 0 5px rgba(25, 135, 84, 0.4);
+  }
+  
+  .alert-info {
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  
