@@ -74,10 +74,14 @@ const Login = () => {
     e.preventDefault();
     try {
       const response = await axios.post("http://localhost:5000/users/login", { email, password });
-      const { token, user } = response.data;
+      const { token, user, role } = response.data;
 
       if (token) {
         localStorage.setItem("jwtToken", token);
+      }
+
+      if (role) {
+        localStorage.setItem("role", role);
       }
 
       setMessage("Login successful! Redirecting...");
@@ -114,8 +118,13 @@ const Login = () => {
     try {
       const response = await axios.post("http://localhost:5000/users/login-otp", { email, otp });
       const token = response.data.token;
+      const role = response.data.role;
       if (token) {
         localStorage.setItem("jwtToken", token);
+      }
+
+      if (role) {
+        localStorage.setItem("role", role);
       }
       setMessage("OTP verified! Redirecting...");
       setError('');

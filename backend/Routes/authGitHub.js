@@ -123,7 +123,7 @@ router.get('/login-with-github', async (req, res) => {
     }
     
     // Créer un JWT pour l'utilisateur
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user._id, userRole: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log("Token JWT créé avec succès pour GitHub OAuth");
 
     // Envoi du token côté client via le header

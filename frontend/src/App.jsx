@@ -31,6 +31,8 @@ import StudentApplicationsTable from './pages/internships/StudentApplicationsTab
 import ManageInternshipTasksPage from "./pages/internships/ManageInternshipTasksPage";
 import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage";
 import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
+import RoleGuard from './guards/RoleGuard';
+import Unauthorized from './pages/Unauthorized';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -64,6 +66,8 @@ function App() {
     };
   }, []);
 
+
+
   return (
     <Routes>
       <Route path="/" element={<MainLayout />}>
@@ -85,22 +89,23 @@ function App() {
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
 
         {/* Entrepreneur Routes for Internship Management */}
-        <Route path="/internship-create" element={<InternshipFormPage />} />
-        <Route path="/edit-internship/:id" element={<EditInternshipPage />} />
-        <Route path="internships/entreprise" element={<UserInternshipListPage />} />
-        <Route path="/internships/applications" element={<ApplicationsToMyOffersPage />} />
-        <Route path="/applications/:applicationId/progress" element={<ApplicationProgressPage />} />
+        <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/edit-internship/:id" element={<RoleGuard element={<EditInternshipPage />} allowedRoles="entrepreneur" />} />
+        <Route path="internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/internships/applications" element={<RoleGuard element={<ApplicationsToMyOffersPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/applications/:applicationId/progress" element={<RoleGuard element={<ApplicationProgressPage />} allowedRoles="entrepreneur" />} />
+
         {/* Student Routes for Internship Management */}
-        <Route path="internships" element={<StudentInternshipListPage />} />
-        <Route path="/internships/apply/:id" element={<ApplyInternshipPage />} />
-        <Route path="/internships/student/applications" element={<StudentApplicationsTable />} />
-        <Route path="/internships/:id/tasks" element={<ManageInternshipTasksPage />} />
+        <Route path="internships" element={<RoleGuard element={<StudentInternshipListPage />} allowedRoles="student" />} />
+        <Route path="/internships/apply/:id" element={<RoleGuard element={<ApplyInternshipPage />} allowedRoles="student" />} />
+        <Route path="/internships/student/applications" element={<RoleGuard element={<StudentApplicationsTable />} allowedRoles="student" />} />
+        <Route path="/internships/:id/tasks" element={<RoleGuard element={<ManageInternshipTasksPage />} allowedRoles="student" />} />
 
-        {/*Admin Routes for Internship Management */}
-        <Route path="/admin/internships" element={<AdminDashboardPage />} />
+        {/* Admin Routes for Internship Management */}
+        <Route path="/admin/internships" element={<RoleGuard element={<AdminDashboardPage />} allowedRoles="admin" />} />
 
 
-
+        <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
