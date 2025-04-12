@@ -8,6 +8,7 @@ function MainLayout() {
       <Header />
       <main className="flex-grow container mx-auto p-4">
         <Outlet />     
+
       </main>
       <Footer />
     </div>

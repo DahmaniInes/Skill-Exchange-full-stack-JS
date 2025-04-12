@@ -30,6 +30,67 @@
   border: 1px solid #ddd;
   font-size: 16px; 
 } 
+.gender-selection {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 15px 0;
+}
+
+.gender-selection label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+}
+
+.gender-selection input {
+  appearance: none; /* Supprime le style par défaut */
+  width: 18px;
+  height: 18px;
+  border: 2px solid #06bbcc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.gender-selection input:checked {
+  background-color: #06bbcc;
+  border-color: #06bbcc;
+}
+
+.gender-selection input:checked::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  margin: 10px 0;
+}
+
+.form-group label {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #333;
+}
+
 
 .signup-content input:focus {
   outline: none;
@@ -66,3 +127,7 @@
   color: green;
 } 
    
+.signup-content select {
+  outline: none;
+  border-color: #06bbcc;
+}

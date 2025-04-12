@@ -7,31 +7,51 @@ var logger = require("morgan");
 var session = require("express-session");
 var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
+const http = require('http');
+const cors = require("cors");
+const { SessionsClient } = require('@google-cloud/dialogflow');
+// Import route modules
 const authRoutes = require("./Routes/authRoutes");
-var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
+var indexRouter = require("./Routes/index");
+var usersRouter = require("./Routes/users");
 var loginRouter = require('./Routes/authGOOGLE');
 var loginGit = require('./Routes/authGitHub');
+var authOATH = require('./Routes/oath-totp');
+const skillRoutes = require("./Routes/skillRoutes");
+const profileRoutes = require("./Routes/profileRoutes");
+const storyRoutes = require("./Routes/storyRoutes");
+const roadmapRoutes = require('./Routes/roadmapRoutes');
+const internshipRoutes = require('./Routes/internshipRoutes');
+// Initialize Express
 const app = express();
-const cors = require("cors");
+const server = http.createServer(app);
 
+// View engine setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-
-app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend URL
-  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-UserId'], // Add 'Authorization' to the allowed headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Specify allowed methods
-}));
-
-
+// Set up core middleware first
+app.use(logger("dev"));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI);
-app.use("/api", authRoutes);
+// Configure CORS
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Client-Version',
+    'X-Requested-With'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'Authorization']
+}));
+app.options('*', cors());
 
-
+// Set up session
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -43,23 +63,90 @@ app.use(
       httpOnly: true, // Prevent client-side access
       secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS in production
       sameSite: 'None', // Allow cross-origin requests
-    },
+    }
   })
 );
 
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-// Middleware Setup
-app.use(logger("dev"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+// Static files
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/", indexRouter);
-app.use("/users", usersRouter);
-app.use("/login", loginRouter);
-app.use("/loginGit", loginGit);
+const sessionClient = new SessionsClient({
+  keyFilename: 'path/to/service-account-key.json',
+});
 
+const projectId = 'your-project-id';
+const sessionId = 'your-session-id';
+
+app.post('/chat', async (req, res) => {
+  const sessionPath = sessionClient.projectAgentSessionPath(projectId, sessionId);
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: req.body.message,
+        languageCode: 'fr-FR',
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    res.json({ response: result.fulfillmentText });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register all routes AFTER middleware is set up
+app.use("/api", authRoutes);
+app.use("/api/skills", skillRoutes);
+app.use("/api/stories", storyRoutes);
+app.use("/api/internships", internshipRoutes);
+app.use("/", usersRouter);
+app.use("/users", usersRouter);
+//app.use("/login", loginRouter);
+app.use("/loginGit", loginGit);
+app.use("/auth", authOATH);
+app.use("/api", profileRoutes);
+app.use("/api/roadmaps", roadmapRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
+
+// Example route to render a view
+app.get('/', (req, res) => {
+  res.render('index'); // Ensure there is an index.ejs file in the views folder
+});
+
+// Production static file handling
+if (process.env.NODE_ENV === "production") {
+  const frontendPath = path.join(__dirname, "../frontend/dist");
+  app.use(express.static(frontendPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+}
+
+// Socket.io setup (if you're using it)
+// const io = require('socket.io')(server, {
+//   cors: {
+//     origin: 'http://localhost:5173',
+//     methods: ['GET', 'POST'],
+//     credentials: true
+//   }
+// });
+
+// app.use((req, res, next) => {
+//   req.io = io;
+//   next();
+// });
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -70,18 +157,21 @@ app.use(function (req, res, next) {
 app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
+  
+  // Send error as JSON if it's an API request
+  if (req.path.startsWith('/api')) {
+    return res.status(err.status || 500).json({
+      error: err.message,
+      stack: req.app.get("env") === "development" ? err.stack : undefined
+    });
+  }
+  
+  // Otherwise render the error page
   res.status(err.status || 500);
   res.render("error");
 });
-// Set EJS as the template engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views')); // specify the directory for views
 
-// Example route to render a view
-app.get('/', (req, res) => {
-  res.render('index'); // Ensure there is an index.ejs file in the views folder
-});
-
-app.listen(5000, () => console.log("Server running on port 5000"));
+// Start the server
+server.listen(5000, () => console.log("Server running on port 5000"));
 
 module.exports = app;
