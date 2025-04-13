@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { Calendar, MapPin, Clock, ListChecks } from "lucide-react";
@@ -14,6 +14,8 @@ const ApplyInternshipPage = () => {
   const [cvFile, setCvFile] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchInternship = async () => {
@@ -77,6 +79,15 @@ const ApplyInternshipPage = () => {
 
   return (
     <section className="personal-info-section" style={{ maxWidth: "1200px", margin: "0 auto" }}>
+       <div style={{ marginBottom: "1rem" }}>
+        <button
+          className="button button-secondary"
+          onClick={() => navigate("/internships")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          ← Back to Internships
+        </button>
+      </div>
       <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
         {/* Internship Details */}
         <div style={{ flex: 1 }}>

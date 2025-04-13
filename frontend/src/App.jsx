@@ -91,7 +91,7 @@ function App() {
         {/* Entrepreneur Routes for Internship Management */}
         <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />
         <Route path="/edit-internship/:id" element={<RoleGuard element={<EditInternshipPage />} allowedRoles="entrepreneur" />} />
-        <Route path="internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
         <Route path="/internships/applications" element={<RoleGuard element={<ApplicationsToMyOffersPage />} allowedRoles="entrepreneur" />} />
         <Route path="/applications/:applicationId/progress" element={<RoleGuard element={<ApplicationProgressPage />} allowedRoles="entrepreneur" />} />
 

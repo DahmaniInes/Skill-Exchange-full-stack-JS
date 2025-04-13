@@ -4,6 +4,7 @@ import { Plus, Trash } from "lucide-react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../profile/PersonalInfoPage.css";
+import { useNavigate } from "react-router-dom";
 
 const InternshipFormPage = () => {
   const [skills, setSkills] = useState([]);
@@ -20,6 +21,7 @@ const InternshipFormPage = () => {
 
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     axios.get("http://localhost:5000/api/skills")
@@ -106,6 +108,17 @@ const InternshipFormPage = () => {
 
   return (
     <section className="personal-info-section">
+
+    <div style={{ marginBottom: "1rem" }}>
+        <button
+          className="button button-secondary"
+          onClick={() => navigate("/internships/entreprise")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          ← Back to My Internships
+        </button>
+      </div>
+
       <h3 className="section-title">Add Internship Offer</h3>
 
       <form onSubmit={handleSubmit} noValidate>

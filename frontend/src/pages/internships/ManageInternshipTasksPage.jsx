@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import {
   Typography,
@@ -28,6 +28,8 @@ const ManageInternshipTasksPage = () => {
   const [internshipTitle, setInternshipTitle] = useState("");
   const [certificateUrl, setCertificateUrl] = useState(null);
   const [isCompleted, setIsCompleted] = useState(false);
+
+  const navigate = useNavigate();
 
   const fetchTasks = async () => {
     try {
@@ -75,6 +77,16 @@ const ManageInternshipTasksPage = () => {
   const progressPercent = Math.round((completedCount / tasks.length) * 100);
 
   return (
+    <>
+    <div style={{ marginBottom: "1rem", marginTop: "1rem" }}>
+        <button
+          className="button button-secondary"
+          onClick={() => navigate("/internships/student/applications")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          ← Back to my applications
+        </button>
+    </div>
     <Box maxWidth="1100px" mx="auto" my={5}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         {internshipTitle} — Task Manager
@@ -147,6 +159,7 @@ const ManageInternshipTasksPage = () => {
         ))}
       </Grid>
     </Box>
+    </>
   );
 };
 
