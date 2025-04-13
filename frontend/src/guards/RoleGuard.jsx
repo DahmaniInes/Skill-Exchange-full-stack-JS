@@ -3,7 +3,9 @@ import { Navigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 
 const RoleGuard = ({ element, allowedRoles }) => {
-  const token = localStorage.getItem("token");
+  console.log("element", element);
+  console.log("allowedRoles", allowedRoles);
+  const token = localStorage.getItem("jwtToken");
 
   if (!token) {
     return <Navigate to="/unauthorized" replace />;
@@ -11,9 +13,13 @@ const RoleGuard = ({ element, allowedRoles }) => {
 
   try {
     const decoded = jwtDecode(token);
-    const userRole = decoded?.role;
+    console.log("decoded", decoded);
+    const userRole = decoded?.userRole;
+    console.log("userRole", userRole);
 
     const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+
+    console.log("roles", roles);
 
     if (!roles.includes(userRole)) {
       return <Navigate to="/unauthorized" replace />;
@@ -21,6 +27,7 @@ const RoleGuard = ({ element, allowedRoles }) => {
 
     return element;
   } catch (err) {
+    console.error("Error decoding token", err);
     return <Navigate to="/unauthorized" replace />;
   }
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import {
   Box,
@@ -28,6 +28,8 @@ const ApplicationProgressPage = () => {
   const [internshipId, setInternshipId] = useState("");
   const [certificateUrl, setCertificateUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const fetchProgress = async () => {
     try {
@@ -83,6 +85,16 @@ const ApplicationProgressPage = () => {
   const allCompleted = completedCount === tasks.length && tasks.length > 0;
 
   return (
+    <>
+    <div style={{ marginBottom: "1rem", marginTop: "1rem" }}>
+        <button
+          className="button button-secondary"
+          onClick={() => navigate("/internships/entreprise")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          ← Back to Applications
+        </button>
+    </div>
     <Box maxWidth="1000px" mx="auto" my={5}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         {studentName}'s Progress — {internshipTitle}
@@ -162,6 +174,7 @@ const ApplicationProgressPage = () => {
         ))}
       </Grid>
     </Box>
+    </>
   );
 };
 

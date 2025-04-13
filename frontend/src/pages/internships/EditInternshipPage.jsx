@@ -130,7 +130,16 @@ const EditInternshipPage = () => {
   return (
     <section className="personal-info-section">
       <h3 className="section-title">Edit Internship Offer</h3>
-
+      <div style={{ marginBottom: "1rem" }}>
+        <button
+          className="button button-secondary"
+          onClick={() => navigate("/internships/entreprise")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          ← Back to My Internships
+        </button>
+      </div>
+      
       <form onSubmit={handleSubmit} noValidate>
         <div className="form-grid">
           <div className="form-group">

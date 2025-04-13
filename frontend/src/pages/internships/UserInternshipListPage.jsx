@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Calendar, MapPin, Clock, Building2, AlignLeft, Trash2, Pencil } from "lucide-react";
+import { Calendar, MapPin, Clock, Building2, AlignLeft, Trash2, Pencil, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "../profile/PersonalInfoPage.css";
 
@@ -49,6 +49,16 @@ const UserInternshipListPage = () => {
   return (
     <section className="personal-info-section">
       <h3 className="section-title">My Internship Offers</h3>
+
+      <div style={{ marginBottom: "1rem", marginTop: "0.5rem" }}>
+        <button
+          className="button button-primary"
+          onClick={() => navigate("/internship-create")}
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
+          <Plus size={16} className="icon-inline" /> Create New Internship Offer
+        </button>
+      </div>
 
       {loading ? (
         <p>Loading...</p>
