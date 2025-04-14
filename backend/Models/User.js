@@ -29,7 +29,8 @@ const UserSchema = new mongoose.Schema(
       required: true
     },
     salt: {
-      type: String // <-- ❌ required supprimé ici
+      type: String,
+      required: true
     },
 
     // Section 2 : Authentification
