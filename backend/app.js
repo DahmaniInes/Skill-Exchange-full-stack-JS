@@ -23,6 +23,9 @@ const storyRoutes = require("./Routes/storyRoutes");
 const roadmapRoutes = require('./Routes/roadmapRoutes');
 const internshipRoutes = require('./Routes/internshipRoutes');
 var MessengerRoute = require('./Routes/MessengerRoute');
+const courseRoutes = require('./Routes/courseRoutes');
+const instructorRoutes = require('./Routes/instructorRoutes');
+const certificateRoutes = require('./Routes/certificateRoutes');
 
 
 
@@ -147,6 +150,10 @@ app.use("/auth", authOATH);
 app.use("/api", profileRoutes);
 app.use("/api/roadmaps", roadmapRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/api/courses', courseRoutes);
+app.use('/api/instructors', instructorRoutes);
+app.use('/api/certification', certificateRoutes);
+
 
 app.use("/MessengerRoute", MessengerRoute);
 

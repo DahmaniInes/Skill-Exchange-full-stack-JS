@@ -45,6 +45,13 @@ import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
 
 import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
 
+import CertificationForm from './/components/CertificationCourses/CertificationForm/CertificationForm';
+import PeerValidation from './components/CertificationCourses/PeerValidation/PeerValidation';
+import AllCourses from './components/CertificationCourses/AllCourses/AllCourses';
+import MyCourses  from './components/CertificationCourses/MyCourses/MyCourses';
+import CourseDetail  from './components/CertificationCourses/CourseDetail/CourseDetail';
+import CreateCourse  from './components/CertificationCourses/CreateCourse/CreateCourse';
+
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
@@ -135,6 +142,20 @@ function App() {
         {/* Admin Routes for Internship Management */}
         <Route path="/admin/internships" element={<RoleGuard element={<AdminDashboardPage />} allowedRoles="admin" />} />
         <Route path="ReportUserPage" element={<RoleGuard element={<ReportUserPage />} allowedRoles="admin" />} />
+
+         {/* Courses */}
+         <Route path="my-courses" element={<MyCourses  />} />
+          <Route path="/courses" element={<AllCourses />}>
+            <Route index element={<AllCourses userId="123" />} />
+          </Route>
+          <Route path="/course/:id" element={<CourseDetail />} />
+            
+
+          <Route path="/create-course" element={<CreateCourse />} />
+          
+          <Route path="certification-form" element={<CertificationForm />} />
+            <Route path="peer-validation" element={<PeerValidation />} />
+
 
 
         <Route path="/unauthorized" element={<Unauthorized />} />
