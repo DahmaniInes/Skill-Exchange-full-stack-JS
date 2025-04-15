@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { WOW } from 'wowjs';
+import axios from 'axios';
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
 import Login from "./pages/login/login";
@@ -34,6 +35,16 @@ import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboar
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
 
+import MessengerPage from './pages/MessengerPages/MessengerPage';
+import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
+
+import ReportUserPage from './pages/MessengerPages/ReportUserPage';
+
+import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
+import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
+
+import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
+
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
@@ -43,7 +54,22 @@ import 'wowjs/css/libs/animate.css';
 
 function App() {
   useEffect(() => {
-    // Wait for DOM to be fully loaded
+        axios.interceptors.request.use(
+        (config) => {
+          console.log('Intercepteur appelé, headers:', config.headers);
+          const token = localStorage.getItem('jwtToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          } else {
+            delete config.headers.Authorization;
+          }
+          return config;
+        },
+        (error) => {
+          return Promise.reject(error);
+        }
+      );
+
     document.addEventListener('DOMContentLoaded', () => {
       const wow = new WOW({
         boxClass: 'wow',
@@ -69,6 +95,7 @@ function App() {
 
 
   return (
+    <ConversationProvider>
     <Routes>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} /> {/* Added index route */}
@@ -88,6 +115,10 @@ function App() {
         <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
 
+        <Route path="MessengerPage" element={<MessengerPage />} />
+          <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
+          <Route path="ConfirmPagePaiement" element={<ConfirmPagePaiement />} />
+          <Route path="CancelPagePaiement" element={<CancelPagePaiement />} />
         {/* Entrepreneur Routes for Internship Management */}
         <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />
         <Route path="/edit-internship/:id" element={<RoleGuard element={<EditInternshipPage />} allowedRoles="entrepreneur" />} />
@@ -103,12 +134,15 @@ function App() {
 
         {/* Admin Routes for Internship Management */}
         <Route path="/admin/internships" element={<RoleGuard element={<AdminDashboardPage />} allowedRoles="admin" />} />
+        <Route path="ReportUserPage" element={<RoleGuard element={<ReportUserPage />} allowedRoles="admin" />} />
 
 
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </ConversationProvider>
+
   );
 }
 

@@ -22,6 +22,10 @@ const profileRoutes = require("./Routes/profileRoutes");
 const storyRoutes = require("./Routes/storyRoutes");
 const roadmapRoutes = require('./Routes/roadmapRoutes');
 const internshipRoutes = require('./Routes/internshipRoutes');
+var MessengerRoute = require('./Routes/MessengerRoute');
+
+
+
 // Initialize Express
 const app = express();
 const server = http.createServer(app);
@@ -50,6 +54,33 @@ app.use(cors({
   exposedHeaders: ['Content-Length', 'Authorization']
 }));
 app.options('*', cors());
+
+
+// Socket.IO Setup
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PATCH"],
+    credentials: true
+  }
+});
+
+const onlineUsers = require("./Utils/onlineUsers");
+
+// Configurer Socket.IO avec onlineUsers
+require("./middleware/messengerSocket")(io, onlineUsers);
+
+
+
+
+// Middleware pour ajouter io à req (déplacé avant les routes)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+
 
 // Set up session
 app.use(
@@ -110,13 +141,14 @@ app.use("/api/stories", storyRoutes);
 app.use("/api/internships", internshipRoutes);
 app.use("/", usersRouter);
 app.use("/users", usersRouter);
-//app.use("/login", loginRouter);
+app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth", authOATH);
 app.use("/api", profileRoutes);
 app.use("/api/roadmaps", roadmapRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+app.use("/MessengerRoute", MessengerRoute);
 
 
 // Example route to render a view

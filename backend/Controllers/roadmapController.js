@@ -4,15 +4,15 @@ const Roadmap = require('../Models/Roadmap');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const NodeCache = require('node-cache');
-const { Ollama } = require('ollama'); // Correction ici
+//const { Ollama } = require('ollama'); // Correction ici
 
 // Cache pour stocker les roadmaps générées
 const roadmapCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // TTL: 24h
 
 
-const ollama = new Ollama({
+/*const ollama = new Ollama({
     host: process.env.OLLAMA_HOST || 'http://localhost:11435'
-  });
+  });*/
 
 
 const MODELS = {
@@ -26,7 +26,7 @@ function estimateTokens(text) {
 }
 
 
-async function callOllamaWithRateLimiting(messages, model = MODELS.DEFAULT, maxTokens = 1500) {
+/*async function callOllamaWithRateLimiting(messages, model = MODELS.DEFAULT, maxTokens = 1500) {
   const MAX_RETRIES = 8;
   const BASE_DELAY = 1000; 
   const MAX_DELAY = 120000; 
@@ -94,7 +94,7 @@ async function callOllamaWithRateLimiting(messages, model = MODELS.DEFAULT, maxT
   }
   
   throw new Error(`Nombre maximum de tentatives (${MAX_RETRIES}) dépassé pour l'appel à l'API Ollama`);
-}
+}*/
 
 exports.generatePersonalizedRoadmap = async (req, res) => {
     try {
@@ -299,7 +299,7 @@ function generateOptimizedPrompt(user, skill, goals, timeframe, preferences) {
 }
 
 // Fonction optimisée pour appeler l'API de l'IA
-async function generateRoadmapWithAI(prompt) {
+/*async function generateRoadmapWithAI(prompt) {
   try {
     const promptTokens = estimateTokens(prompt);
     const maxResponseTokens = Math.min(2000, 4000 - promptTokens); // Ne pas dépasser le contexte total
@@ -380,7 +380,7 @@ async function generateRoadmapWithAI(prompt) {
     console.error("Échec de génération avec l'IA:", error);
     throw error;
   }
-}
+}*/
 
 // Fonction améliorée pour générer une roadmap de secours
 function generateFallbackRoadmap(level = 'Débutant', goals = [], timeframe = '3') {
@@ -437,7 +437,7 @@ function generateFallbackRoadmap(level = 'Débutant', goals = [], timeframe = '3
 }
 
 // Adapter également la fonction pour les ajustements avec feedback
-async function generateAdjustmentsWithRateLimiting(currentSteps, feedback, progress) {
+/*async function generateAdjustmentsWithRateLimiting(currentSteps, feedback, progress) {
   // Ne pas appeler l'IA si le feedback est vide ou trop court
   if (!feedback || feedback.length < 10) {
     console.log("Feedback trop court, pas d'appel à l'IA");
@@ -494,7 +494,7 @@ async function generateAdjustmentsWithRateLimiting(currentSteps, feedback, progr
     console.error("Erreur lors de la génération des ajustements:", error);
     return currentSteps;
   }
-}
+}*/
 
 // N'oubliez pas de mettre à jour la référence dans cette fonction
 exports.updateRoadmapWithAIFeedback = async (req, res) => {
