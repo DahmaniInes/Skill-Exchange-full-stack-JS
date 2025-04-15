@@ -6,10 +6,31 @@ import {
   FaCheck, 
   FaTimes, 
   FaLock,
-  FaRegCheckCircle
+  FaRegCheckCircle,
+  FaBell,
+  FaExclamationTriangle
 } from "react-icons/fa";
 import ProfileService from "../../services/ProfileService";
 import "./SecuritySettings.css";
+
+// Composant de notification Toast
+const Toast = ({ message, type, onClose }) => {
+  return (
+    <div className={`toast-notification ${type}`}>
+      <div className="toast-icon">
+        {type === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+      </div>
+      <div className="toast-message">{message}</div>
+      <button 
+        className="toast-close" 
+        onClick={onClose}
+        aria-label="Close notification"
+      >
+        <FaTimes />
+      </button>
+    </div>
+  );
+};
 
 const SecuritySettings = () => {
   const [formData, setFormData] = useState({
@@ -26,6 +47,7 @@ const SecuritySettings = () => {
   const [feedback, setFeedback] = useState(null);
   const [strength, setStrength] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
   const requirements = [
     { id: 1, text: "Minimum 12 characters", validator: (p) => p.length >= 12 },
@@ -56,11 +78,30 @@ const SecuritySettings = () => {
     setErrors(newErrors);
   };
 
+  // Fermer le toast après un délai
+  useEffect(() => {
+    let timer;
+    if (toast.show) {
+      timer = setTimeout(() => {
+        setToast({ ...toast, show: false });
+      }, 5000); // Le toast se fermera automatiquement après 5 secondes
+    }
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+  };
+
+  const closeToast = () => {
+    setToast({ ...toast, show: false });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (Object.values(errors).some(error => error) || strength < 3) {
-      setFeedback({ type: 'error', message: 'Please correct the errors' });
+      showToast('Veuillez corriger les erreurs avant de continuer', 'error');
       return;
     }
 
@@ -77,10 +118,14 @@ const SecuritySettings = () => {
         formData.newPassword
       );
 
+      // Afficher le feedback dans le formulaire
       setFeedback({ 
         type: 'success', 
         message: 'Password updated successfully!' 
       });
+      
+      // Afficher également un toast de confirmation
+      showToast('Mot de passe mis à jour avec succès!', 'success');
       
       // Reset form
       setFormData({
@@ -95,6 +140,9 @@ const SecuritySettings = () => {
         type: 'error', 
         message: error.message || 'Password update failed' 
       });
+      
+      // Afficher également un toast d'erreur
+      showToast(error.message || 'Échec de la mise à jour du mot de passe', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -204,6 +252,15 @@ const SecuritySettings = () => {
           </button>
         </div>
       </form>
+      
+      {/* Notification Toast */}
+      {toast.show && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={closeToast} 
+        />
+      )}
     </div>
   );
 };

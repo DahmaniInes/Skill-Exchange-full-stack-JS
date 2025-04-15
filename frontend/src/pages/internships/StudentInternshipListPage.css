@@ -1,0 +1,58 @@
+.enhanced-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease-in-out;
+  }
+  
+  .enhanced-card:hover {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  }
+  
+  .space-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .spaced {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 0.75rem 0;
+  }
+  
+  .enhanced-tag {
+    display: inline-block;
+    background-color: #e0f2ff;
+    color: #0077cc;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    margin-right: 8px;
+    margin-top: 4px;
+  }
+  
+  .apply-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .input-field {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+  }
+  
+  .experience-card {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  

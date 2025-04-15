@@ -17,12 +17,57 @@ const formatDate = (date) => {
 const getUserConversations = async (req, res) => {
   try {
     const userId = req.userId;
-   // console.log("[1/5] Début de getUserConversations pour l’utilisateur:", userId);
+    console.log("[1/8] Début de getUserConversations pour l’utilisateur:", userId);
 
-    //console.log("[2/5] Récupération des conversations existantes");
+    console.log("[2/8] Récupération des utilisateurs");
+    const allUsers = await User.find({ _id: { $ne: userId } })
+      .select("_id firstName lastName profilePicture")
+      .lean();
+    if (!allUsers || allUsers.length === 0) {
+      console.log("[2/8] Aucun autre utilisateur trouvé");
+    }
+
+    console.log("[3/8] Vérification/Création des conversations");
+    const createdConversations = [];
+    await Promise.all(
+      allUsers.map(async (user) => {
+        const existing = await Conversation.findOne({
+          participants: { $all: [userId, user._id] },
+          isGroup: false,
+        });
+        if (!existing) {
+          const newConv = await Conversation.create({
+            participants: [userId, user._id],
+            isGroup: false,
+            isSelfConversation: false,
+            messages: [],
+          });
+          createdConversations.push(newConv._id);
+          console.log(`[3/8] Nouvelle conversation créée avec ${user._id}`);
+        }
+      })
+    );
+
+    console.log("[4/8] Gestion de la conversation personnelle");
+    let selfConv = await Conversation.findOne({
+      participants: { $size: 1, $all: [userId] },
+      isGroup: false,
+    });
+    if (!selfConv) {
+      selfConv = await Conversation.create({
+        participants: [userId],
+        isGroup: false,
+        isSelfConversation: true,
+        messages: [],
+      });
+      createdConversations.push(selfConv._id);
+      console.log("[4/8] Conversation personnelle créée");
+    }
+
+    console.log("[5/8] Récupération des conversations");
     const conversations = await Conversation.find({
       participants: userId,
-      "archivedBy.user": { $ne: userId }, // Exclure les conversations archivées par l'utilisateur
+      "archivedBy.user": { $ne: userId },
     })
       .populate({
         path: "participants",
@@ -35,13 +80,13 @@ const getUserConversations = async (req, res) => {
       .sort({ updatedAt: -1 })
       .lean();
 
-   /* if (!conversations.length) {
-     // console.log("[3/5] Aucune conversation trouvée");
+    if (!conversations.length) {
+      console.log("[6/8] Aucune conversation trouvée");
     } else {
-     // console.log("[3/5] Conversations récupérées:", conversations.length);
-    }*/
+      console.log("[6/8] Conversations récupérées:", conversations.length);
+    }
 
- //   console.log("[4/5] Formatage des conversations");
+    console.log("[7/8] Formatage des conversations");
     const formatted = conversations.map((conv) => {
       const isSelf = conv.isSelfConversation === true;
       const otherParticipant = isSelf
@@ -71,16 +116,17 @@ const getUserConversations = async (req, res) => {
         time: formatDate(conv.lastMessage?.createdAt),
         participants: conv.participants.map((p) => ({
           ...p,
-          isOnline: p._id ? onlineUsers.has(p._id.toString()) : false,
+          isOnline: p._id ? onlineUsers.has(p._id.toString()) : false, // Vérification sécurisée
         })),
         senderId: conv.lastMessage?.sender?._id?.toString(),
       };
     });
 
-   // console.log("[5/5] Envoi de la réponse", { conversations: formatted.length });
+    console.log("[8/8] Envoi de la réponse", { conversations: formatted.length });
     res.status(200).json({
       success: true,
       data: formatted,
+      created: createdConversations,
     });
   } catch (error) {
     console.error("❌ ERREUR dans getUserConversations:", error.stack);
@@ -91,6 +137,18 @@ const getUserConversations = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Fonction existante : getAllUsers
 const getAllUsers = async (req, res) => {

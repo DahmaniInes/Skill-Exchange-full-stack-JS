@@ -88,3 +88,60 @@
     background-color: rgba(243, 156, 18, 0.15);
     color: #f39c12;
   }
+
+
+
+
+
+
+
+
+
+
+
+
+  .statusContainer {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  
+  .editIcon:hover {
+    opacity: 0.8;
+  }
+  
+  .statusSelect {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 4px;
+    font-size: 14px;
+    border: 1px solid #06BBCC;
+    border-radius: 4px;
+    background-color: white;
+    color: #333;
+    cursor: pointer;
+  }
+  
+  .statusSelect:focus {
+    outline: none;
+    box-shadow: 0 0 4px rgba(6, 187, 204, 0.5);
+  }
+  
+  /* Optional: Additional badge styles for new statuses */
+  .reviewedBadge {
+    background-color: #2196f3;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  
+  .resolvedBadge {
+    background-color: #4caf50;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+  }

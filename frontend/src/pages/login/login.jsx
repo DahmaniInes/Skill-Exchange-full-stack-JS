@@ -22,46 +22,57 @@ const Login = () => {
       localStorage.setItem("jwtToken", token);
       console.log("JWT Token from OAuth saved:", token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      console.log("Jeton JWT OAuth sauvegardé :", token);
-
+      
       window.history.replaceState({}, document.title, window.location.pathname);
-      //////////////////////////////////
-      navigate("/");
-
-      //fetchUserInfo(token);
+      
+      // Appeler fetchUserInfo au lieu de rediriger directement
+      fetchUserInfo(token);
     }
   }, [location, navigate]);
-  
-  const fetchUserInfo = async (token) => {
-    try {
-      const config = {
-        headers: { Authorization: `Bearer ${token}` }
+
+
+
+ 
+      
+      const fetchUserInfo = async (token) => {
+        try {
+          const config = {
+            headers: { Authorization: `Bearer ${token}` }
+          };
+          
+          let userInfo;
+          try {
+            // Essayer d'abord Google
+            const googleResponse = await axios.get("http://localhost:5000/login/google-user", config);
+            userInfo = googleResponse.data.user;
+          } catch (googleError) {
+            // Si échec avec Google, essayer GitHub
+            try {
+              const githubResponse = await axios.get("http://localhost:5000/loginGit/github-user", config);
+              userInfo = githubResponse.data.user;
+            } catch (githubError) {
+              console.error("Failed to fetch user info from both providers:", githubError);
+              throw new Error("Authentication failed");
+            }
+          }
+          
+          console.log("User info retrieved:", userInfo);
+          
+          // Redirection selon le cas
+          setMessage("Authentication successful! Redirecting...");
+          setError('');
+          
+          if (!userInfo.isTOTPEnabled) {
+            navigate("/auth");
+          } else {
+            navigate("/");
+          }
+          
+        } catch (error) {
+          console.error("Failed to fetch user info:", error);
+          setError("Authentication successful, but failed to retrieve user information.");
+        }
       };
-      
-      let userInfo;
-      try {
-        const googleResponse = await axios.get("http://localhost:5000/login/google-user", config);
-        userInfo = googleResponse.data.user;
-      } catch (error) {
-        // Si échoue, on essaie par GitHub
-        const githubResponse = await axios.get("http://localhost:5000/loginGit/github-user", config);
-        userInfo = githubResponse.data.user;
-      }
-      
-      console.log("User info retrieved:", userInfo);
-      
-      // Redirection selon le cas
-      setMessage("Authentication successful! Redirecting...");
-      setError('');
-      
-     
-      navigate("/");
-      
-    } catch (error) {
-      console.error("Failed to fetch user info:", error);
-      setError("Authentication successful, but failed to retrieve user information.");
-    }
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();

@@ -140,8 +140,9 @@ const MessengerDefaultPage = () => {
             profilePicture: user.profilePicture || null,
           }));
 
+        // Filter out the current user from teachers list if they are a teacher
         const filteredTeachers = data.data
-          .filter((user) => user.role === 'teacher')
+          .filter((user) => user.role === 'teacher' && user._id !== currentUserId)
           .map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,

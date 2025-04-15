@@ -378,4 +378,39 @@ router.get('/reports', async (req, res) => {
   }
 });
 
+
+
+
+
+
+
+// Example in Express.js
+router.patch('/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['pending', 'reviewed', 'blocked_3days', 'blocked_permanent', 'resolved'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Statut invalide' });
+    }
+
+    const report = await Report.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Signalement non trouvé' });
+    }
+
+    res.json({ success: true, data: report });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+
 module.exports = router;

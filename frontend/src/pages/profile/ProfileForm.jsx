@@ -36,7 +36,7 @@ const ProfileForm = ({ onCancel }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Gestionnaire pour les objets imbriqués
+  // Gestion des objets imbriqués
   const handleNestedChange = (parent, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -54,40 +54,6 @@ const ProfileForm = ({ onCancel }) => {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Gestion des compétences
-  const handleSkillUpdate = async (skill, action) => {
-    try {
-      if (action === 'add') {
-        await ProfileService.addSkill(skill);
-        setFormData(prev => ({
-          ...prev,
-          skills: [...prev.skills, skill]
-        }));
-      } else {
-        await ProfileService.deleteSkill(skill._id);
-        setFormData(prev => ({
-          ...prev,
-          skills: prev.skills.filter(s => s._id !== skill._id)
-        }));
-      }
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Gestion du CV
-  const handleCVUpload = async (file) => {
-    try {
-      const result = await ProfileService.uploadCV(file);
-      setFormData(prev => ({
-        ...prev,
-        cv: result.url
-      }));
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -128,13 +94,14 @@ const ProfileForm = ({ onCancel }) => {
 
       {/* Contenu des étapes */}
       <div className="form-content">
-        {step === 1 && (
-          <PersonalInfoPage
-            formData={formData}
-            handleChange={handleChange}
-            validate={ProfileService.validatePersonalInfo}
-          />
-        )}
+      {step === 1 && (
+  <PersonalInfoPage
+    formData={formData}
+    setFormData={setFormData}
+    nextStep={() => setStep(step + 1)}  // Passer la fonction nextStep
+    handleCancel={onCancel}
+  />
+)}
 
         {step === 2 && (
           <ProfessionalInfoPage
@@ -147,16 +114,13 @@ const ProfileForm = ({ onCancel }) => {
           <EducationPage
             formData={formData}
             setFormData={setFormData}
-            validate={ProfileService.validateEducation}
           />
         )}
 
         {step === 4 && (
           <SkillsPage
             skills={formData.skills}
-            onAddSkill={(skill) => handleSkillUpdate(skill, 'add')}
-            onDeleteSkill={(skill) => handleSkillUpdate(skill, 'delete')}
-            validate={ProfileService.validateSkill}
+            handleChange={handleChange}
           />
         )}
 

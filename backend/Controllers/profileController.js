@@ -1,39 +1,135 @@
 const User = require("../Models/User");
 const bcrypt = require("bcrypt");
 const cloudinary = require('cloudinary').v2;
+const express = require('express');
+const mongoose = require('mongoose');
+ // Doit être présent partout où utilisé
+ const DEFAULT_AVATAR_URL = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
 
-// 📌 Récupérer le profil utilisateur
-const getUserProfile = async (req, res) => {
+ const getUserProfile = async (req, res) => {
   try {
-    // 1. Récupérer l'ID utilisateur depuis le token (via votre middleware verifyToken)
-    const userId = req.userId; // Votre middleware définit déjà req.userId
-    
-    // 2. Requête de base sans populate (pour éviter les erreurs si les relations n'existent pas)
-    const user = await User.findById(userId)
-      .select("-password -__v -refreshToken"); // Champs à exclure
-    
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    // Valider l'existence et la validité de l'ID
+    // Cette vérification est peut-être redondante si vous utilisez verifySession,
+    // mais c'est une bonne pratique de sécurité supplémentaire
+    if (!req.userId || !mongoose.Types.ObjectId.isValid(req.userId)) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'INVALID_ID',
+        message: 'Format d\'ID utilisateur invalide'
+      });
     }
 
-    // 3. Convertir en objet simple pour éviter les modifications accidentelles
-    const userObject = user.toObject(); 
+    // Récupérer l'utilisateur avec select pour exclure les champs sensibles
+    const user = await User.findById(req.userId)
+      .select('-password -refreshToken -authKeyTOTP -__v')
+      .lean();
+
+    // Vérifier si l'utilisateur existe
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        code: 'USER_NOT_FOUND',
+        message: 'Utilisateur introuvable'
+      });
+    }
+
+    // Fonction utilitaire pour sécuriser les tableaux
+    const safeArray = (arr) => Array.isArray(arr) ? arr : [];
     
-    // 4. Gérer le paramètre fields
-    const fields = req.query.fields || 'all';
-    
-    // 5. Réponse basique (sans populate)
-    res.json({
-      message: "Profil récupéré avec succès",
-      user: userObject,
-      requestedFields: fields
+    // Fonction pour formater les dates
+    const formatDate = (date) => date ? date.toISOString() : null;
+
+    // Formater l'utilisateur avec des valeurs par défaut sécurisées
+    const formattedUser = {
+      _id: user._id,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      role: user.role || 'user',
+      isVerified: user.isVerified || false,
+      profilePicture: user.profilePicture || DEFAULT_AVATAR_URL,
+      gender: user.gender || 'other',
+      bio: user.bio || '',
+      location: user.location || '',
+      phone: user.phone || '',
+      jobTitle: user.jobTitle || '',
+      company: user.company || '',
+      
+      // Traitement sécurisé des tableaux
+      skills: safeArray(user.skills).map(skill => ({
+        name: skill.name || 'Compétence inconnue',
+        level: skill.level || 'Beginner',
+        yearsOfExperience: skill.yearsOfExperience || 0
+      })),
+      
+      experiences: safeArray(user.experiences).map(exp => ({
+        title: exp.title || '',
+        company: exp.company || '',
+        startDate: formatDate(exp.startDate),
+        endDate: formatDate(exp.endDate),
+        description: exp.description || ''
+      })),
+      
+      educations: safeArray(user.educations).map(edu => ({
+        school: edu.school || '',
+        degree: edu.degree || '',
+        fieldOfStudy: edu.fieldOfStudy || '',
+        startDate: formatDate(edu.startDate),
+        endDate: formatDate(edu.endDate)
+      })),
+      
+      // Traitement sécurisé des objets imbriqués
+      socialLinks: {
+        portfolio: user.socialLinks?.portfolio || '',
+        github: user.socialLinks?.github || '',
+        linkedin: user.socialLinks?.linkedin || '',
+        twitter: user.socialLinks?.twitter || ''
+      },
+      
+      privacySettings: {
+        profileVisibility: user.privacySettings?.profileVisibility || 'public',
+        contactVisibility: user.privacySettings?.contactVisibility || false
+      },
+      
+      notifications: {
+        email: user.notifications?.email || true,
+        app: user.notifications?.app || true
+      },
+      
+      status: user.status || 'offline',
+      createdAt: user.createdAt ? user.createdAt.toISOString() : null,
+      updatedAt: user.updatedAt ? user.updatedAt.toISOString() : null
+    };
+
+    // Retourner le profil formaté
+    return res.status(200).json({
+      status: 'success',
+      data: { user: formattedUser }
+    });
+
+  } catch (error) {
+    // Log détaillé pour le débogage côté serveur
+    console.error('Erreur profile détaillée:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      userId: req.userId
     });
     
-  } catch (error) {
-    console.error('Erreur dans getUserProfile:', error.message);
-    res.status(500).json({ 
-      message: "Erreur serveur",
-      error: error.message // Ne renvoyez pas toute la stack en production
+    // Déterminer le code d'état HTTP approprié
+    const status = error.name === 'CastError' ? 400 : 
+                  error.name === 'ValidationError' ? 422 : 500;
+    
+    // Message d'erreur adapté à l'environnement
+    const message = process.env.NODE_ENV === 'development' 
+      ? error.message 
+      : (status === 400 ? 'Données invalides' : 'Erreur serveur');
+
+    // Réponse JSON cohérente
+    return res.status(status).json({
+      status: 'error',
+      code: error.name || 'SERVER_ERROR',
+      message
     });
   }
 };
@@ -64,7 +160,10 @@ const updateProfile = async (req, res) => {
         await cloudinary.uploader.destroy(publicId);
       }
 
-      const avatarResult = await cloudinary.uploader.upload(req.file.path, { folder: "avatars" });
+      const avatarResult = await cloudinary.uploader.upload(req.file.path, { 
+        folder: "upload",
+        public_id: `${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`
+      });
       updateData.profilePicture = avatarResult.secure_url;
     }
 
@@ -139,23 +238,37 @@ const updateProfile = async (req, res) => {
 // 📌 Mettre à jour le mot de passe
 const updatePassword = async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    const user = await User.findById(req.user.id);
+    console.log("Request body:", req.body); // Log pour vérifier les données
+    console.log("User ID:", req.userId); // Log pour vérifier l'ID utilisateur
     
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    const { oldPassword, newPassword } = req.body;
+    
+    // IMPORTANT: Utilisez req.userId au lieu de req.user.id
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      console.log("User not found");
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
 
+    console.log("Comparing passwords");
     const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Ancien mot de passe incorrect" });
+    if (!isMatch) {
+      console.log("Password mismatch");
+      return res.status(400).json({ message: "Ancien mot de passe incorrect" });
+    }
 
+    console.log("Hashing new password");
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
     
+    console.log("Password updated successfully");
     res.json({ message: "Mot de passe mis à jour avec succès" });
   } catch (error) {
+    console.error("Password update error:", error);
     res.status(500).json({ message: "Erreur serveur", error: error.message });
   }
 };
-
 // 📌 Ajouter une expérience
 const addExperience = async (req, res) => {
   try {
@@ -521,10 +634,42 @@ const updatePrivacySettings = async (req, res) => {
     });
   }
 };
+const validatePassword = async (req, res) => {
+  try {
+    console.log('Validation request body:', req.body);
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ message: "Le mot de passe est requis" });
+    }
+    
+    console.log('Looking for user with ID:', req.userId);
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      console.log('User not found');
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    
+    console.log('User found, comparing passwords');
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match result:', isMatch);
+    
+    if (!isMatch) {
+      return res.status(400).json({ message: "Mot de passe incorrect" });
+    }
+    
+    res.json({ success: true, message: "Mot de passe valide" });
+  } catch (error) {
+    console.error('Full error details:', error);
+    res.status(500).json({ message: "Erreur serveur", error: error.message });
+  }
+};
 
 // Exporter toutes les méthodes du contrôleur
 module.exports = {
   getUserProfile,
+  validatePassword,
   updateProfile,
   updatePassword,
   addExperience,

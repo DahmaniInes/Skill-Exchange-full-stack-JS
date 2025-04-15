@@ -2,16 +2,14 @@ const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../Config/cloudinaryConfig");
 
-
 const storage = new CloudinaryStorage({
-    cloudinary,
-    params: (req, file) => ({
-      folder: file.mimetype === "application/pdf" ? "cv" : "profiles",
-      resource_type: file.mimetype === "application/pdf" ? "raw" : "image",
-      format: file.mimetype.startsWith('image') ? 'jpg' : undefined,
-      transformation: { width: 500, height: 500, crop: "limit" } // Ajout
-    })
-  });
+  cloudinary,
+  params: (req, file) => ({
+    folder: "upload",
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`, // Formatage automatique
+    allowed_formats: ["jpg", "png", "jpeg","pdf"]
+  })
+});
 // 📌 Filtrage des fichiers acceptés (images et PDF)
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
