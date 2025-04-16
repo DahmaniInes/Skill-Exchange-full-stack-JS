@@ -1,51 +1,88 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+require("dotenv").config();
 
-// Vérifier si le dossier d'upload existe, sinon le créer
-const uploadDir = "uploads/skills/";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configuration du stockage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
-  }
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configuration de multer
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+// Storage for profile pictures (Cloudinary)
+const profileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "profile_pictures",
+    allowed_formats: ["jpg", "png", "jpeg"],
   },
-  fileFilter: (req, file, cb) => {
-    // Types de fichiers autorisés
-    const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
-    const allowedVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
-    
-    if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Format non supporté. Formats acceptés : JPEG, PNG, JPG, MP4, WEBM, OGG"), false);
-    }
-  }
 });
 
-// Middleware pour vérifier si le fichier a bien été téléchargé
-const uploadComplete = (req, res, next) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: "Aucun fichier n'a été téléchargé." });
+// Storage for story media (Cloudinary)
+const storyStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "stories",
+    allowed_formats: ["jpg", "png", "jpeg", "mp4"], // Allow images and videos
+    resource_type: "auto", // Automatically detect resource type (image or video)
+  },
+});
+
+// Storage for skill images (Cloudinary)
+const skillStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "skills",
+    allowed_formats: ["jpg", "png", "jpeg"],
+  },
+});
+
+// Filtrage des types de fichiers acceptés
+const profileFileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Seules les images (JPEG, PNG, JPG) sont autorisées."), false);
   }
-  console.log("Fichier téléchargé avec succès:", req.file.filename);
-  next();
 };
 
-module.exports = { upload, uploadComplete };
+const storyFileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "video/mp4"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Seules les images (JPEG, PNG, JPG) et vidéos (MP4) sont autorisées."), false);
+  }
+};
+
+const skillFileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Seules les images (JPEG, PNG, JPG) sont autorisées."), false);
+  }
+};
+
+// Create Multer instances
+const uploadProfile = multer({
+  storage: profileStorage,
+  fileFilter: profileFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+const uploadStory = multer({
+  storage: storyStorage,
+  fileFilter: storyFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+const uploadSkill = multer({
+  storage: skillStorage,
+  fileFilter: skillFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+module.exports = { uploadProfile, uploadStory, uploadSkill };

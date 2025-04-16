@@ -34,6 +34,7 @@ import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage
 import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
+import FavoritesPage from './pages/skills/FavoritesPage';
 
 import MessengerPage from './pages/MessengerPages/MessengerPage';
 import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
@@ -118,9 +119,11 @@ function App() {
         <Route path="profile" element={<Profile />} />
         <Route path="marketplace-skill" element={<Marketplace />} />
         <Route path="marketplaceSkills" element={<MarketplaceSkills />} />
-        <Route path="skills/:skillId" element={<SkillDetails />} /> 
-        <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
+        <Route path="/roadmap/:id" element={<RoadmapPage />} />
+        <Route path="/skills/:skillId" element={<SkillDetails />} />
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
+        <Route path="/favorites" element={<FavoritesPage />} />
+
 
         <Route path="MessengerPage" element={<MessengerPage />} />
           <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
@@ -155,8 +158,7 @@ function App() {
           
           <Route path="certification-form" element={<CertificationForm />} />
             <Route path="peer-validation" element={<PeerValidation />} />
-
-
+     
 
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />

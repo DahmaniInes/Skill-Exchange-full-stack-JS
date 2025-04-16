@@ -9,8 +9,6 @@
   border-radius: 12px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
-
-/* Modern professional section header */
 .section-title {
   color: #1a1a1a;
   font-size: 1.8rem;
@@ -18,8 +16,8 @@
   margin-bottom: 2.5rem;
   text-align: center;
   position: relative;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1px; /* reduced from 2px */
+  /* text-transform: uppercase; Removed this line */
 }
 
 .section-title::after {

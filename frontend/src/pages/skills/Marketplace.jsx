@@ -1,177 +1,317 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "./Marketplace.css";
 
 const Marketplace = () => {
   const [popularSkills, setPopularSkills] = useState([]);
-  const [userSkills, setUserSkills] = useState([]);
-  const [complementarySkills, setComplementarySkills] = useState([]);
-  const [loadingComplementary, setLoadingComplementary] = useState(false);
   const [recentSkills, setRecentSkills] = useState([]);
   const [successStories, setSuccessStories] = useState([]);
-  const [stats, setStats] = useState({ users: 0, exchanges: 0, sessions: 0, totalSkills: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [viewedStories, setViewedStories] = useState(new Set());
+  const [loading, setLoading] = useState({
+    stories: true,
+    popularSkills: true,
+    recentSkills: true,
+    categories: true,
+  });
+  const [error, setError] = useState({
+    stories: null,
+    categories: null,
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [currentStoryUserId, setCurrentStoryUserId] = useState(null);
   const [storyVisible, setStoryVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [newStory, setNewStory] = useState({
     title: "",
     content: "",
-    skillId: "",
-    media: null, // Changé de 'image' à 'media'
+    category: "",
+    media: null,
+    textStyle: { color: "#ffffff", fontSize: "16px", position: "center" },
   });
-  const [availableSkills, setAvailableSkills] = useState([]);
+  const [newSkillSuggestion, setNewSkillSuggestion] = useState({
+    name: "",
+    description: "",
+    category: "",
+  });
   const [imagePreview, setImagePreview] = useState(null);
+  const [touchStart, setTouchStart] = useState(null);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const [storiesByUser, setStoriesByUser] = useState({});
+  const [activeUserIndex, setActiveUserIndex] = useState(0);
+  
   const fileInputRef = useRef(null);
   const storyTimeout = useRef(null);
+  const videoRef = useRef(null);
+  const progressAnimationRef = useRef(null);
+  const progressInterval = useRef(null);
 
   const API_BASE_URL = "http://localhost:5000";
+  const DEFAULT_CLOUDINARY_URL = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
+  const STORY_DURATION = 5000;
 
   useEffect(() => {
-    fetchPopularSkills();
-    fetchRecentSkills();
-    fetchStats();
-    fetchAvailableSkills();
-    loadStories();
+    console.log("modalOpen state:", modalOpen);
+  }, [modalOpen]);
 
-    const token = localStorage.getItem("jwtToken");
-    if (token) {
-      fetchUserSkills();
-    }
+  useEffect(() => {
+    console.log("storyModalOpen state:", storyModalOpen);
+  }, [storyModalOpen]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await Promise.all([
+        fetchPopularSkills(),
+        fetchRecentSkills(),
+        loadStories(),
+        fetchCategories(),
+      ]);
+    };
+    fetchData();
 
     return () => {
-      if (storyTimeout.current) clearTimeout(storyTimeout.current);
+      clearAllTimeouts();
       if (imagePreview && imagePreview.startsWith("blob:")) {
         URL.revokeObjectURL(imagePreview);
       }
     };
   }, []);
 
-  // Nettoyage des URLs Blob lors du changement de l'aperçu
-  useEffect(() => {
-    return () => {
-      if (imagePreview && imagePreview.startsWith("blob:")) {
-        URL.revokeObjectURL(imagePreview);
-      }
-    };
-  }, [imagePreview]);
+  const clearAllTimeouts = () => {
+    if (storyTimeout.current) clearTimeout(storyTimeout.current);
+    if (progressInterval.current) clearInterval(progressInterval.current);
+    if (progressAnimationRef.current) cancelAnimationFrame(progressAnimationRef.current);
+  };
 
-  const fetchUserSkills = async () => {
+  useEffect(() => {
+    const groupedStories = {};
+    const validStories = successStories.filter(story => {
+      if (!story.userId) {
+        console.warn("Skipping story missing userId:", story);
+        return false;
+      }
+      return true;
+    });
+    validStories.forEach(story => {
+      const userId = story.userId;
+      if (!groupedStories[userId]) {
+        groupedStories[userId] = {
+          userId,
+          userName: story.userName || "Utilisateur",
+          userImage: story.userImage || DEFAULT_CLOUDINARY_URL,
+          stories: []
+        };
+      }
+      groupedStories[userId].stories.push(story);
+    });
+    setStoriesByUser(groupedStories);
+  }, [successStories]);
+
+  useEffect(() => {
+    if (storyVisible && currentStoryUserId && storiesByUser[currentStoryUserId]) {
+      const userStories = storiesByUser[currentStoryUserId].stories;
+      const story = userStories[currentStoryIndex];
+      
+      if (!story) return;
+      
+      if (isPaused) return;
+      
+      clearAllTimeouts();
+      
+      let duration = STORY_DURATION;
+      if (story.mediaType === "video" && videoRef.current?.duration) {
+        duration = videoRef.current.duration * 1000;
+      }
+      
+      setStoryProgress(0);
+      
+      let startTime = null;
+      const animateProgress = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        setStoryProgress(progress);
+        
+        if (progress < 1 && !isPaused) {
+          progressAnimationRef.current = requestAnimationFrame(animateProgress);
+        }
+      };
+      
+      progressAnimationRef.current = requestAnimationFrame(animateProgress);
+      
+      storyTimeout.current = setTimeout(() => navigateStory("next"), duration);
+      
+      if (story.mediaType === "video" && videoRef.current) {
+        videoRef.current.muted = true;
+        videoRef.current.play().catch((error) => console.error("Video playback error:", error));
+      }
+      
+      return () => clearAllTimeouts();
+    }
+  }, [storyVisible, currentStoryUserId, currentStoryIndex, storiesByUser, isPaused]);
+
+  useEffect(() => {
+    if (storyVisible && currentStoryUserId && storiesByUser[currentStoryUserId]) {
+      const userStories = storiesByUser[currentStoryUserId].stories;
+      const nextStoryIndex = currentStoryIndex < userStories.length - 1 ? currentStoryIndex + 1 : 0;
+      
+      if (nextStoryIndex === 0) {
+        const userIds = Object.keys(storiesByUser);
+        const currentUserIdIndex = userIds.indexOf(currentStoryUserId);
+        if (currentUserIdIndex < userIds.length - 1) {
+          const nextUserId = userIds[currentUserIdIndex + 1];
+          const nextUserStory = storiesByUser[nextUserId]?.stories[0];
+          
+          if (nextUserStory && nextUserStory.media) {
+            preloadMedia(nextUserStory.media, nextUserStory.mediaType);
+          }
+        }
+      } else {
+        const nextStory = userStories[nextStoryIndex];
+        if (nextStory && nextStory.media) {
+          preloadMedia(nextStory.media, nextStory.mediaType);
+        }
+      }
+    }
+  }, [storyVisible, currentStoryUserId, currentStoryIndex, storiesByUser]);
+
+  const preloadMedia = (mediaUrl, mediaType) => {
+    const url = getMediaUrl(mediaUrl);
+    
+    if (mediaType === "video" || url.match(/\.(mp4|webm|ogg)$/i)) {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.src = url;
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  };
+
+  const fetchCategories = async () => {
     try {
+      setLoading((prev) => ({ ...prev, categories: true }));
+      setError((prev) => ({ ...prev, categories: null }));
       const token = localStorage.getItem("jwtToken");
-      const res = await fetch(`${API_BASE_URL}/api/user/skills`, {
+      if (!token) {
+        window.location.href = "/login";
+        throw new Error("Authentication token missing");
+      }
+      const res = await fetch(`${API_BASE_URL}/api/skills/categories`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Error: ${res.status}`);
       const data = await res.json();
-      setUserSkills(data.skills || []);
-      if (data.skills && data.skills.length > 0) {
-        fetchComplementarySkills(data.skills);
-      }
+      console.log("Categories fetched:", data.data);
+      setCategories(data.data || []);
     } catch (error) {
-      console.error("Error fetching user skills:", error);
+      console.error("Error fetching categories:", error.message);
+      setError((prev) => ({ ...prev, categories: error.message }));
+      setCategories([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, categories: false }));
     }
+  };
+
+  const handleSuggestSkill = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      toast.error("🚫 Please log in to suggest a skill.");
+      window.location.href = "/login";
+      return;
+    }
+    try {
+      setLoading((prev) => ({ ...prev, stories: true }));
+      const response = await fetch(`${API_BASE_URL}/api/skills/suggest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newSkillSuggestion),
+      });
+      if (!response.ok) throw new Error("Error submitting suggestion.");
+      setModalOpen(false);
+      setNewSkillSuggestion({ name: "", description: "", category: "" });
+      toast.success("🎉 Suggestion submitted successfully!");
+    } catch (error) {
+      toast.error(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading((prev) => ({ ...prev, stories: false }));
+    }
+  };
+
+  const handleSkillSuggestionChange = (e) => {
+    const { name, value } = e.target;
+    setNewSkillSuggestion((prev) => ({ ...prev, [name]: value }));
   };
 
   const fetchPopularSkills = async () => {
     try {
+      setLoading((prev) => ({ ...prev, popularSkills: true }));
       const res = await fetch(`${API_BASE_URL}/api/skills?sort=popular`);
       if (!res.ok) throw new Error(`Error: ${res.status}`);
       const data = await res.json();
       setPopularSkills(data.data.slice(0, 5));
     } catch (error) {
       console.error("Error fetching popular skills:", error);
+      setPopularSkills([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, popularSkills: false }));
     }
   };
 
   const fetchRecentSkills = async () => {
     try {
+      setLoading((prev) => ({ ...prev, recentSkills: true }));
       const res = await fetch(`${API_BASE_URL}/api/skills?sort=recent`);
       if (!res.ok) throw new Error(`Error: ${res.status}`);
       const data = await res.json();
       setRecentSkills(data.data.slice(0, 5));
     } catch (error) {
       console.error("Error fetching recent skills:", error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/stats`);
-      if (!res.ok) throw new Error(`Error: ${res.status}`);
-      const data = await res.json();
-      setStats(data);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
-
-  const fetchAvailableSkills = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/skills`);
-      if (!res.ok) throw new Error(`Error: ${res.status}`);
-      const data = await res.json();
-      setAvailableSkills(data.data);
-    } catch (error) {
-      console.error("Error fetching skills:", error);
+      setRecentSkills([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, recentSkills: false }));
     }
   };
 
   const loadStories = async () => {
     try {
-      setLoading(true);
+      setLoading((prev) => ({ ...prev, stories: true }));
+      setError((prev) => ({ ...prev, stories: null }));
       const token = localStorage.getItem("jwtToken");
-      if (!token) {
-        setSuccessStories([]);
-        setLoading(false);
-        return;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch(`${API_BASE_URL}/api/stories`, { headers });
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Unauthorized - Please log in");
+        throw new Error(`Error: ${response.status}`);
       }
-      const response = await fetch(`${API_BASE_URL}/api/stories`, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      if (response.status === 401) {
-        localStorage.removeItem("jwtToken");
-        setSuccessStories([]);
-        setError("Session expired. Please log in again.");
-        setLoading(false);
-        return;
-      }
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       const data = await response.json();
-      if (data.success && Array.isArray(data.data)) {
-        setSuccessStories(data.data);
-        setError(null);
-      } else {
-        setSuccessStories([]);
-        setError("Unexpected data format.");
-      }
+      console.log("Stories fetched:", data.data);
+      const storiesWithDefaults = (data.data || []).map((story) => ({
+        ...story,
+        title: story.title || "Unknown Title",
+        content: story.content || "Unknown Content",
+        media: story.media && !story.media.includes("undefined") ? story.media : DEFAULT_CLOUDINARY_URL,
+        mediaType: story.mediaType || (story.media && story.media.endsWith(".mp4") ? "video" : "image"),
+        userName: story.userName || "User",
+        userImage: story.userImage || DEFAULT_CLOUDINARY_URL,
+        textStyle: story.textStyle || { color: "#ffffff", fontSize: "16px", position: "center" },
+        timestamp: story.createdAt || new Date().toISOString(),
+      }));
+      setSuccessStories([...storiesWithDefaults]);
     } catch (error) {
-      setError("Failed to load stories.");
+      console.error("Error loading stories:", error.message);
+      setError((prev) => ({ ...prev, stories: `Failed to load stories: ${error.message}` }));
       setSuccessStories([]);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchComplementarySkills = async (skillsToUse = userSkills) => {
-    try {
-      setLoadingComplementary(true);
-      if (!skillsToUse || skillsToUse.length === 0) {
-        setComplementarySkills([]);
-        return;
-      }
-      const skillsParam = Array.isArray(skillsToUse) ? skillsToUse.join(",") : skillsToUse;
-      const res = await fetch(`${API_BASE_URL}/api/skills/complementary?skills=${skillsParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setComplementarySkills(data.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching complementary skills:", error);
-    } finally {
-      setLoadingComplementary(false);
+      setLoading((prev) => ({ ...prev, stories: false }));
     }
   };
 
@@ -179,74 +319,218 @@ const Marketplace = () => {
     e.preventDefault();
     const token = localStorage.getItem("jwtToken");
     if (!token) {
-      alert("Please log in to share a story.");
+      toast.error("🚫 Please log in to share a story.");
       return;
     }
     try {
-      setLoading(true);
+      setLoading((prev) => ({ ...prev, stories: true }));
       const formData = new FormData();
       formData.append("title", newStory.title);
       formData.append("content", newStory.content);
-      formData.append("skillId", newStory.skillId);
-      if (newStory.media) formData.append("media", newStory.media); // Changé de 'image' à 'media'
-      const userId = localStorage.getItem("userId");
-      if (userId) formData.append("userId", userId);
-
+      formData.append("category", newStory.category);
+      formData.append("textStyle", JSON.stringify(newStory.textStyle));
+      if (newStory.media) {
+        formData.append("media", newStory.media);
+        const mediaType = newStory.media.type.startsWith("image/") ? "image" : "video";
+        formData.append("mediaType", mediaType);
+      } else {
+        throw new Error("No media file selected.");
+      }
       const response = await fetch(`${API_BASE_URL}/api/stories`, {
         method: "POST",
         body: formData,
         headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
       });
-      if (!response.ok) throw new Error("Creation error.");
-      await response.json();
-      if (imagePreview && imagePreview.startsWith("blob:")) {
-        URL.revokeObjectURL(imagePreview);
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.message.includes("File too large")) throw new Error("File is too large (limit: 10MB).");
+        if (data.message.includes("Only images and videos are allowed")) throw new Error("Only images and videos are allowed.");
+        throw new Error(data.message || "Creation error.");
       }
       setStoryModalOpen(false);
-      setNewStory({ title: "", content: "", skillId: "", media: null });
+      setNewStory({ title: "", content: "", category: "", media: null, textStyle: { color: "#ffffff", fontSize: "16px", position: "center" } });
       setImagePreview(null);
-      loadStories();
-      alert("Story published successfully!");
+      await loadStories();
+      toast.success("🎉 Story published successfully!");
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      toast.error(`❌ Error: ${error.message}`);
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, stories: false }));
     }
   };
 
   const getMediaUrl = (mediaUrl) => {
-    // Renommé de getImageUrl à getMediaUrl
-    if (!mediaUrl) return "/placeholder-media.png";
-    return mediaUrl.startsWith("http") ? mediaUrl : `${API_BASE_URL}${mediaUrl}`;
+    return mediaUrl && !mediaUrl.includes("undefined") ? mediaUrl : DEFAULT_CLOUDINARY_URL;
   };
 
-  const openStory = (index) => {
+  const openStory = (userId, index = 0) => {
+    setCurrentStoryUserId(userId);
     setCurrentStoryIndex(index);
     setStoryVisible(true);
-    if (storyTimeout.current) clearTimeout(storyTimeout.current);
-    storyTimeout.current = setTimeout(() => navigateStory("next"), 10000);
+    setIsPaused(false);
+    setStoryProgress(0);
+    setViewedStories((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(`${userId}-${index}`);
+      return newSet;
+    });
+    
+    clearAllTimeouts();
+    
+    const userStories = storiesByUser[userId]?.stories;
+    if (!userStories || !userStories[index]) return;
+    
+    const story = userStories[index];
+    let duration = STORY_DURATION;
+    
+    if (story.mediaType === "video" && videoRef.current?.duration) {
+      duration = videoRef.current.duration * 1000;
+    }
+    
+    let startTime = null;
+    const animateProgress = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setStoryProgress(progress);
+      
+      if (progress < 1 && !isPaused) {
+        progressAnimationRef.current = requestAnimationFrame(animateProgress);
+      }
+    };
+    
+    progressAnimationRef.current = requestAnimationFrame(animateProgress);
+    
+    storyTimeout.current = setTimeout(() => navigateStory("next"), duration);
   };
 
   const navigateStory = (direction) => {
-    if (storyTimeout.current) clearTimeout(storyTimeout.current);
+    if (isPaused) return;
+    clearAllTimeouts();
+    
+    const userIds = Object.keys(storiesByUser);
+    if (!userIds.length || !currentStoryUserId) return;
+    
+    const currentUserIdIndex = userIds.indexOf(currentStoryUserId);
+    const userStories = storiesByUser[currentStoryUserId]?.stories || [];
+    
+    let nextUserIndex = currentUserIdIndex;
+    let nextStoryIndex = currentStoryIndex;
+    
     if (direction === "next") {
-      const nextIndex = currentStoryIndex < successStories.length - 1 ? currentStoryIndex + 1 : 0;
-      if (nextIndex === 0 && currentStoryIndex === successStories.length - 1) {
-        setStoryVisible(false);
+      if (currentStoryIndex < userStories.length - 1) {
+        nextStoryIndex = currentStoryIndex + 1;
+      } else if (currentUserIdIndex < userIds.length - 1) {
+        nextUserIndex = currentUserIdIndex + 1;
+        nextStoryIndex = 0;
       } else {
-        setCurrentStoryIndex(nextIndex);
-        storyTimeout.current = setTimeout(() => navigateStory("next"), 10000);
+        setStoryVisible(false);
+        return;
       }
     } else {
-      setCurrentStoryIndex((prev) => (prev > 0 ? prev - 1 : successStories.length - 1));
-      storyTimeout.current = setTimeout(() => navigateStory("next"), 10000);
+      if (currentStoryIndex > 0) {
+        nextStoryIndex = currentStoryIndex - 1;
+      } else if (currentUserIdIndex > 0) {
+        nextUserIndex = currentUserIdIndex - 1;
+        const prevUserStories = storiesByUser[userIds[nextUserIndex]]?.stories || [];
+        nextStoryIndex = prevUserStories.length - 1;
+      }
+    }
+    
+    const nextUserId = userIds[nextUserIndex];
+    
+    setCurrentStoryUserId(nextUserId);
+    setCurrentStoryIndex(nextStoryIndex);
+    setStoryProgress(0);
+    setViewedStories((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(`${nextUserId}-${nextStoryIndex}`);
+      return newSet;
+    });
+    
+    const story = storiesByUser[nextUserId]?.stories[nextStoryIndex];
+    if (!story) return;
+    
+    let duration = STORY_DURATION;
+    if (story.mediaType === "video" && videoRef.current?.duration) {
+      duration = videoRef.current.duration * 1000;
+    }
+    
+    let startTime = null;
+    const animateProgress = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setStoryProgress(progress);
+      
+      if (progress < 1 && !isPaused) {
+        progressAnimationRef.current = requestAnimationFrame(animateProgress);
+      }
+    };
+    
+    progressAnimationRef.current = requestAnimationFrame(animateProgress);
+    
+    storyTimeout.current = setTimeout(() => navigateStory("next"), duration);
+    
+    if (story.mediaType === "video" && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(err => console.error(err));
     }
   };
 
+  const togglePause = () => {
+    if (isPaused) {
+      let remainingTime = STORY_DURATION;
+      const userStories = storiesByUser[currentStoryUserId]?.stories || [];
+      const story = userStories[currentStoryIndex];
+      
+      if (story?.mediaType === "video" && videoRef.current) {
+        const videoDuration = videoRef.current.duration * 1000;
+        const elapsedTime = videoRef.current.currentTime * 1000;
+        remainingTime = videoDuration - elapsedTime;
+        videoRef.current.play().catch(err => console.error(err));
+      } else {
+        remainingTime = STORY_DURATION * (1 - storyProgress);
+      }
+      
+      storyTimeout.current = setTimeout(() => navigateStory("next"), remainingTime);
+      
+      const startProgress = storyProgress;
+      let startTime = null;
+      
+      const animateRemainingProgress = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const totalDuration = remainingTime / (1 - startProgress);
+        const progress = Math.min(startProgress + (elapsed / totalDuration) * (1 - startProgress), 1);
+        
+        setStoryProgress(progress);
+        
+        if (progress < 1 && !isPaused) {
+          progressAnimationRef.current = requestAnimationFrame(animateRemainingProgress);
+        }
+      };
+      
+      progressAnimationRef.current = requestAnimationFrame(animateRemainingProgress);
+    } else {
+      clearAllTimeouts();
+      if (videoRef.current && storiesByUser[currentStoryUserId]?.stories[currentStoryIndex]?.mediaType === "video") {
+        videoRef.current.pause();
+      }
+    }
+    
+    setIsPaused(!isPaused);
+  };
+
   const closeStoryViewer = () => {
-    if (storyTimeout.current) clearTimeout(storyTimeout.current);
+    clearAllTimeouts();
     setStoryVisible(false);
+    setIsPaused(false);
+    setStoryProgress(0);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
   };
 
   const handleStoryInputChange = (e) => {
@@ -254,88 +538,142 @@ const Marketplace = () => {
     setNewStory((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleTextStyleChange = (e) => {
+    const { name, value } = e.target;
+    setNewStory((prev) => ({
+      ...prev,
+      textStyle: { ...prev.textStyle, [name]: value },
+    }));
+  };
+
   const handleStoryMediaChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (imagePreview && imagePreview.startsWith("blob:")) {
-        URL.revokeObjectURL(imagePreview); // Révoquer l'ancienne URL Blob
-      }
-      setNewStory((prev) => ({ ...prev, media: file })); // Changé de 'image' à 'media'
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onloadend = () => setImagePreview(reader.result);
-        reader.readAsDataURL(file);
-      } else if (file.type.startsWith("video/")) {
-        setImagePreview(URL.createObjectURL(file));
-      }
+      if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+      setNewStory((prev) => ({ ...prev, media: file }));
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
+  const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
+  
+  const handleTouchEnd = (e) => {
+    if (!touchStart) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const deltaX = touchEndX - touchStart;
+    
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX > 0) navigateStory("prev");
+      else navigateStory("next");
+    }
+    
+    setTouchStart(null);
+  };
+
   const renderStoriesContent = () => {
-    if (loading) {
-      return [...Array(5)].map((_, i) => <div key={i} className="story-circle shimmer"></div>);
-    }
-    if (error) {
-      return (
-        <div className="error-message">
-          {error}
-          {error.includes("session expired") && (
-            <button onClick={() => (window.location.href = "/login")} className="login-btn">
-              Log in again
-            </button>
-          )}
-        </div>
-      );
-    }
-    if (successStories.length > 0) {
-      return successStories.map((story, index) => (
-        <div
-          key={story._id || index}
-          className="story-circle animate-pop-in"
-          style={{ animationDelay: `${index * 0.1}s` }}
-          onClick={() => openStory(index)}
-        >
-          <div className="story-circle-border">
-            <img
-              src={getMediaUrl(story.userImage)} // Changé de getImageUrl à getMediaUrl
-              alt={story.userName}
-              className="story-user-image"
-              onError={(e) => (e.target.src = "/placeholder-user.png")}
-            />
-          </div>
-          <span className="story-username">{story.userName?.split(" ")[0] || "User"}</span>
-        </div>
+    if (loading.stories) {
+      return [...Array(5)].map((_, i) => (
+        <div key={`shimmer-${i}`} className="story-circle shimmer"></div>
       ));
     }
+    
+    if (error.stories) {
+      return <div className="error-message">{error.stories}</div>;
+    }
+
+    const userIds = Object.keys(storiesByUser);
+    
+    if (userIds.length === 0) {
+      return (
+        <>
+          <div
+            key="create-story"
+            className="story-circle create-story"
+            onClick={() => {
+              console.log("Opening Add Your Story modal from circle (no stories)");
+              setStoryModalOpen(true);
+            }}
+          >
+            <div className="story-circle-border">
+              <div className="create-story-icon">+</div>
+            </div>
+            <span className="story-username">Your story</span>
+          </div>
+          <div key="no-stories" className="no-stories-message">No stories available. Share yours!</div>
+        </>
+      );
+    }
+
     return (
-      <div className="no-stories-message">
-        {localStorage.getItem("jwtToken")
-          ? "No stories available. Share yours!"
-          : "Log in to see stories."}
-      </div>
+      <>
+        <div
+          key="create-story"
+          className="story-circle create-story"
+          onClick={() => {
+            console.log("Opening Add Your Story modal from circle");
+            setStoryModalOpen(true);
+          }}
+          role="button"
+          aria-label="Create a new story"
+        >
+          <div className="story-circle-border">
+            <div className="create-story-icon">+</div>
+          </div>
+          <span className="story-username">Your story</span>
+        </div>
+        {userIds.map((userId, index) => {
+          const user = storiesByUser[userId];
+          const hasUnviewed = user.stories.some((_, storyIndex) => 
+            !viewedStories.has(`${userId}-${storyIndex}`)
+          );
+          
+          return (
+            <div
+              key={userId}
+              className={`story-circle animate-pop-in ${hasUnviewed ? "" : "viewed"}`}
+              style={{ animationDelay: `${index * 0.1}s` }}
+              onClick={() => openStory(userId, 0)}
+              role="button"
+              aria-label={`View ${user.userName}'s story`}
+            >
+              <div className={`story-circle-border ${hasUnviewed ? "unviewed" : ""}`}>
+                <img
+                  src={getMediaUrl(user.userImage)}
+                  alt={`${user.userName}'s profile`}
+                  className="story-user-image"
+                  onError={(e) => (e.target.src = DEFAULT_CLOUDINARY_URL)}
+                />
+              </div>
+              <span className="story-username">{user.userName?.split(" ")[0].substring(0, 6) || "User"}</span>
+            </div>
+          );
+        })}
+      </>
     );
   };
 
   return (
     <div className="marketplace-container">
+      <ToastContainer />
       <header className="header">
-        <h1 className="title animate-pop-in">Welcome to the Skill Marketplace</h1>
+        <h1 className="title animate-pop-in">Welcome to the Skills Marketplace</h1>
         <p className="subtitle animate-pop-in delay-1">
           Discover and exchange skills with experts from around the world.
         </p>
-        <p className="total-skills animate-pop-in delay-2">
-          📚 Available skills: {stats.totalSkills}
-        </p>
       </header>
 
-      {error && <div className="error-message">{error}</div>}
-
       <div className="buttons-container">
-        <Link to="/marketplaceSkills" className="btn explore hover-glow">
-          <span className="btn-icon">🔍</span> Search for skills
+        <Link to="/marketplaceSkills" className="btn explore">
+          <span className="btn-icon">🔍</span> Search Skills
         </Link>
-        <button onClick={() => setModalOpen(true)} className="btn add hover-glow">
-          <span className="btn-icon">➕</span> Offer a skill
+        <button
+          onClick={() => {
+            console.log("Opening Suggest a Skill modal");
+            setModalOpen(true);
+          }}
+          className="btn add"
+        >
+          <span className="btn-icon">💡</span> Suggest a Skill
         </button>
       </div>
 
@@ -345,50 +683,22 @@ const Marketplace = () => {
           <button
             className="add-story-btn"
             onClick={() => {
-              const token = localStorage.getItem("jwtToken");
-              if (!token) {
-                alert("Please log in to share a story.");
-                return;
-              }
+              console.log("Opening Add Your Story modal from header");
               setStoryModalOpen(true);
             }}
           >
-            + Add your story
+            + Add Your Story
           </button>
         </div>
-        <div className="stories-container">
-          <div
-            className="story-circle add-story animate-pop-in"
-            onClick={() => {
-              const token = localStorage.getItem("jwtToken");
-              if (!token) {
-                alert("Please log in to share a story.");
-                return;
-              }
-              setStoryModalOpen(true);
-            }}
-          >
-            <div className="story-circle-border add">
-              <div className="add-icon">+</div>
-            </div>
-            <span className="story-username">Add</span>
-          </div>
-          {renderStoriesContent()}
-        </div>
+        <div className="stories-container">{renderStoriesContent()}</div>
       </section>
 
-      {localStorage.getItem("jwtToken") && (
-        <section className="skills-section">
-          <h2 className="section-title animate-slide-left">
-            🔗 Suggestions de compétences complémentaires pour vous
-          </h2>
-          {userSkills.length === 0 ? (
-            <p>Ajoutez des compétences à votre profil pour voir des suggestions</p>
-          ) : loadingComplementary ? (
-            <div className="loading">Chargement des suggestions...</div>
-          ) : complementarySkills.length > 0 ? (
-            <div className="skills-grid">
-              {complementarySkills.map((skill, index) => (
+      <section className="skills-section">
+        <h2 className="section-title animate-slide-left">🔥 Top 5 Most Requested Skills</h2>
+        <div className="skills-grid">
+          {loading.popularSkills
+            ? [...Array(5)].map((_, i) => <div key={`popular-shimmer-${i}`} className="skill-card shimmer"></div>)
+            : popularSkills.map((skill, index) => (
                 <Link
                   to={`/marketplace/skills/${skill._id}`}
                   key={skill._id}
@@ -396,295 +706,329 @@ const Marketplace = () => {
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <img
-                    src={getMediaUrl(skill.imageUrl)} // Changé de getImageUrl à getMediaUrl
+                    src={getMediaUrl(skill.imageUrl)}
                     alt={skill.name}
                     className="skill-image"
-                    onError={(e) => (e.target.src = "/placeholder-skill.png")}
+                    onError={(e) => (e.target.src = DEFAULT_CLOUDINARY_URL)}
                   />
                   <div className="card-content">
                     <h3 className="skill-name">{skill.name}</h3>
                     <p className="skill-description">{skill.description}</p>
                     <div className="skill-meta">
-                      <span className="skill-category pulse">{skill.categories[0]}</span>
-                      <span className={`skill-level ${skill.level.toLowerCase()}`}>
-                        {skill.level}
-                      </span>
+                      <span className="skill-category pulse">{skill.categories.join(", ")}</span>
+                      <span className="skill-level">{skill.level}</span>
                     </div>
                   </div>
                 </Link>
               ))}
-            </div>
-          ) : (
-            <p>Aucune compétence complémentaire trouvée.</p>
-          )}
-        </section>
-      )}
-
-      <section className="skills-section">
-        <h2 className="section-title animate-slide-left">🔥 Top 5 Most Demanded Skills</h2>
-        <div className="skills-grid">
-          {loading ? (
-            [...Array(5)].map((_, i) => <div key={i} className="skill-card shimmer"></div>)
-          ) : (
-            popularSkills.map((skill, index) => (
-              <Link
-                to={`/marketplace/skills/${skill._id}`}
-                key={skill._id}
-                className="skill-card animate-card"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                {skill.imageUrl && (
-                  <img
-                    src={getMediaUrl(skill.imageUrl)} // Changé de getImageUrl à getMediaUrl
-                    alt={skill.name}
-                    className="skill-image"
-                    onError={(e) => (e.target.src = "/placeholder-skill.png")}
-                  />
-                )}
-                <div className="card-content">
-                  <h3 className="skill-name gradient-text">{skill.name}</h3>
-                  <p className="skill-description">{skill.description}</p>
-                  <div className="skill-meta">
-                    <span className="skill-category pulse">{skill.categories.join(", ")}</span>
-                    <span className="skill-level">{skill.level}</span>
-                  </div>
-                  <div className="skill-extra">
-                    <span className="skill-popularity">⭐ {skill.popularity}</span>
-                    <span className="skill-tags">🏷 {skill.tags.join(", ")}</span>
-                    <span className="skill-rating">🌟 {skill.rating.toFixed(1)}</span>
-                  </div>
-                </div>
-              </Link>
-            ))
-          )}
         </div>
       </section>
 
       <section className="skills-section">
         <h2 className="section-title animate-slide-left">📈 Recently Added Skills</h2>
         <div className="skills-grid">
-          {loading ? (
-            [...Array(5)].map((_, i) => <div key={i} className="skill-card shimmer"></div>)
-          ) : (
-            recentSkills.map((skill, index) => (
-              <Link
-                to={`/marketplace/skills/${skill._id}`}
-                key={skill._id}
-                className="skill-card animate-card"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <img
-                  src={getMediaUrl(skill.imageUrl)} // Changé de getImageUrl à getMediaUrl
-                  alt={skill.name}
-                  className="skill-image"
-                  onError={(e) => (e.target.src = "/placeholder-skill.png")}
-                />
-                <div className="card-content">
-                  <h3 className="skill-name">{skill.name}</h3>
-                  <p className="skill-description">{skill.description}</p>
-                  <div className="skill-meta">
-                    <span className="skill-category pulse">{skill.categories[0]}</span>
-                    <span className={`skill-level ${skill.level.toLowerCase()}`}>
-                      {skill.level}
-                    </span>
+          {loading.recentSkills
+            ? [...Array(5)].map((_, i) => <div key={`recent-shimmer-${i}`} className="skill-card shimmer"></div>)
+            : recentSkills.map((skill, index) => (
+                <Link
+                  to={`/marketplace/skills/${skill._id}`}
+                  key={skill._id}
+                  className="skill-card animate-card"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <img
+                    src={getMediaUrl(skill.imageUrl)}
+                    alt={skill.name}
+                    className="skill-image"
+                    onError={(e) => (e.target.src = DEFAULT_CLOUDINARY_URL)}
+                  />
+                  <div className="card-content">
+                    <h3 className="skill-name">{skill.name}</h3>
+                    <p className="skill-description">{skill.description}</p>
+                    <div className="skill-meta">
+                      <span className="skill-category pulse">{skill.categories[0]}</span>
+                      <span className={`skill-level ${skill.level.toLowerCase()}`}>{skill.level}</span>
+                    </div>
                   </div>
-                  <div className="skill-extra">
-                    <span className="skill-popularity">⭐ {skill.popularity}</span>
-                    <span className="skill-tags">
-                      🏷 {skill.tags.length > 0 ? skill.tags[0] : "General"}
-                      {skill.tags.length > 1 ? ` +${skill.tags.length - 1}` : ""}
-                    </span>
-                    <span className="skill-rating">🌟 {skill.rating.toFixed(1)}</span>
-                  </div>
-                </div>
-              </Link>
-            ))
-          )}
+                </Link>
+              ))}
         </div>
       </section>
 
-      {storyVisible && successStories.length > 0 && (
-        <div className="story-overlay">
+      {storyVisible && currentStoryUserId && storiesByUser[currentStoryUserId] && (
+        <div className="story-overlay" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <div className="story-viewer">
-            <div className="story-progress">
-              {successStories.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`story-progress-bar ${
-                    idx === currentStoryIndex
-                      ? "active"
-                      : idx < currentStoryIndex
-                      ? "completed"
-                      : ""
-                  }`}
-                >
-                  <div className="progress-fill"></div>
+            <div className="story-header">
+              <div className="story-user-info">
+                <img
+                  src={getMediaUrl(storiesByUser[currentStoryUserId].userImage)}
+                  alt={`${storiesByUser[currentStoryUserId].userName}'s profile`}
+                  className="story-user-pic"
+                  onError={(e) => (e.target.src = DEFAULT_CLOUDINARY_URL)}
+                />
+                <div className="story-user-details">
+                  <div className="story-user-name">{storiesByUser[currentStoryUserId].userName}</div>
+                  <div className="story-timestamp">
+                    {new Date(storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.timestamp).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+              <div className="story-controls">
+                <button onClick={togglePause} className="story-control-btn">
+                  {isPaused ? "▶️" : "⏸️"}
+                </button>
+                <button onClick={closeStoryViewer} className="story-control-btn">
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div className="story-progress-container">
+              {storiesByUser[currentStoryUserId].stories.map((_, index) => (
+                <div key={`progress-${index}`} className="story-progress-bar-container">
+                  <div
+                    className={`story-progress-bar ${index < currentStoryIndex ? 'completed' : index === currentStoryIndex ? 'active' : ''}`}
+                    style={{ width: index === currentStoryIndex ? `${storyProgress * 100}%` : index < currentStoryIndex ? '100%' : '0%' }}
+                  ></div>
                 </div>
               ))}
             </div>
+            
             <div className="story-content">
-              {successStories[currentStoryIndex].mediaType === "image" ? (
-                <img
-                  src={getMediaUrl(successStories[currentStoryIndex].media)} // Changé 'image' à 'media'
-                  alt={successStories[currentStoryIndex].title}
-                  className="story-image"
-                  onError={(e) => (e.target.src = "/placeholder-story.png")}
+              {storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.mediaType === "video" ? (
+                <video
+                  ref={videoRef}
+                  className="story-media"
+                  src={getMediaUrl(storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.media)}
+                  autoPlay
+                  muted
+                  playsInline
+                  onError={(e) => {
+                    console.error("Video error:", e);
+                    e.target.src = DEFAULT_CLOUDINARY_URL;
+                  }}
                 />
               ) : (
-                <video
-                  src={getMediaUrl(successStories[currentStoryIndex].media)} // Changé 'image' à 'media'
-                  className="story-video"
-                  controls
-                  autoPlay
-                  onError={(e) => console.error("Video loading error")}
+                <img
+                  className="story-media"
+                  src={getMediaUrl(storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.media)}
+                  alt="Story"
+                  onError={(e) => (e.target.src = DEFAULT_CLOUDINARY_URL)}
                 />
               )}
-              <div className="story-header">
-                <div className="story-user-info">
-                  <img
-                    src={getMediaUrl(successStories[currentStoryIndex].userImage)} // Changé de getImageUrl à getMediaUrl
-                    alt={successStories[currentStoryIndex].userName}
-                    className="story-user-avatar"
-                    onError={(e) => (e.target.src = "/placeholder-user.png")}
-                  />
-                  <div>
-                    <h3>{successStories[currentStoryIndex].userName}</h3>
-                    <span>{successStories[currentStoryIndex].skillName}</span>
-                    <small className="story-timestamp">
-                      {new Date(
-                        successStories[currentStoryIndex].createdAt
-                      ).toLocaleDateString()}
-                    </small>
-                  </div>
-                </div>
-                <button className="close-story" onClick={closeStoryViewer}>
-                  ✖
-                </button>
-              </div>
-              <div className="story-text">
-                <h2 className="story-title">{successStories[currentStoryIndex].title}</h2>
-                <p>{successStories[currentStoryIndex].content}</p>
-                <Link
-                  to={`/marketplace/skills/${successStories[currentStoryIndex].skillId}`}
-                  className="btn story-action"
-                >
-                  Explore this skill
-                </Link>
+              
+              <div
+                className="story-text"
+                style={{
+                  color: storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.textStyle?.color || "#ffffff",
+                  fontSize: storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.textStyle?.fontSize || "16px",
+                  textAlign: storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.textStyle?.position || "center"
+                }}
+              >
+                <h3>{storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.title}</h3>
+                <p>{storiesByUser[currentStoryUserId].stories[currentStoryIndex]?.content}</p>
               </div>
             </div>
-            <button className="story-nav prev" onClick={() => navigateStory("prev")}>
-              ‹
-            </button>
-            <button className="story-nav next" onClick={() => navigateStory("next")}>
-              ›
-            </button>
+            
+            <div className="story-navigation">
+              <button
+                className="story-nav-btn prev"
+                onClick={() => navigateStory("prev")}
+                aria-label="Previous story"
+              ></button>
+              <button
+                className="story-nav-btn next"
+                onClick={() => navigateStory("next")}
+                aria-label="Next story"
+              ></button>
+            </div>
           </div>
         </div>
       )}
-
-      {modalOpen && (
-        <div className="modal">
-          <div className="modal-content">
-            <button className="close-modal" onClick={() => setModalOpen(false)}>
-              ✖
-            </button>
-            <h2>Add a skill</h2>
-            <form encType="multipart/form-data">
-              <input type="text" placeholder="Skill name" required />
-              <input type="text" placeholder="Description" required />
-              <input type="text" placeholder="Categories (comma separated)" required />
-              <input type="text" placeholder="Level" required />
-              <input type="number" placeholder="Popularity" />
-              <input type="text" placeholder="Tags (comma separated)" />
-              <input type="file" accept="image/*" required />
-              <button type="submit" className="btn submit">
-                Submit
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
+      
       {storyModalOpen && (
-        <div className="modal story-modal">
-          <div className="modal-content">
-            <button
-              className="close-modal"
-              onClick={() => {
-                if (imagePreview && imagePreview.startsWith("blob:")) {
-                  URL.revokeObjectURL(imagePreview);
-                }
-                setStoryModalOpen(false);
-                setImagePreview(null);
-                setNewStory({ title: "", content: "", skillId: "", media: null });
-              }}
-            >
-              ✖
-            </button>
-            <h2>Share your success story</h2>
-            <form onSubmit={handleCreateStory} encType="multipart/form-data">
-              <input
-                type="text"
-                name="title"
-                placeholder="Title of your story"
-                value={newStory.title}
-                onChange={handleStoryInputChange}
-                required
-              />
-              <textarea
-                name="content"
-                placeholder="Share your experience..."
-                value={newStory.content}
-                onChange={handleStoryInputChange}
-                required
-                rows={4}
-              />
-              <select
-                name="skillId"
-                value={newStory.skillId}
-                onChange={handleStoryInputChange}
-                required
+        <div className="modal-overlay">
+          <div className="modal-content story-modal">
+            <div className="modal-header">
+              <h2>Share Your Success Story</h2>
+              <button
+                onClick={() => {
+                  setStoryModalOpen(false);
+                  setNewStory({
+                    title: "",
+                    content: "",
+                    category: "",
+                    media: null,
+                    textStyle: { color: "#ffffff", fontSize: "16px", position: "center" },
+                  });
+                  setImagePreview(null);
+                }}
+                className="close-btn"
               >
-                <option value="">Choose a skill</option>
-                {availableSkills.map((skill) => (
-                  <option key={skill._id} value={skill._id}>
-                    {skill.name}
-                  </option>
-                ))}
-              </select>
-              <div className="file-input-container">
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateStory} className="story-form">
+              <div className="form-group">
+                <label htmlFor="story-title">Title</label>
+                <input
+                  type="text"
+                  id="story-title"
+                  name="title"
+                  value={newStory.title}
+                  onChange={handleStoryInputChange}
+                  placeholder="Enter a catchy title"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="story-content">Your Story</label>
+                <textarea
+                  id="story-content"
+                  name="content"
+                  value={newStory.content}
+                  onChange={handleStoryInputChange}
+                  placeholder="Share your experience..."
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="story-category">Category</label>
+                <select
+                  id="story-category"
+                  name="category"
+                  value={newStory.category}
+                  onChange={handleStoryInputChange}
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="story-media">Media</label>
                 <input
                   type="file"
-                  accept="image/*,video/*" // Ajout de video/*
-                  ref={fileInputRef}
+                  id="story-media"
+                  name="media"
+                  accept="image/*,video/*"
                   onChange={handleStoryMediaChange}
-                  name="media" // Ajouté pour cohérence
-                  required
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
                 />
                 <button
                   type="button"
-                  className="select-image-btn"
+                  className="file-select-btn"
                   onClick={() => fileInputRef.current.click()}
                 >
-                  Choose media
+                  {newStory.media ? "Change File" : "Select Image or Video"}
                 </button>
-                {imagePreview && (
-                  <div className="image-preview">
-                    {newStory.media.type.startsWith("image/") ? (
-                      <img src={imagePreview} alt="Preview" />
-                    ) : (
-                      <video src={imagePreview} controls />
-                    )}
-                  </div>
-                )}
+                <span className="file-name">
+                  {newStory.media ? newStory.media.name : "No file selected"}
+                </span>
               </div>
-              <button type="submit" className="btn submit">
-                Share
+              
+              {imagePreview && (
+                <div className="image-preview">
+                  {newStory.media?.type.startsWith("image/") ? (
+                    <img src={imagePreview} alt="Preview" />
+                  ) : (
+                    <video src={imagePreview} controls />
+                  )}
+                </div>
+              )}
+              
+              <button type="submit" className="submit-btn" disabled={loading.stories}>
+                {loading.stories ? "Publishing..." : "Share Your Story"}
               </button>
             </form>
           </div>
         </div>
       )}
+      
+      {modalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Suggest a New Skill</h2>
+              <button
+                onClick={() => {
+                  setModalOpen(false);
+                  setNewSkillSuggestion({ name: "", description: "", category: "" });
+                }}
+                className="close-btn"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSuggestSkill} className="suggestion-form">
+              <div className="form-group">
+                <label htmlFor="skill-name">Skill Name</label>
+                <input
+                  type="text"
+                  id="skill-name"
+                  name="name"
+                  value={newSkillSuggestion.name}
+                  onChange={handleSkillSuggestionChange}
+                  placeholder="Enter skill name"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="skill-description">Description</label>
+                <textarea
+                  id="skill-description"
+                  name="description"
+                  value={newSkillSuggestion.description}
+                  onChange={handleSkillSuggestionChange}
+                  placeholder="Describe the skill and its benefits"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="skill-category">Category</label>
+                <select
+                  id="skill-category"
+                  name="category"
+                  value={newSkillSuggestion.category}
+                  onChange={handleSkillSuggestionChange}
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <button type="submit" className="submit-btn" disabled={loading.stories}>
+                {loading.stories ? "Submitting..." : "Submit Suggestion"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      <footer className="marketplace-footer">
+        <div className="footer-content">
+          <p>© 2025 Skills Exchange Platform. All rights reserved.</p>
+          <p>
+            <Link to="/terms">Terms of Service</Link> |
+            <Link to="/privacy">Privacy Policy</Link>
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };

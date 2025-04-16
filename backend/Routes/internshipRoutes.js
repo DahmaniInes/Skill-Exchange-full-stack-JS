@@ -229,7 +229,7 @@ router.post(
   "/apply",
   verifySession,
   attachUser,
-  upload.single("cv"),
+ // upload.single("cv"),
   async (req, res) => {
     try {
       const { internshipOfferId, coverLetter } = req.body;

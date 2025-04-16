@@ -147,7 +147,7 @@ app.use("/users", usersRouter);
 app.use("/login", loginRouter);
 app.use("/loginGit", loginGit);
 app.use("/auth", authOATH);
-app.use("/api", profileRoutes);
+app.use("/api/profile", profileRoutes); 
 app.use("/api/roadmaps", roadmapRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use('/api/courses', courseRoutes);

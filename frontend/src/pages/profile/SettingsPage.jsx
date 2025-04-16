@@ -1,266 +1,181 @@
-import React, { useState, useEffect } from "react";
-import { 
-  Settings, 
-  Bell, 
-  Lock, 
-  Shield, 
-  Zap, 
-  Globe, 
-  Layers, 
-  User, 
-  MessageCircle,
-  Briefcase,
-  Code,
-  Cpu,
-  Radio
-} from "lucide-react";
-import "./PersonalInfoPage.css";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import ProfileService from "../../services/ProfileService";
+import "./SecuritySettings.css";
 
-// Composant de section de paramètres avancés
-const SettingsSection = ({ 
-  icon, 
-  title, 
-  description, 
-  children,
-  onActivate
+const SettingsPage = ({ 
+  privacySettings = {
+    isProfilePublic: false,
+    isDiscoverable: false
+  }, 
+  notifications = {
+    emailNotifications: true,
+    pushNotifications: true,
+    skillRequests: true
+  }, 
+  handleChange, 
+  handleSubmit, 
+  handleCancel, 
+  prevStep 
 }) => {
-  const [isActive, setIsActive] = useState(false);
-
-  return (
-    <div className={`settings-section ${isActive ? 'active' : ''}`}>
-      <div 
-        className="settings-section-header"
-        onClick={() => {
-          setIsActive(!isActive);
-          onActivate && onActivate(!isActive);
-        }}
-      >
-        <div className="settings-section-icon">
-          {React.cloneElement(icon, { 
-            size: 24, 
-            color: isActive ? "#06BBCC" : "#718096" 
-          })}
-        </div>
-        <div className="settings-section-info">
-          <h4 className="settings-section-title">{title}</h4>
-          <p className="settings-section-description">{description}</p>
-        </div>
-        <div className="settings-section-indicator">
-          <span className={`indicator ${isActive ? 'active' : ''}`}></span>
-        </div>
-      </div>
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  
+  // Ensure handleChange is defined if not provided
+  const safeHandleChange = handleChange || ((section, field, value) => {
+    console.warn("handleChange not provided to SettingsPage component");
+  });
+  
+  const handleLocalSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      // Update privacy settings
+      await ProfileService.updatePrivacySettings(privacySettings);
       
-      {isActive && (
-        <div className="settings-section-content">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Composant de paramètre individuel
-const SettingItem = ({ 
-  icon, 
-  label, 
-  description, 
-  checked, 
-  onChange,
-  advanced = false
-}) => {
-  const [localChecked, setLocalChecked] = useState(checked);
-
-  useEffect(() => {
-    onChange(localChecked);
-  }, [localChecked]);
-
-  return (
-    <div className="setting-item">
-      <div className="setting-item-header">
-        <div className="setting-item-icon">
-          {React.cloneElement(icon, { 
-            size: 20, 
-            color: localChecked ? "#06BBCC" : "#718096" 
-          })}
-        </div>
-        <div className="setting-item-details">
-          <h5 className="setting-item-label">{label}</h5>
-          <p className="setting-item-description">{description}</p>
-        </div>
-        <div className="setting-item-control">
-          <label className="smart-toggle">
-            <input
-              type="checkbox"
-              checked={localChecked}
-              onChange={(e) => setLocalChecked(e.target.checked)}
-            />
-            <span className="smart-toggle-slider"></span>
-          </label>
-          {advanced && (
-            <div className="advanced-indicator" title="Advanced Setting">
-              <Layers size={16} />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AdvancedSettingsPage = ({ 
-    formData, 
-    handleChange,
-    prevStep 
-  }) => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-  
-    const handleSubmit = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Envoi des paramètres de confidentialité
-        await ProfileService.updatePrivacySettings({
-          profileVisibility: formData.privacySettings.isProfilePublic,
-          contactInfoVisibility: formData.privacySettings.isDiscoverable
-        });
-  
-        // Envoi des préférences de notifications
-        await ProfileService.updateNotificationPreferences({
-          email: formData.notifications.emailNotifications,
-          push: formData.notifications.pushNotifications,
-          skillOpportunities: formData.notifications.skillRequests
-        });
-  
-        // Mise à jour du statut
-        await ProfileService.updateProfile({ status: formData.status });
-  
-        alert('Paramètres sauvegardés avec succès!');
-      } catch (error) {
-        setError(error.message || 'Erreur lors de la sauvegarde');
-      } finally {
-        setLoading(false);
+      // Update notification preferences
+      await ProfileService.updateNotificationPreferences(notifications);
+      
+      // Call the parent's handleSubmit if provided
+      if (handleSubmit) {
+        await handleSubmit();
       }
-    };
-  
-    const updateNestedSetting = (section, key, value) => {
-      handleChange({
-        ...formData,
-        [section]: {
-          ...formData[section],
-          [key]: value
-        }
-      });
-    };
-  
-    return (
-      <section className="personal-info-section advanced-settings">
-        <h3 className="section-title">
-          <Settings size={24} className="section-title-icon" />
-          Paramètres avancés
-        </h3>
-  
-        {error && <div className="error-banner">{error}</div>}
-  
-        <div className="settings-container">
-          <SettingsSection
-            icon={<Lock />}
-            title="Confidentialité & Sécurité"
-            description="Contrôlez la visibilité de vos données"
-          >
-            <SettingItem
-              icon={<Globe />}
-              label="Profil public"
-              description="Rendre votre profil visible à tous"
-              checked={formData.privacySettings.isProfilePublic}
-              onChange={(value) => updateNestedSetting('privacySettings', 'isProfilePublic', value)}
-              advanced
-            />
-            <SettingItem
-              icon={<Shield />}
-              label="Découvrabilité"
-              description="Apparaître dans les résultats de recherche"
-              checked={formData.privacySettings.isDiscoverable}
-              onChange={(value) => updateNestedSetting('privacySettings', 'isDiscoverable', value)}
-            />
-          </SettingsSection>
-  
-          <SettingsSection
-            icon={<Bell />}
-            title="Notifications"
-            description="Gérez vos préférences de notifications"
-          >
-            <SettingItem
-              icon={<MessageCircle />}
-              label="Notifications email"
-              description="Recevoir des mises à jour par email"
-              checked={formData.notifications.emailNotifications}
-              onChange={(value) => updateNestedSetting('notifications', 'emailNotifications', value)}
-            />
-            <SettingItem
-              icon={<Zap />}
-              label="Notifications push"
-              description="Alertes instantanées sur vos appareils"
-              checked={formData.notifications.pushNotifications}
-              onChange={(value) => updateNestedSetting('notifications', 'pushNotifications', value)}
-              advanced
-            />
-            <SettingItem
-              icon={<Briefcase />}
-              label="Opportunités"
-              description="Nouvelles offres en rapport avec vos compétences"
-              checked={formData.notifications.skillRequests}
-              onChange={(value) => updateNestedSetting('notifications', 'skillRequests', value)}
-            />
-          </SettingsSection>
-  
-          <SettingsSection
-            icon={<Radio />}
-            title="Disponibilité"
-            description="Définissez votre statut actuel"
-          >
-            <div className="status-select-advanced">
-              <label className="form-label">Statut actuel</label>
-              <select 
-                className="status-select"
-                value={formData.status}
-                onChange={(e) => handleChange({ ...formData, status: e.target.value })}
-              >
-                <option value="online">🟢 Disponible</option>
-                <option value="away">🟡 Absent</option>
-                <option value="busy">🔴 Occupé</option>
-                <option value="offline">⚫ Hors ligne</option>
-              </select>
-            </div>
-          </SettingsSection>
-        </div>
-  
-        <div className="navigation-container">
-          <div className="buttons-container">
-            <button 
-              className="button button-secondary"
-              onClick={prevStep}
-              disabled={loading}
-            >
-              Retour
-            </button>
-            <button 
-              className="button button-primary"
-              onClick={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="spinner"></div>
-              ) : (
-                'Sauvegarder'
-              )}
-            </button>
-          </div>
-        </div>
-      </section>
-    );
+      
+      // Show success notification
+      if (window.toast) {
+        window.toast.success("Settings saved successfully");
+      }
+      
+      // Redirect to profile page after successful submission
+      navigate("/profile");
+      
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      
+      // Show error notification
+      if (window.toast) {
+        window.toast.error("Failed to save settings. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
-  export default AdvancedSettingsPage;
+  // Handle cancel button click
+  const onCancel = () => {
+    if (handleCancel) {
+      handleCancel();
+    } else {
+      // Default behavior: go back to previous page
+      navigate(-1);
+    }
+  };
+  
+  return (
+    <div className="settings-container">
+      <h2 className="settings-heading">SETTINGS</h2>
+      
+      <form onSubmit={handleLocalSubmit}>
+        <div className="settings-form-grid">
+          <div className="form-group">
+            <label className="form-label" htmlFor="profileVisibility">Profile Visibility</label>
+            <select 
+              id="profileVisibility"
+              className="form-select"
+              value={privacySettings.isProfilePublic ? "public" : "private"}
+              onChange={(e) => 
+                safeHandleChange("privacySettings", "isProfilePublic", e.target.value === "public")
+              }
+            >
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label" htmlFor="contactVisibility">Contact Info Visibility</label>
+            <select 
+              id="contactVisibility"
+              className="form-select"
+              value={privacySettings.isDiscoverable ? "visible" : "hidden"}
+              onChange={(e) => 
+                safeHandleChange("privacySettings", "isDiscoverable", e.target.value === "visible")
+              }
+            >
+              <option value="visible">Visible</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </div>
+          
+          <div className="checkbox-group">
+            <label className="form-label" htmlFor="emailNotifications">Email Notifications</label>
+            <input 
+              id="emailNotifications"
+              type="checkbox" 
+              className="custom-checkbox"
+              checked={notifications.emailNotifications || false}
+              onChange={(e) => 
+                safeHandleChange("notifications", "emailNotifications", e.target.checked)
+              }
+            />
+          </div>
+          
+          <div className="checkbox-group">
+            <label className="form-label" htmlFor="pushNotifications">Push Notifications</label>
+            <input 
+              id="pushNotifications"
+              type="checkbox" 
+              className="custom-checkbox"
+              checked={notifications.pushNotifications || false}
+              onChange={(e) => 
+                safeHandleChange("notifications", "pushNotifications", e.target.checked)
+              }
+            />
+          </div>
+          
+          <div className="checkbox-group">
+            <label className="form-label" htmlFor="skillRequests">Skill Opportunities</label>
+            <input 
+              id="skillRequests"
+              type="checkbox" 
+              className="custom-checkbox"
+              checked={notifications.skillRequests || false}
+              onChange={(e) => 
+                safeHandleChange("notifications", "skillRequests", e.target.checked)
+              }
+            />
+          </div>
+        </div>
+        
+        <div className="button-group">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="cancel-button"
+          >
+            ← Cancel
+          </button>
+          
+          <button
+            type="submit"
+            className="save-button"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="spinner" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              "Save Settings"
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default SettingsPage;

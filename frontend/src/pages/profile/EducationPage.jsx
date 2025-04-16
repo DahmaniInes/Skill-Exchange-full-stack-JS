@@ -1,159 +1,114 @@
-import React, { useState, useEffect } from "react";
-import { GraduationCap, Plus, Trash, Calendar } from "lucide-react";
+import React, { useState } from "react";
+import PropTypes from "prop-types"; // Add PropTypes
+import { Briefcase, Plus, Trash, Calendar } from "lucide-react";
 import FormNavigationButtons from "./FormNavigationButtons";
+import FormInput from "./FormInput";
+import ProfileService from "../../services/ProfileService";
 import "./PersonalInfoPage.css";
 
-const FormInput = ({ 
-  label, 
-  type, 
-  value, 
-  fieldName, 
-  handleChange, 
-  placeholder, 
-  icon, 
-  required = false, 
-  validation 
-}) => {
-  const [error, setError] = useState("");
-  
-  const validateInput = (value) => {
-    if (!required && !value.trim()) return ""; // Ignore validation si champ non requis et vide
-    if (required && !value.trim()) return `${label} est requis`;
-    return validation ? validation(value) : "";
-  };
-  
-  const handleInputChange = (e) => {
-    const newValue = e.target.value;
-    const errorMsg = validateInput(newValue);
-    setError(errorMsg);
-    handleChange(fieldName, newValue, errorMsg);
-  };
-  
-  return (
-    <div className="form-group">
-      <label className="form-label">
-        {label} 
-        {required && <span className="required-mark">*</span>}
-      </label>
-      <div className="input-wrapper">
-        {icon && icon}
-        <input
-          type={type}
-          className={`form-input ${icon ? "with-icon" : ""} ${error ? "input-error" : ""}`}
-          value={value}
-          onChange={handleInputChange}
-          onBlur={() => setError(validateInput(value))}
-          placeholder={placeholder}
-          required={required}
-          aria-invalid={!!error}
-        />
-      </div>
-      {error && <span className="error-message" aria-live="polite">{error}</span>}
-    </div>
-  );
-};
-
-const EducationPage = ({ formData, setFormData, handleChange, nextStep, prevStep }) => {
-  const [newEducation, setNewEducation] = useState({
-    school: "",
-    degree: "",
-    fieldOfStudy: "",
+const ProfessionalInfoPage = ({ formData, handleChange, nextStep, prevStep, handleCancel }) => {
+  const [newExperience, setNewExperience] = useState({
+    title: "",
+    company: "",
     startDate: "",
-    endDate: ""
+    endDate: "",
+    description: "",
   });
 
-  const [newEducationErrors, setNewEducationErrors] = useState({
-    school: '',
-    degree: '',
-    fieldOfStudy: '',
-    startDate: ''
-  });
+  const [experienceErrors, setExperienceErrors] = useState({});
+  const [loading, setLoading] = useState({ add: false, delete: null });
+  const [apiError, setApiError] = useState(null);
 
-  const [dateError, setDateError] = useState("");
-  const [isFormValid, setIsFormValid] = useState(false);
+  const formatDate = (dateString) => {
+    if (!dateString) return "Ongoing";
+    const options = { year: "numeric", month: "short" };
+    return new Date(dateString).toLocaleDateString("en-US", options);
+  };
 
-  const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-
-  // Fonctions de validation
-  const validateSchool = (value) => (
-    /^[a-zA-ZÀ-ÿ0-9 .-]{3,}$/.test(value) ? "" : "Nom d'établissement invalide (min 3 caractères)"
-  );
-
-  const validateDegree = (value) => (
-    /^[a-zA-ZÀ-ÿ0-9 .-]{2,}$/.test(value) ? "" : "Nom de diplôme invalide (min 2 caractères)"
-  );
-
-  const validateFieldOfStudy = (value) => (
-    /^[a-zA-ZÀ-ÿ0-9 .-]{3,}$/.test(value) ? "" : "Domaine d'étude invalide (min 3 caractères)"
-  );
-
-  const validateEndDate = (value) => {
-    if (!value) return "";
-    if (new Date(value) < new Date(newEducation.startDate)) {
-      return "La date de fin ne peut pas être antérieure au début";
+  const validateField = (field, value) => {
+    let error = "";
+    switch (field) {
+      case "title":
+      case "company":
+        error = value.trim().length < 2 ? "Minimum 2 characters" : "";
+        break;
+      case "startDate":
+        error = !value ? "Start date required" : "";
+        break;
+      case "endDate":
+        error =
+          value && new Date(value) <= new Date(newExperience.startDate)
+            ? "Must be after the start date"
+            : "";
+        break;
+      case "description":
+        error = value && value.trim().length < 20 ? "Minimum 20 characters" : "";
+        break;
+      default:
+        break;
     }
-    return "";
+    return error;
   };
 
-  useEffect(() => {
-    const dateErrorMsg = validateDates(newEducation.startDate, newEducation.endDate);
-    setDateError(dateErrorMsg);
-
-    const requiredFieldsFilled = 
-      newEducation.school.trim() && 
-      newEducation.degree.trim() && 
-      newEducation.fieldOfStudy.trim() && 
-      newEducation.startDate.trim();
-
-    const noErrors = Object.values(newEducationErrors).every(error => !error) && !dateErrorMsg;
-
-    setIsFormValid(requiredFieldsFilled && noErrors);
-  }, [newEducation, newEducationErrors]);
-
-  const validateDates = (start, end) => {
-    if (!start) return "La date de début est requise";
-    if (end && new Date(start) > new Date(end)) return "La date de début doit être antérieure à la fin";
-    return "";
+  const handleExperienceChange = (field, value) => {
+    setNewExperience((prev) => ({ ...prev, [field]: value }));
+    setExperienceErrors((prev) => ({ ...prev, [field]: validateField(field, value) }));
   };
 
-  const addEducation = () => {
-    if (!isFormValid) return;
+  const addExperience = async () => {
+    const errors = Object.keys(newExperience).reduce(
+      (acc, field) => ({ ...acc, [field]: validateField(field, newExperience[field]) }),
+      {}
+    );
 
-    const formattedEducation = {
-      ...newEducation,
-      startDate: new Date(newEducation.startDate),
-      endDate: newEducation.endDate ? new Date(newEducation.endDate) : null
-    };
+    setExperienceErrors(errors);
+    if (Object.values(errors).some((e) => e)) return;
 
-    setFormData(prev => ({
-      ...prev,
-      education: [...prev.education, formattedEducation],
-      errors: { ...prev.errors, education: "" }
-    }));
+    try {
+      setLoading({ ...loading, add: true });
+      setApiError(null);
 
-    setNewEducation({
-      school: "",
-      degree: "",
-      fieldOfStudy: "",
-      startDate: "",
-      endDate: ""
-    });
+      const addedExperience = await ProfileService.addExperience({
+        ...newExperience,
+        startDate: new Date(newExperience.startDate),
+        endDate: newExperience.endDate ? new Date(newExperience.endDate) : null,
+      });
+
+      handleChange("experience", [...(formData.experience || []), addedExperience]);
+      setNewExperience({
+        title: "",
+        company: "",
+        startDate: "",
+        endDate: "",
+        description: "",
+      });
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setLoading({ ...loading, add: false });
+    }
   };
 
-  const removeEducation = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      education: prev.education.filter((_, i) => i !== index),
-      errors: { ...prev.errors, education: "" }
-    }));
+  const removeExperience = async (index) => {
+    const experienceId = formData.experience[index]._id;
+
+    try {
+      setLoading({ ...loading, delete: index });
+      await ProfileService.deleteExperience(experienceId);
+      handleChange(
+        "experience",
+        formData.experience.filter((_, i) => i !== index)
+      );
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setLoading({ ...loading, delete: null });
+    }
   };
 
-  const validateBeforeNext = () => {
-    if (formData.education.length === 0) {
-      setFormData(prev => ({
-        ...prev,
-        errors: { ...prev.errors, education: "Veuillez ajouter au moins une formation" }
-      }));
+  const handleNextStep = () => {
+    if (!formData.jobTitle?.trim() || !formData.company?.trim()) {
+      setApiError("Please fill in all required fields.");
       return;
     }
     nextStep();
@@ -162,142 +117,171 @@ const EducationPage = ({ formData, setFormData, handleChange, nextStep, prevStep
   return (
     <section className="personal-info-section">
       <h3 className="section-title">
-        <GraduationCap size={20} className="subsection-icon" /> Formations
+        <Briefcase size={20} className="section-icon" /> Professional Information
       </h3>
 
-      <div className="experience-list">
-        {formData.education.map((edu, index) => (
-          <div key={index} className="experience-card">
-            <div className="card-header">
-              <div>
-                <h4 className="experience-title">{edu.degree} en {edu.fieldOfStudy}</h4>
-                <p className="experience-company">{edu.school}</p>
-                <p className="experience-dates">
-                  {new Date(edu.startDate).toLocaleDateString('fr-FR', dateOptions)} - 
-                  {edu.endDate ? 
-                    new Date(edu.endDate).toLocaleDateString('fr-FR', dateOptions) : 
-                    "Aujourd'hui"}
-                </p>
+      {apiError && <div className="error-banner">{apiError}</div>}
+
+      <div className="form-grid">
+        <FormInput
+          label="Current Position"
+          type="text"
+          value={formData.jobTitle || ""}
+          fieldName="jobTitle"
+          handleChange={handleChange}
+          placeholder="Senior Developer"
+          icon={<Briefcase size={16} className="input-icon" />}
+          required={true}
+        />
+
+        <FormInput
+          label="Company"
+          type="text"
+          value={formData.company || ""}
+          fieldName="company"
+          handleChange={handleChange}
+          placeholder="Company Inc."
+          required={true}
+          icon={<Briefcase size={16} className="input-icon" />}
+        />
+      </div>
+
+      <div className="experience-section">
+        <h4 className="section-subtitle">
+          <Briefcase size={18} className="subsection-icon" /> Professional Experience
+        </h4>
+
+        <div className="experience-list">
+          {(formData.experience || []).map((exp, index) => (
+            <div key={exp._id || index} className="experience-card">
+              <div className="card-header">
+                <div>
+                  <h5 className="experience-title">{exp.title}</h5>
+                  <p className="experience-company">{exp.company}</p>
+                </div>
+                <button
+                  className="btn-danger"
+                  onClick={() => removeExperience(index)}
+                  disabled={loading.delete === index}
+                >
+                  {loading.delete === index ? (
+                    <div className="spinner-small"></div>
+                  ) : (
+                    <Trash size={16} />
+                  )}
+                </button>
               </div>
-              <button 
-                className="btn-danger" 
-                onClick={() => removeEducation(index)}
-                title="Supprimer la formation"
-                aria-label={`Supprimer la formation ${edu.degree}`}
+              <p className="experience-dates">
+                {formatDate(exp.startDate)} - {formatDate(exp.endDate)}
+              </p>
+              {exp.description && (
+                <p className="experience-description">{exp.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="add-experience-form">
+          <h5 className="form-subheader">
+            <Plus size={18} className="subsection-icon" /> Add an Experience
+          </h5>
+
+          <div className="form-grid">
+            <FormInput
+              label="Job Title"
+              type="text"
+              value={newExperience.title || ""}
+              fieldName="title"
+              handleChange={handleExperienceChange}
+              placeholder="Full Stack Developer"
+              error={experienceErrors.title}
+              required={true}
+            />
+
+            <FormInput
+              label="Company"
+              type="text"
+              value={newExperience.company || ""}
+              fieldName="company"
+              handleChange={handleExperienceChange}
+              placeholder="Google USA"
+              error={experienceErrors.company}
+              required={true}
+            />
+
+            <FormInput
+              label="Start Date"
+              type="date"
+              value={newExperience.startDate || ""}
+              fieldName="startDate"
+              handleChange={handleExperienceChange}
+              icon={<Calendar size={16} className="input-icon" />}
+              error={experienceErrors.startDate}
+              required={true}
+            />
+
+            <FormInput
+              label="End Date"
+              type="date"
+              value={newExperience.endDate || ""}
+              fieldName="endDate"
+              handleChange={handleExperienceChange}
+              icon={<Calendar size={16} className="input-icon" />}
+              error={experienceErrors.endDate}
+            />
+
+            <div className="form-group full-width">
+              <label className="form-label">Description</label>
+              <textarea
+                className={`form-textarea ${experienceErrors.description ? "input-error" : ""}`}
+                value={newExperience.description || ""}
+                onChange={(e) => handleExperienceChange("description", e.target.value)}
+                placeholder="Describe your responsibilities and achievements"
+                rows={3}
+              />
+              {experienceErrors.description && (
+                <span className="error-message">{experienceErrors.description}</span>
+              )}
+            </div>
+
+            <div className="full-width">
+              <button
+                className="button primary"
+                onClick={addExperience}
+                disabled={loading.add || Object.values(experienceErrors).some(Boolean)}
               >
-                <Trash size={16} />
+                {loading.add ? (
+                  <div className="spinner-small"></div>
+                ) : (
+                  <>
+                    <Plus size={16} /> Add
+                  </>
+                )}
               </button>
             </div>
           </div>
-        ))}
-      </div>
-
-      <div className="add-experience-form">
-        <h4 className="form-subheader">
-          <Plus size={16} className="subsection-icon" /> Ajouter une formation
-        </h4>
-
-        <div className="form-grid">
-          <FormInput
-            label="Établissement"
-            type="text"
-            value={newEducation.school}
-            fieldName="school"
-            handleChange={(field, value, error) => {
-              setNewEducation(prev => ({...prev, [field]: value}));
-              setNewEducationErrors(prev => ({...prev, [field]: error}));
-            }}
-            placeholder="Nom de l'établissement"
-            required={true}
-            validation={validateSchool}
-          />
-
-          <FormInput
-            label="Diplôme"
-            type="text"
-            value={newEducation.degree}
-            fieldName="degree"
-            handleChange={(field, value, error) => {
-              setNewEducation(prev => ({...prev, [field]: value}));
-              setNewEducationErrors(prev => ({...prev, [field]: error}));
-            }}
-            placeholder="Ex: Licence, Master..."
-            required={true}
-            validation={validateDegree}
-          />
-
-          <FormInput
-            label="Domaine d'étude"
-            type="text"
-            value={newEducation.fieldOfStudy}
-            fieldName="fieldOfStudy"
-            handleChange={(field, value, error) => {
-              setNewEducation(prev => ({...prev, [field]: value}));
-              setNewEducationErrors(prev => ({...prev, [field]: error}));
-            }}
-            placeholder="Ex: Informatique"
-            required={true}
-            validation={validateFieldOfStudy}
-          />
-
-          <FormInput
-            label="Date de début"
-            type="date"
-            value={newEducation.startDate}
-            fieldName="startDate"
-            handleChange={(field, value, error) => {
-              setNewEducation(prev => ({...prev, [field]: value}));
-              setNewEducationErrors(prev => ({...prev, [field]: error}));
-            }}
-            required={true}
-            icon={<Calendar size={16} className="input-icon" />}
-          />
-
-          <FormInput
-            label="Date de fin (optionnel)"
-            type="date"
-            value={newEducation.endDate}
-            fieldName="endDate"
-            handleChange={(field, value, error) => {
-              setNewEducation(prev => ({...prev, [field]: value}));
-              setNewEducationErrors(prev => ({...prev, [field]: error}));
-            }}
-            validation={validateEndDate}
-            icon={<Calendar size={16} className="input-icon" />}
-          />
-
-          {dateError && (
-            <div className="form-group full-width" aria-live="polite">
-              <span className="error-message">{dateError}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="buttons-container">
-          <button 
-            className="button button-primary" 
-            onClick={addEducation}
-            disabled={!isFormValid}
-            aria-disabled={!isFormValid}
-          >
-            <Plus size={16} /> Ajouter la formation
-          </button>
         </div>
       </div>
 
       <div className="navigation-container">
-        {formData.errors?.education && (
-          <span className="error-message" aria-live="polite">
-            {formData.errors.education}
-          </span>
-        )}
-        <FormNavigationButtons 
-          nextStep={validateBeforeNext}
+        <FormNavigationButtons
+          nextStep={handleNextStep}
           prevStep={prevStep}
+          handleCancel={handleCancel}
+          loading={loading.add || loading.delete !== null}
         />
       </div>
     </section>
   );
 };
 
-export default EducationPage;
+// Add PropTypes for validation
+ProfessionalInfoPage.propTypes = {
+  formData: PropTypes.object.isRequired,
+  handleChange: PropTypes.func.isRequired,
+  nextStep: PropTypes.func.isRequired,
+  prevStep: PropTypes.func.isRequired,
+  handleCancel: PropTypes.func.isRequired, // Ensure handleCancel is a required function
+};
+
+export default ProfessionalInfoPage;
