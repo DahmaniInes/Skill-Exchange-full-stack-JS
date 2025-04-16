@@ -1,32 +1,56 @@
-// src/App.jsx
 import React from 'react';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-
-
-import './index.css';
-import SkillExchange from './pages/SkillExchange';
-
-
-import Login from "./frontoffice/pages/login/login";
-import Signup from "./frontoffice/pages/signup/SignUp";
-    
-
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { WOW } from 'wowjs';
+import axios from 'axios';
+import 'react-toastify/dist/ReactToastify.css';
+import './index.css';
+import Login from "./pages/login/login";
+import Signup from "./pages/signup/SignUp";
+import MainLayout from './layouts/MainLayout';
+import Home from './pages/Home';
+import Contact from './pages/Contact';
+import About from './pages/About';
+import Courses from './pages/Courses';
+import NotFound from './pages/NotFound';
+import TotpStup from './pages/TotpSetup';
+import ProfileForm from './pages/profile/ProfileForm';  
+import SecuritySettings from './pages/profile/SecuritySettings'; 
+import Profile from './pages/profile/ProfilePage'; 
+import Marketplace from './pages/skills/Marketplace';
+import MarketplaceSkills from './pages/skills/MarketplaceSkills';
+import SkillDetails from './pages/skills/SkillDetails'; 
+import RoadmapPage from './pages/skills/RoadmapPage';
+import CreateRoadmapPage from './pages/skills/CreateRoadmapPage';
+import InternshipFormPage from './pages/internships/InternshipFormPage';
+import UserInternshipListPage from './pages/internships/UserInternshipListPage';
+import EditInternshipPage from './pages/internships/EditInternshipPage';
+import StudentInternshipListPage from './pages/internships/StudentInternshipListPage';
+import ApplyInternshipPage from './pages/internships/ApplyInternshipPage';
+import ApplicationsToMyOffersPage from './pages/internships/ApplicationsToMyOffersPage';
+import StudentApplicationsTable from './pages/internships/StudentApplicationsTable';
+import ManageInternshipTasksPage from "./pages/internships/ManageInternshipTasksPage";
+import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage";
+import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
+import RoleGuard from './guards/RoleGuard';
+import Unauthorized from './pages/Unauthorized';
 
-import MainLayout from './frontoffice/layouts/MainLayout';
-import Home from './frontoffice/pages/Home';
-import Contact from './frontoffice/pages/Contact';
-import About from './frontoffice/pages/About';
-import Courses from './frontoffice/pages/Courses';
-import NotFound from './frontoffice/pages/NotFound';
-//import "https://code.jquery.com/jquery-3.6.0.min.js";
-//import "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js";
-import TotpStup from './frontoffice/pages/TotpSetup';
-import ProfileForm from './frontoffice/pages/profile/ProfileForm'; // Ton composant de modification de profil // Exemple d'un autre composant
-import SecuritySettings from './frontoffice/pages/profile/SecuritySettings'; // Exemple d'un autre composant
-import Profile from './frontoffice/pages/profile/ProfilePage'; // Composanticher le profil pour aff
+import MessengerPage from './pages/MessengerPages/MessengerPage';
+import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
+
+import ReportUserPage from './pages/MessengerPages/ReportUserPage';
+
+import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
+import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
+
+import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
+
+import CertificationForm from './/components/CertificationCourses/CertificationForm/CertificationForm';
+import PeerValidation from './components/CertificationCourses/PeerValidation/PeerValidation';
+import AllCourses from './components/CertificationCourses/AllCourses/AllCourses';
+import MyCourses  from './components/CertificationCourses/MyCourses/MyCourses';
+import CourseDetail  from './components/CertificationCourses/CourseDetail/CourseDetail';
+import CreateCourse  from './components/CertificationCourses/CreateCourse/CreateCourse';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -34,9 +58,25 @@ import 'font-awesome/css/font-awesome.min.css';
 import 'animate.css';
 import 'wowjs/css/libs/animate.css';
 
+
 function App() {
   useEffect(() => {
-    // Attendre que le DOM soit complètement chargé
+        axios.interceptors.request.use(
+        (config) => {
+          console.log('Intercepteur appelé, headers:', config.headers);
+          const token = localStorage.getItem('jwtToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          } else {
+            delete config.headers.Authorization;
+          }
+          return config;
+        },
+        (error) => {
+          return Promise.reject(error);
+        }
+      );
+
     document.addEventListener('DOMContentLoaded', () => {
       const wow = new WOW({
         boxClass: 'wow',
@@ -45,7 +85,7 @@ function App() {
         mobile: true,
         live: true,
         callback: function(box) {
-          // Callback optionnel
+          // Optional callback
         },
         scrollContainer: null,
         resetAnimation: true
@@ -60,24 +100,70 @@ function App() {
   }, []);
 
 
+
   return (
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route path='/home' element={<Home />} />
-          <Route path="contact" element={<Contact />} />
-          <Route path="about" element={<About />} />
-          <Route path="courses" element={<Courses />} />
-          <Route path="/login" element={<Login />} />
-         <Route path="/signup" element={<Signup />} />
-         <Route path="/auth" element={<TotpStup />} />
-          <Route path="profileForm" element={<ProfileForm />} />
-          <Route path="SecuritySettings" element={<SecuritySettings />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="/skills" element={<SkillExchange />} />
+    <ConversationProvider>
+    <Routes>
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<Home />} /> {/* Added index route */}
+        <Route path="home" element={<Home />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="about" element={<About />} />
+        <Route path="courses" element={<Courses />} />
+        <Route path="login" element={<Login />} />
+        <Route path="signup" element={<Signup />} />
+        <Route path="auth" element={<TotpStup />} />
+        <Route path="profileForm" element={<ProfileForm />} />
+        <Route path="SecuritySettings" element={<SecuritySettings />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="marketplace-skill" element={<Marketplace />} />
+        <Route path="marketplaceSkills" element={<MarketplaceSkills />} />
+        <Route path="skills/:skillId" element={<SkillDetails />} /> 
+        <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
+        <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
+
+        <Route path="MessengerPage" element={<MessengerPage />} />
+          <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
+          <Route path="ConfirmPagePaiement" element={<ConfirmPagePaiement />} />
+          <Route path="CancelPagePaiement" element={<CancelPagePaiement />} />
+        {/* Entrepreneur Routes for Internship Management */}
+        <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/edit-internship/:id" element={<RoleGuard element={<EditInternshipPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/internships/applications" element={<RoleGuard element={<ApplicationsToMyOffersPage />} allowedRoles="entrepreneur" />} />
+        <Route path="/applications/:applicationId/progress" element={<RoleGuard element={<ApplicationProgressPage />} allowedRoles="entrepreneur" />} />
+
+        {/* Student Routes for Internship Management */}
+        <Route path="internships" element={<RoleGuard element={<StudentInternshipListPage />} allowedRoles="student" />} />
+        <Route path="/internships/apply/:id" element={<RoleGuard element={<ApplyInternshipPage />} allowedRoles="student" />} />
+        <Route path="/internships/student/applications" element={<RoleGuard element={<StudentApplicationsTable />} allowedRoles="student" />} />
+        <Route path="/internships/:id/tasks" element={<RoleGuard element={<ManageInternshipTasksPage />} allowedRoles="student" />} />
+
+        {/* Admin Routes for Internship Management */}
+        <Route path="/admin/internships" element={<RoleGuard element={<AdminDashboardPage />} allowedRoles="admin" />} />
+        <Route path="ReportUserPage" element={<RoleGuard element={<ReportUserPage />} allowedRoles="admin" />} />
+
+         {/* Courses */}
+         <Route path="my-courses" element={<MyCourses  />} />
+          <Route path="/courses" element={<AllCourses />}>
+            <Route index element={<AllCourses userId="123" />} />
+          </Route>
+          <Route path="/course/:id" element={<CourseDetail />} />
+            
+
+          <Route path="/create-course" element={<CreateCourse />} />
           
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+          <Route path="certification-form" element={<CertificationForm />} />
+            <Route path="peer-validation" element={<PeerValidation />} />
+
+
+
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+    </ConversationProvider>
+
   );
 }
 

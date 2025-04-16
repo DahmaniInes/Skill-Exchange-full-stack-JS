@@ -92,3 +92,53 @@ exports.enrollCourse = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+// Utility function to ensure directory exists
+const ensureDirectoryExists = (dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+};
+
+exports.uploadCourseImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Ensure directory exists
+    ensureDirectoryExists('public/uploads/courses');
+
+    // Process image with sharp
+    const processedImagePath = path.join(
+      path.dirname(req.file.path),
+      'processed-' + path.basename(req.file.path)
+    );
+
+    await sharp(req.file.path)
+      .resize(1280, 720, { fit: 'cover' })
+      .jpeg({ quality: 80 })
+      .toFile(processedImagePath);
+
+    // Remove original file
+    fs.unlinkSync(req.file.path);
+
+    // Return the URL of the processed image
+    const imageUrl = `/uploads/courses/${path.basename(processedImagePath)}`;
+    
+    res.json({ 
+      imageUrl,
+      message: 'Image uploaded and processed successfully'
+    });
+  } catch (error) {
+    console.error('Error processing image:', error);
+    res.status(500).json({ error: 'Error processing image' });
+  }
+};
+
+

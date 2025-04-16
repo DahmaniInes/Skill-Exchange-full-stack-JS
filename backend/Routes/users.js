@@ -44,7 +44,7 @@ router.post("/login", async (req, res) => {
       return res.status(403).json({ message: "Please verify your email before logging in." });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ userId: user._id, userRole: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     res.json({
       message: "Login successful",
@@ -52,8 +52,7 @@ router.post("/login", async (req, res) => {
       user: {
         isTOTPEnabled: user.isTOTPEnabled
       },
-      role:user.role,
-      userid:user._id
+      role: user.role,
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -182,8 +181,8 @@ router.post("/login-otp", async (req, res) => {
     user.otpAttempts = 0;
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.status(200).json({ message: "OTP login successful", token });
+    const token = jwt.sign({ userId: user._id, userRole: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.status(200).json({ message: "OTP login successful", token, role: user.role });
   } catch (err) {
     console.error("OTP login error:", err);
     res.status(500).json({ message: "Internal server error" });

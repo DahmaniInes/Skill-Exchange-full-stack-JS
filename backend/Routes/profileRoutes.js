@@ -16,8 +16,6 @@ const {
   validatePassword
 } = require("../Controllers/profileController");
 
-const { register } = require("../Controllers/register");
-const { login } = require("../Controllers/login");
 const { upload } = require("../Config/multerConfig");
 const verifySession = require("../middleware/verifySession");
 
@@ -32,9 +30,6 @@ router.post("/me/validate-password", verifySession, validatePassword);
 router.post("/upload-cv", verifySession, upload.single("cv"), uploadCV);
 router.delete("/delete-cv", verifySession, deleteCV);
 
-// Routes d'authentification
-router.post("/register", register);
-router.post("/login", login);
 
 // Nouvelles routes pour expériences
 router.post("/experiences", verifySession, addExperience);

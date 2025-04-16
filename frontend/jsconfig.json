@@ -1,24 +1,8 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "src",
     "paths": {
-      "@/*": ["./src/*"],
       "*": ["public/src/*"]
-    },
-    "jsx": "react-jsx",                    // Obligatoire pour JSX
-    "module": "esnext",                     // Recommandé pour React
-    "target": "es5",                        // Compatibilité navigateur
-    "lib": ["dom", "dom.iterable", "esnext"], // APIs navigateur
-    "allowJs": true,                        // Autoriser les fichiers .js
-    "skipLibCheck": true,                   // Optimisation build
-    "esModuleInterop": true,                // Compatibilité imports
-    "allowSyntheticDefaultImports": true,   // Compatibilité React
-    "strict": true,                         // Vérifications TypeScript
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",             // Obligatoire pour Next.js/React
-    "resolveJsonModule": true,              // Autoriser les imports JSON
-    "isolatedModules": true                 // Sécurité TypeScript
-  },
-  "include": ["src/**/*", "next-env.d.ts"], // Fichiers à traiter
-  "exclude": ["node_modules"]               // Fichiers ignorés
+    }
+  }
 }

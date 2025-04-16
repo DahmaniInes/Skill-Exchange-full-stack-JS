@@ -37,7 +37,7 @@ const UserSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ["super-admin", "admin", "user", "student", "teacher"],
+        values: ["super-admin", "admin", "user", "student", "teacher", "entrepreneur"],
         message: 'Rôle invalide'
       },
       default: "user"
