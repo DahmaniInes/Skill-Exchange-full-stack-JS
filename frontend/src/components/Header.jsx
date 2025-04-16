@@ -297,10 +297,19 @@ const fetchUserProfile = useCallback(async (signal) => {
                 <Link to="/notfound" className={`dropdown-item ${location.pathname === "/notfound" ? "active" : ""}`}>
                   404 Page
                 </Link>
+                 <Link to="/events" className={`dropdown-item ${location.pathname === "/events" ? "active" : ""}`}>
+                 Events
+               </Link>
+                 <Link to="/my-reservations" className={`dropdown-item ${location.pathname === "/my-reservations" ? "active" : ""}`}>
+                 My Reservations
+               </Link>
               </div>
             </div>
-            <Link to="/contact" className={`nav-item nav-link ${location.pathname === "/contact" ? "active" : ""}`}>
-              Contact
+            <Link to="/marketplace-skill" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
+               Marketplace Skill
+            </Link>
+            <Link to="/internships" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
+              Internships
             </Link>
           </div>
 

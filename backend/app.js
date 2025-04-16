@@ -7,72 +7,128 @@ var logger = require("morgan");
 var session = require("express-session");
 var MongoStore = require("connect-mongo");
 var mongoose = require("mongoose");
-
+const http = require('http');
+const cors = require("cors");
+const { SessionsClient } = require('@google-cloud/dialogflow');
+// Import route modules
 const authRoutes = require("./Routes/authRoutes");
+var indexRouter = require("./Routes/index");
+var usersRouter = require("./Routes/users");
+var loginRouter = require('./Routes/authGOOGLE');
+var loginGit = require('./Routes/authGitHub');
+var authOATH = require('./Routes/oath-totp');
+const skillRoutes = require("./Routes/skillRoutes");
+const profileRoutes = require("./Routes/profileRoutes");
+const storyRoutes = require("./Routes/storyRoutes");
+const roadmapRoutes = require('./Routes/roadmapRoutes');
+const internshipRoutes = require('./Routes/internshipRoutes');
 const eventRoutes = require('./Routes/eventRoutes');
 const reservationRoutes = require('./Routes/reservationRoutes');
-const loginRouter = require('./Routes/authGOOGLE');
-const loginGit = require('./Routes/authGitHub');
-const authOATH = require('./Routes/oath-totp');
-const profileRoutes = require("./Routes/profileRoutes");
-const usersRouter = require("./Routes/users");
+// Initialize Express
+const app = express();
+const server = http.createServer(app);
 
-const authMiddleware = require('./middleware/authMiddleware');
+// View engine setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-var app = express();
-const cors = require("cors");
+// Set up core middleware first
+app.use(logger("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
-// 📌 CORS Configuration
+// Configure CORS
 app.use(cors({
   origin: 'http://localhost:5173',
   credentials: true,
   allowedHeaders: [
     'Content-Type',
     'Authorization',
-    'X-Client-Version', // Header personnalisé ajouté ici
+    'X-Client-Version',
     'X-Requested-With'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   exposedHeaders: ['Content-Length', 'Authorization']
 }));
-
-// Ajouter un handler global pour les requêtes OPTIONS
 app.options('*', cors());
 
-app.use(logger("dev"));
-app.use(express.json());  // Juste une fois
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
-
-// 📌 Session Configuration
+// Set up session
 app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
-      cookie: {
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'None',
-      },
-    })
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days
+      httpOnly: true, // Prevent client-side access
+      secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS in production
+      sameSite: 'None', // Allow cross-origin requests
+    }
+  })
 );
 
-// 📌 Routes
-app.use("/api", authRoutes);             // Auth classique (email/mot de passe)
-app.use("/loginGit", loginGit);          // Auth GitHub
-app.use("/auth", authOATH);              // OTP / Google Auth
-app.use('/event', eventRoutes);          // Routes des événements
-app.use('/reservation', reservationRoutes); // 💥 Routes de réservation
-app.use("/api", profileRoutes);         // Profil utilisateur
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-// 📌 Routes de test (si nécessaire)
+// Static files
+app.use(express.static(path.join(__dirname, "public")));
+
+const sessionClient = new SessionsClient({
+  keyFilename: 'path/to/service-account-key.json',
+});
+
+const projectId = 'your-project-id';
+const sessionId = 'your-session-id';
+
+app.post('/chat', async (req, res) => {
+  const sessionPath = sessionClient.projectAgentSessionPath(projectId, sessionId);
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: req.body.message,
+        languageCode: 'fr-FR',
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    res.json({ response: result.fulfillmentText });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register all routes AFTER middleware is set up
+app.use("/api", authRoutes);
+app.use("/api/skills", skillRoutes);
+app.use("/api/stories", storyRoutes);
+app.use("/api/internships", internshipRoutes);
 app.use("/", usersRouter);
+app.use("/users", usersRouter);
+app.use("/login", loginRouter);
+app.use("/loginGit", loginGit);
+app.use("/auth", authOATH);
+app.use("/api", profileRoutes);
+app.use("/api/roadmaps", roadmapRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/event', eventRoutes);         
+app.use('/reservation', reservationRoutes); 
 
-// 📌 Gestion des fichiers statiques en production
+
+
+// Example route to render a view
+app.get('/', (req, res) => {
+  res.render('index'); // Ensure there is an index.ejs file in the views folder
+});
+
+// Production static file handling
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(__dirname, "../frontend/dist");
   app.use(express.static(frontendPath));
@@ -82,32 +138,44 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// 📌 Catch 404 and forward to error handler
+// Socket.io setup (if you're using it)
+// const io = require('socket.io')(server, {
+//   cors: {
+//     origin: 'http://localhost:5173',
+//     methods: ['GET', 'POST'],
+//     credentials: true
+//   }
+// });
+
+// app.use((req, res, next) => {
+//   req.io = io;
+//   next();
+// });
+
+// Catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-// 📌 Error handler
+// Error handler
 app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
+  
+  // Send error as JSON if it's an API request
+  if (req.path.startsWith('/api')) {
+    return res.status(err.status || 500).json({
+      error: err.message,
+      stack: req.app.get("env") === "development" ? err.stack : undefined
+    });
+  }
+  
+  // Otherwise render the error page
   res.status(err.status || 500);
   res.render("error");
 });
 
-// 📌 Set EJS as the template engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views')); // specify the directory for views
-
-// 📌 Example route to render a view
-app.get('/', (req, res) => {
-  res.render('index'); // Ensure there is an index.ejs file in the views folder
-});
-
-// 📌 Server Setup
-const http = require('http');
-const server = http.createServer(app);
-
+// Start the server
 server.listen(5000, () => console.log("Server running on port 5000"));
 
 module.exports = app;

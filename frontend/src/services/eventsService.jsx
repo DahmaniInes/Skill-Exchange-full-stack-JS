@@ -1,74 +1,37 @@
-import axiosInstance from './axiosInstance';
+// src/services/eventService.jsx
+import axios from "axios";
 
-const getEvents = async () => {
-  try {
-    const response = await axiosInstance.get('/events');
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la récupération des événements');
-  }
-};
+const api = axios.create({
+  baseURL: "http://localhost:5000/event",
+  timeout: 10000,
+});
 
-const getEventById = async (id) => {
-  try {
-    const response = await axiosInstance.get(`/events/${id}`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la récupération de l\'événement');
-  }
-};
+// Ajoute le JWT automatiquement dans chaque requête
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("jwtToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-const createEvent = async (eventData) => {
-  try {
-    const response = await axiosInstance.post('/events', eventData);
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la création de l\'événement');
-  }
-};
+// --- Événements publics et CRUD utilisateur ---
 
-const updateEvent = async (id, eventData) => {
-  try {
-    const response = await axiosInstance.put(`/events/${id}`, eventData);
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la mise à jour de l\'événement');
-  }
-};
+export const getEvents = () => api.get("/");
 
-const deleteEvent = async (id) => {
-  try {
-    const response = await axiosInstance.delete(`/events/${id}`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la suppression de l\'événement');
-  }
-};
+export const getEventById = (id) => api.get(`/${id}`);
 
-const getEventsCreatedByUser = async () => {
-  try {
-    const response = await axiosInstance.get('/events/my-events');
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la récupération des événements créés par l\'utilisateur');
-  }
-};
+export const createEvent = (data) => api.post("/", data);
 
-const getReservationsForMyEvents = async () => {
-  try {
-    const response = await axiosInstance.get('/events/my-events/reservations');
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la récupération des réservations sur mes événements');
-  }
-};
+export const updateEvent = (id, data) => api.put(`/${id}`, data);
 
-export default {
-  getEvents,
-  getEventById,
-  createEvent,
-  updateEvent,
-  deleteEvent,
-  getEventsCreatedByUser,
-  getReservationsForMyEvents,
-};
+export const deleteEvent = (id) => api.delete(`/${id}`);
+
+// --- Récupération des événements créés par l’utilisateur ---
+
+export const getMyEvents = () => api.get("/my-events");
+
+export const getReservationsForMyEvents = () => api.get("/my-events/reservations");

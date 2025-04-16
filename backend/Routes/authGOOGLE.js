@@ -1,9 +1,11 @@
+
 const express = require('express');
 const router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../Models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const verifyToken = require('../middleware/verifySession');
 
 // Configurer le client OAuth2 avec les informations de Google Cloud
 const client = new OAuth2Client(
@@ -58,7 +60,6 @@ router.get('/login-with-google', async (req, res) => {
         lastName: lastName,
         email: payload.email,
         password: await bcrypt.hash(Math.random().toString(36).slice(-10), 10), // Mot de passe aléatoire
-        profilePicture: payload.picture,
         isVerified: true // L'utilisateur est vérifié car il vient de Google
       });
       
@@ -81,8 +82,8 @@ router.get('/login-with-google', async (req, res) => {
     console.log("Token JWT créé avec succès pour Google OAuth");
 
     // Envoi du token côté client via le header
-    res.set('Authorization', `Bearer ${token}`);
-    res.redirect('http://localhost:5173');
+    //res.set('Authorization', `Bearer ${token}`);
+    res.redirect(`http://localhost:5173/login?token=${token}`);
     
   } catch (error) {
     console.error('ERREUR GOOGLE AUTH:', error);
@@ -90,4 +91,58 @@ router.get('/login-with-google', async (req, res) => {
   }
 });
 
+
+
+
+router.get('/google-user', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
 module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

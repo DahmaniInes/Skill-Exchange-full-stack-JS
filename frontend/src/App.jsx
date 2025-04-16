@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { WOW } from 'wowjs';
-import axios from 'axios';
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
 import Login from "./pages/login/login";
@@ -34,53 +33,19 @@ import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage
 import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
-
-import MessengerPage from './pages/MessengerPages/MessengerPage';
-import MessengerDefaultPage from './pages/MessengerPages/MessengerDefaultPage';
-
-import ReportUserPage from './pages/MessengerPages/ReportUserPage';
-
-import ConfirmPagePaiement from './pages/MessengerPages/ConfirmPaiementPage';
-import CancelPagePaiement from './pages/MessengerPages/CancelPaiementPage';
-
-import { ConversationProvider } from './pages/MessengerPages/ConversationContext';
-
-import CertificationForm from './/components/CertificationCourses/CertificationForm/CertificationForm';
-import PeerValidation from './components/CertificationCourses/PeerValidation/PeerValidation';
-import AllCourses from './components/CertificationCourses/AllCourses/AllCourses';
-import MyCourses  from './components/CertificationCourses/MyCourses/MyCourses';
-import CourseDetail  from './components/CertificationCourses/CourseDetail/CourseDetail';
-import CreateCourse  from './components/CertificationCourses/CreateCourse/CreateCourse';
-
-// Import for your reservation system
-import EventList from './pages/events/EventList'; // List of all events
-import EventDetail from './pages/events/EventDetail'; // Event details and reservation
-import UserReservations from './pages/reservations/UserReservations'; // User's reservations
-
+import EventsList from './pages/events/EventsList'; // ✅ Corrigé
+import EventDetail from './pages/events/EventDetail'; // ✅ Corrigé
+import UserReservations from './pages/reservations/UserReservations'; // ✅ Corrigé
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'font-awesome/css/font-awesome.min.css';
 import 'animate.css';
 import 'wowjs/css/libs/animate.css';
 
+
 function App() {
   useEffect(() => {
-        axios.interceptors.request.use(
-        (config) => {
-          console.log('Intercepteur appelé, headers:', config.headers);
-          const token = localStorage.getItem('jwtToken');
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          } else {
-            delete config.headers.Authorization;
-          }
-          return config;
-        },
-        (error) => {
-          return Promise.reject(error);
-        }
-      );
-
+    // Wait for DOM to be fully loaded
     document.addEventListener('DOMContentLoaded', () => {
       const wow = new WOW({
         boxClass: 'wow',
@@ -104,8 +69,8 @@ function App() {
   }, []);
 
 
+
   return (
-    <ConversationProvider>
     <Routes>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} /> {/* Added index route */}
@@ -126,19 +91,15 @@ function App() {
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
 
         {/* Reservation System Routes */}
-        <Route path="events" element={<EventList />} /> {/* List all events */}
-        <Route path="event/:id" element={<EventDetail />} /> {/* Event details */}
+        <Route path="events" element={<EventsList />} /> {/* List all events */}
+        <Route path="events/:id" element={<EventDetail />} /> {/* Event details */}
         <Route path="my-reservations" element={<UserReservations />} /> {/* User's reservations */}
 
-        <Route path="MessengerPage" element={<MessengerPage />} />
-          <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
-          <Route path="ConfirmPagePaiement" element={<ConfirmPagePaiement />} />
-          <Route path="CancelPagePaiement" element={<CancelPagePaiement />} />
         
         {/* Entrepreneur Routes for Internship Management */}
         <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />
         <Route path="/edit-internship/:id" element={<RoleGuard element={<EditInternshipPage />} allowedRoles="entrepreneur" />} />
-        <Route path="/internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
+        <Route path="internships/entreprise" element={<RoleGuard element={<UserInternshipListPage />} allowedRoles="entrepreneur" />} />
         <Route path="/internships/applications" element={<RoleGuard element={<ApplicationsToMyOffersPage />} allowedRoles="entrepreneur" />} />
         <Route path="/applications/:applicationId/progress" element={<RoleGuard element={<ApplicationProgressPage />} allowedRoles="entrepreneur" />} />
 
@@ -150,22 +111,12 @@ function App() {
 
         {/* Admin Routes for Internship Management */}
         <Route path="/admin/internships" element={<RoleGuard element={<AdminDashboardPage />} allowedRoles="admin" />} />
-        <Route path="ReportUserPage" element={<RoleGuard element={<ReportUserPage />} allowedRoles="admin" />} />
 
-         {/* Courses */}
-         <Route path="my-courses" element={<MyCourses  />} />
-          <Route path="/courses" element={<AllCourses />} />
-          <Route path="/course/:id" element={<CourseDetail />} />
-          <Route path="/create-course" element={<CreateCourse />} />
-          <Route path="certification-form" element={<CertificationForm />} />
-          <Route path="peer-validation" element={<PeerValidation />} />
 
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
-    </ConversationProvider>
-
   );
 }
 

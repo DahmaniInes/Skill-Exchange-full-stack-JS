@@ -1,34 +1,28 @@
-import axiosInstance from './axiosInstance';
+import axios from "axios";
 
-const createReservation = async (eventId) => {
-  try {
-    const response = await axiosInstance.post('/reservations', { eventId });
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la création de la réservation');
-  }
-};
+const api = axios.create({
+  baseURL: "http://localhost:5000/reservation",
+  timeout: 10000,
+});
 
-const getMyReservations = async () => {
-  try {
-    const response = await axiosInstance.get('/reservations/my');
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de la récupération des réservations');
-  }
-};
+// Intercepteur JWT
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("jwtToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-const cancelReservation = async (id) => {
-  try {
-    const response = await axiosInstance.delete(`/reservations/${id}`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Erreur lors de l\'annulation de la réservation');
-  }
-};
+// Réserver un événement
+export const createReservation = (eventId) =>
+  api.post("/", { eventId });
 
-export default {
-  createReservation,
-  getMyReservations,
-  cancelReservation,
-};
+// Voir mes réservations
+export const getMyReservations = () => api.get("/my");
+
+// Annuler une réservation
+export const cancelReservation = (id) => api.delete(`/${id}`);

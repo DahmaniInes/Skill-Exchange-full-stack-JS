@@ -127,3 +127,7 @@
   color: green;
 } 
    
+.signup-content select {
+  outline: none;
+  border-color: #06bbcc;
+}

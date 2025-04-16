@@ -11,37 +11,44 @@ function EventDetail() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    getEventById(id)
-      .then((eventData) => {
-        setEvent(eventData);
-        setLoading(false);
-      })
-      .catch((err) => {
+    const fetchEvent = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getEventById(id);
+        setEvent(response.data);
+      } catch (err) {
         setError("Impossible de charger les détails de l'événement.");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchEvent();
   }, [id]);
 
   const handleReservation = async () => {
     try {
-      await createReservation(id);
+      await createReservation(id); // ✅ on passe directement l'ID
       alert("Réservation effectuée !");
       navigate("/my-reservations");
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la réservation.");
+      alert(err?.response?.data?.message || "Erreur lors de la réservation.");
     }
   };
 
   if (loading) return <p>Chargement...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
+  if (!event) return null;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 border shadow rounded">
-      <h1 className="text-2xl font-bold mb-4">{event.title}</h1>
-      <p className="mb-4">{event.description}</p>
+    <div className="max-w-2xl mx-auto p-6 border rounded shadow">
+      <h1 className="text-3xl font-bold mb-4">{event.title}</h1>
+      <p className="mb-2 text-gray-700">{event.description}</p>
+      <p className="text-sm text-gray-500 mb-4">
+        Date : {new Date(event.date).toLocaleDateString("fr-FR")}
+      </p>
       <button
         onClick={handleReservation}
         className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"

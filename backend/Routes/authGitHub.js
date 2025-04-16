@@ -1,9 +1,12 @@
+
+
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const User = require('../Models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const verifyToken = require('../middleware/verifySession');
 
 // Route pour initier l'authentification GitHub
 router.get('/auth/github', (req, res) => {
@@ -126,9 +129,8 @@ router.get('/login-with-github', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log("Token JWT créé avec succès pour GitHub OAuth");
 
-    // Envoi du token côté client via le header
-    res.set('Authorization', `Bearer ${token}`);
-    res.redirect('http://localhost:5173');
+    // Modification ici: au lieu d'envoyer le token via le header, le rediriger avec le token en paramètre d'URL
+    res.redirect(`http://localhost:5173/login?token=${token}`);
     
   } catch (error) {
     console.error('ERREUR GITHUB AUTH:', error);
@@ -136,4 +138,21 @@ router.get('/login-with-github', async (req, res) => {
   }
 });
 
+// Ajout d'une route pour récupérer les informations de l'utilisateur GitHub
+router.get('/github-user', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
 module.exports = router;
+
+
+
+

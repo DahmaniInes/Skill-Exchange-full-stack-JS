@@ -26,17 +26,25 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-    
+      required: true
+    },
+    salt: {
+      type: String,
+      required: false
     },
 
     // Section 2 : Authentification
     role: {
       type: String,
       enum: {
-        values: ["super-admin", "admin", "user"],
+        values: ["super-admin", "admin", "user", "student", "teacher", "entrepreneur"],
         message: 'Rôle invalide'
       },
       default: "user"
+    },
+    verificationToken: { 
+      type: String, 
+      default: null 
     },
     authKeyTOTP: { 
       type: String,
@@ -49,6 +57,18 @@ const UserSchema = new mongoose.Schema(
     isVerified: { 
       type: Boolean, 
       default: false 
+    },
+    otpHash: { 
+      type: String, 
+      default: null 
+    },
+    otpExpires: { 
+      type: Date, 
+      default: null 
+    },
+    otpAttempts: { 
+      type: Number, 
+      default: 0 
     },
     lastLogin: Date,
 
@@ -84,8 +104,7 @@ const UserSchema = new mongoose.Schema(
       default: ""
     },
     phone: {
-      type: String,
-    
+      type: String
     },
 
     // Section 4 : Carrière
@@ -160,7 +179,7 @@ const UserSchema = new mongoose.Schema(
       endDate: Date
     }],
     cv: {
-      type: String,
+      type: String
     },
 
     // Section 5 : Social
@@ -212,6 +231,10 @@ const UserSchema = new mongoose.Schema(
     },
 
     // Section 7 : Audit
+    isActive: {
+      type: Boolean,
+      default: true
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -227,12 +250,12 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-// Index composites
+// Indexes
 UserSchema.index({ firstName: 1, lastName: 1 });
 UserSchema.index({ 'skills.name': 1 });
 
 // Middleware de mise à jour automatique
-UserSchema.pre('save', function(next) {
+UserSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
