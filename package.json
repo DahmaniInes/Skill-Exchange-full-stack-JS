@@ -18,6 +18,7 @@
     "concurrently": "^9.1.2"
   },
   "dependencies": {
+    "full-stack-js": "file:",
     "owl.carousel": "^2.3.4"
   }
 }

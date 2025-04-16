@@ -1,7 +1,6 @@
 const bcrypt = require('bcrypt');
 const User = require('../Models/User');
 const jwt = require('jsonwebtoken');
-
 // Connexion d'un utilisateur
 const login = async (req, res) => {
   const { email, password } = req.body;
