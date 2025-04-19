@@ -1,7 +1,8 @@
-FROM node:16-alpine
+# backend/Dockerfile
+FROM node:18
 WORKDIR /app
-COPY . /app
+COPY backend/package*.json ./
 RUN npm install
-RUN npm run build-dev
+COPY backend/ .
 EXPOSE 5000
 CMD ["npm", "start"]
