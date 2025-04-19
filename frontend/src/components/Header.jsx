@@ -1,15 +1,15 @@
 // Correction de la ligne d'import React
-import React, { useEffect, useState, useRef, useCallback } from "react"; 
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import axiosInstance from "../interceptor/axiosInstance";
 import axios from 'axios';
-import io from 'socket.io-client'; // Ajout de l'import pour Socket.IO
+import io from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
 
 // Import des styles CSS
 import "../utils/css/bootstrap.min.css";
 import "../utils/css/style.css";
 import "../utils/lib/animate/animate.min.css";
-import { jwtDecode } from 'jwt-decode';
 import "../utils/lib/owlcarousel/assets/owl.carousel.min.css";
 
 // Import des images
@@ -21,16 +21,21 @@ function Header() {
   const isHomePage = location.pathname === "/";
   const carouselRef = useRef(null);
   const carouselInitializedRef = useRef(false);
-  const socketRef = useRef(null); // Référence pour Socket.IO
+  const socketRef = useRef(null);
   const [showCarousel, setShowCarousel] = useState(isHomePage);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') || 'Auto');
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'English');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+  
+  // Vérifier si window.matchMedia est disponible
+  const prefersDark = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : { matches: false, addEventListener: () => {}, removeEventListener: () => {} }; // Fallback pour les tests
+
   const navigate = useNavigate();
-  const [currentUserId, setCurrentUserId] = useState(null); // ID de l'utilisateur
-  const [unseenMessages, setUnseenMessages] = useState({}); // État pour les messages non lus
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [unseenMessages, setUnseenMessages] = useState({});
  
   // Définition des titres
   const pageTitles = {
@@ -70,7 +75,6 @@ function Header() {
         throw new Error(response.data.message || 'Erreur inconnue');
       }
 
-      // Formater les dates
       const formatDate = (dateString) => 
         dateString ? new Date(dateString).toLocaleDateString() : 'Present';
 
@@ -96,7 +100,6 @@ function Header() {
     }
   }, [handleProfileError]);
 
-  // Fetch user profile
   useEffect(() => {
     const abortController = new AbortController();
     
@@ -106,7 +109,7 @@ function Header() {
       
       try {
         const decoded = jwtDecode(token);
-        setCurrentUserId(decoded.userId); // Récupérer l'ID de l'utilisateur
+        setCurrentUserId(decoded.userId);
         return decoded.exp * 1000 > Date.now();
       } catch (e) {
         console.error("Token validation error:", e);
@@ -134,7 +137,6 @@ function Header() {
     return () => abortController.abort();
   }, [fetchUserProfile, navigate, location]);
 
-  // Initialisation de Socket.IO pour les messages
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
@@ -210,7 +212,6 @@ function Header() {
     };
   }, [currentUserId]);
 
-  // Réinitialiser les messages non lus quand on visite la page Messenger
   useEffect(() => {
     if (location.pathname === "/MessengerDefaultPage") {
       setUnseenMessages({});
@@ -228,10 +229,8 @@ function Header() {
     }
   }, [location.pathname, currentUserId]);
 
-  // Calculer le nombre total de messages non lus
   const unseenCount = Object.values(unseenMessages).filter(Boolean).length;
 
-  // Gestion du clic sur le lien Messenger
   const handleMessengerClick = (e) => {
     const token = localStorage.getItem('jwtToken');
     if (!token) {
@@ -240,7 +239,6 @@ function Header() {
     }
   };
 
-  // Dark mode management
   useEffect(() => {
     const applyDarkMode = () => {
       document.body.classList.toggle('dark-mode', darkMode === 'Dark' || (darkMode === 'Auto' && prefersDark.matches));
@@ -248,15 +246,13 @@ function Header() {
     applyDarkMode();
     if (darkMode === 'Auto') prefersDark.addEventListener('change', applyDarkMode);
     return () => prefersDark.removeEventListener('change', applyDarkMode);
-  }, [darkMode]);
+  }, [darkMode, prefersDark]);
 
-  // Save preferences
   useEffect(() => {
     localStorage.setItem('darkMode', darkMode);
     localStorage.setItem('language', language);
   }, [darkMode, language]);
 
-  // Logout
   const handleLogout = async () => {
     try {
       await axiosInstance.post("/logout");
@@ -268,7 +264,6 @@ function Header() {
     }
   };
 
-  // Bootstrap initialization
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.bootstrap) {
       const loadBootstrap = async () => {
@@ -282,7 +277,6 @@ function Header() {
     }
   }, []);
 
-  // Spinner
   useEffect(() => {
     const spinner = document.getElementById("spinner");
     if (spinner) {
@@ -292,19 +286,14 @@ function Header() {
     }
   }, []);
 
-  // Page change handling
   useEffect(() => {
     setShowCarousel(isHomePage);
     setAnimationKey(prevKey => prevKey + 1);
-    window.scrollTo(0, 0);
+    if (typeof window !== 'undefined' && window.scrollTo) {
+      window.scrollTo(0, 0);
+    }
   }, [isHomePage, location.pathname]);
-
-  // Carousel initialization (similar to previous implementation)
-  useEffect(() => {
-    // ... (previous carousel initialization code remains the same)
-  }, [showCarousel]);
-
-  // Navbar fixed positioning
+  
   useEffect(() => {
     const navbar = document.querySelector('.navbar');
     if (navbar) {
@@ -333,15 +322,11 @@ function Header() {
     };
   }, []);
 
-  // Carousel rendering (similar to previous implementation)
   const renderCarousel = () => { /* ... */ };
-
-  // Page header rendering (similar to previous implementation)
   const renderPageHeader = () => { /* ... */ };
 
   return (
     <>
-      {/* Spinner */}
       <div
         id="spinner"
         className="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center"
@@ -351,7 +336,6 @@ function Header() {
         </div>
       </div>
 
-      {/* Navbar */}
       <nav
         className="navbar navbar-expand-lg bg-white navbar-light shadow p-0"
         style={{
@@ -411,7 +395,6 @@ function Header() {
             <Link to="/internships" className={`nav-item nav-link ${location.pathname === "/internships" ? "active" : ""}`}>
               Internships
             </Link>
-            {/* Ajout du lien Messenger avec l'icône et le compteur */}
             <Link 
               to="/MessengerDefaultPage" 
               className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
@@ -444,9 +427,7 @@ function Header() {
             </Link>
           </div>
 
-          {/* Language and Dark Mode Selectors */}
           <div className="d-flex align-items-center me-4">
-            {/* Language Selector */}
             <div className="dropdown me-3">
               <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 🌍 {language}
@@ -458,7 +439,6 @@ function Header() {
               </ul>
             </div>
 
-            {/* Dark Mode Selector */}
             <div className="dropdown me-3">
               <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 {darkMode === 'Light' ? '☀️' : darkMode === 'Dark' ? '🌙' : '🌗'}
@@ -471,7 +451,6 @@ function Header() {
             </div>
           </div>
 
-          {/* User Profile/Authentication Section */}
           <div className="nav-item dropdown me-4">
             {user ? (
               <a
@@ -479,23 +458,23 @@ function Header() {
                 className="nav-link dropdown-toggle d-flex align-items-center"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
               >
-<img 
-  src={user?.profilePicture || DEFAULT_AVATAR} 
-  onError={(e) => {
-    e.target.onerror = null;
-    e.target.src = DEFAULT_AVATAR;
-    e.target.classList.add("error-avatar");
-  }}
-  className="rounded-circle me-2 border border-2 border-primary"
-  style={{ 
-    width: 40, 
-    height: 40, 
-    objectFit: 'cover'
-  }}
-  alt={`${user?.firstName || ''} ${user?.lastName || 'Utilisateur'}`}
-  loading="lazy"
-/>
-          <span className="fw-semibold">
+                <img 
+                  src={user?.profilePicture || DEFAULT_AVATAR} 
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = DEFAULT_AVATAR;
+                    e.target.classList.add("error-avatar");
+                  }}
+                  className="rounded-circle me-2 border border-2 border-primary"
+                  style={{ 
+                    width: 40, 
+                    height: 40, 
+                    objectFit: 'cover'
+                  }}
+                  alt={`${user?.firstName || ''} ${user?.lastName || 'Utilisateur'}`}
+                  loading="lazy"
+                />
+                <span className="fw-semibold">
                   {`${user.firstName} ${user.lastName}`.trim() || "User"}
                 </span>
               </a>
