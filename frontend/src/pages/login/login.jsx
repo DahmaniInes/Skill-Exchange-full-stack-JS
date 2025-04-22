@@ -86,7 +86,8 @@ const Login = () => {
       const { user, token } = response.data;
       if (token) {
         localStorage.setItem("jwtToken", token);
-        console.log("JWT Token saved:", token);
+        localStorage.setItem("role", response.data.role);
+        localStorage.setItem("userid", response.data.userid);
       } else {
         console.warn("JWT Token not found in response");
       }

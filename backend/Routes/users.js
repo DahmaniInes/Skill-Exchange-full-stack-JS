@@ -52,7 +52,8 @@ router.post("/login", async (req, res) => {
       user: {
         isTOTPEnabled: user.isTOTPEnabled
       },
-      role: user.role,
+      role:user.role,
+      userid:user._id
     });
   } catch (err) {
     console.error("Login error:", err);
