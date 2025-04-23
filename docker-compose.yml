@@ -16,7 +16,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: noussa2000/nodemongoapp:6.0
+    image: nodemongoapp
     restart: always
     container_name: back
     ports:
@@ -30,7 +30,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: noussa2000/frontend:6.0
+    image: frontend
     restart: always
     container_name: front
     ports:
