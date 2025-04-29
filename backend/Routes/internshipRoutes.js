@@ -46,20 +46,68 @@ const attachUser = async (req, res, next) => {
 };
 
 // Public route: Get all internship offers
+// router.get("/", async (req, res) => {
+//   try {
+//     const offers = await InternshipOffer.find()
+//       .populate("skills", "name categories imageUrl")
+//       .populate("createdBy", "firstName lastName email");
+
+//     res.status(200).json(offers);
+//   } catch (err) {
+//     console.error("Error fetching internship offers:", err);
+//     res
+//       .status(500)
+//       .json({ message: "Server error while retrieving internships." });
+//   }
+// });
 router.get("/", async (req, res) => {
   try {
-    const offers = await InternshipOffer.find()
-      .populate("skills", "name categories imageUrl")
-      .populate("createdBy", "firstName lastName email");
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 6;
+    const skip = (page - 1) * limit;
+    const searchTerm = req.query.search || "";
+    const locationFilter = req.query.location || "";
+    const sortOption = req.query.sort || "";
 
-    res.status(200).json(offers);
+    const filter = {};
+
+    if (searchTerm) {
+      filter.title = { $regex: searchTerm, $options: "i" }; // Case-insensitive
+    }
+
+    if (locationFilter) {
+      filter.location = { $regex: locationFilter, $options: "i" };
+    }
+
+    let sort = {};
+    if (sortOption === "startDate") {
+      sort.startDate = 1; // Ascending by start date
+    } else if (sortOption === "title") {
+      sort.title = 1; // Ascending by title
+    }
+
+    const [offers, totalOffers] = await Promise.all([
+      InternshipOffer.find(filter)
+        .populate("skills", "name categories imageUrl")
+        .populate("createdBy", "firstName lastName email")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit),
+      InternshipOffer.countDocuments(filter)
+    ]);
+
+    res.status(200).json({
+      data: offers,
+      currentPage: page,
+      totalPages: Math.ceil(totalOffers / limit),
+      totalOffers
+    });
   } catch (err) {
     console.error("Error fetching internship offers:", err);
-    res
-      .status(500)
-      .json({ message: "Server error while retrieving internships." });
+    res.status(500).json({ message: "Server error while retrieving internships." });
   }
 });
+
 
 // Get internship offers for the authenticated user (creator)
 router.get("/my-offers", verifySession, attachUser, async (req, res) => {

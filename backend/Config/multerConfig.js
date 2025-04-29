@@ -7,7 +7,7 @@ const storage = new CloudinaryStorage({
   params: (req, file) => ({
     folder: "upload",
     public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`, // Formatage automatique
-    allowed_formats: ["jpg", "png", "jpeg"]
+    allowed_formats: ["jpg", "png", "jpeg", "pdf"],
   })
 });
 // 📌 Filtrage des fichiers acceptés (images et PDF)
