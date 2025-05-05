@@ -33,6 +33,7 @@ import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage
 import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
+import ChatbotPage from './pages/internships/ChatbotPage';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -87,6 +88,8 @@ function App() {
         <Route path="skills/:skillId" element={<SkillDetails />} /> 
         <Route path="/roadmap/:roadmapId" element={<RoadmapPage />} />
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
+
+        <Route path="/chatbot" element={<ChatbotPage />} />
 
         {/* Entrepreneur Routes for Internship Management */}
         <Route path="/internship-create" element={<RoleGuard element={<InternshipFormPage />} allowedRoles="entrepreneur" />} />

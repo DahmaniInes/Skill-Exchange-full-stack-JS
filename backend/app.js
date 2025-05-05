@@ -23,6 +23,7 @@ const storyRoutes = require("./Routes/storyRoutes");
 const roadmapRoutes = require('./Routes/roadmapRoutes');
 const internshipRoutes = require('./Routes/internshipRoutes');
 const recommendationRoutes = require('./Routes/recommendationRoutes');
+const chatBotRoutes = require("./Routes/chatBotRoutes");
 // Initialize Express
 const app = express();
 const server = http.createServer(app);
@@ -110,6 +111,7 @@ app.use("/api/skills", skillRoutes);
 app.use("/api/stories", storyRoutes);
 app.use("/api/internships", internshipRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/chatbot", chatBotRoutes);
 app.use("/", usersRouter);
 app.use("/users", usersRouter);
 app.use("/login", loginRouter);
