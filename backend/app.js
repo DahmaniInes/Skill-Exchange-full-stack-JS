@@ -27,7 +27,19 @@ const courseRoutes = require('./Routes/courseRoutes');
 const instructorRoutes = require('./Routes/instructorRoutes');
 const certificateRoutes = require('./Routes/certificateRoutes');
 
+// Ajout de prom-client pour les métriques Prometheus
+const prom = require('prom-client');
 
+// Activer la collecte des métriques par défaut (CPU, mémoire, etc.)
+const collectDefaultMetrics = prom.collectDefaultMetrics;
+collectDefaultMetrics({ timeout: 5000 });
+
+// Créer un compteur personnalisé pour les requêtes HTTP
+const httpRequestCounter = new prom.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status'],
+});
 
 // Initialize Express
 const app = express();
@@ -42,6 +54,18 @@ app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+// Middleware pour compter les requêtes HTTP pour Prometheus
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    httpRequestCounter.inc({
+      method: req.method,
+      route: req.path,
+      status: res.statusCode,
+    });
+  });
+  next();
+});
 
 // Configure CORS
 app.use(cors({
@@ -58,7 +82,6 @@ app.use(cors({
 }));
 app.options('*', cors());
 
-
 // Socket.IO Setup
 const { Server } = require('socket.io');
 const io = new Server(server, {
@@ -74,16 +97,11 @@ const onlineUsers = require("./Utils/onlineUsers");
 // Configurer Socket.IO avec onlineUsers
 require("./middleware/messengerSocket")(io, onlineUsers);
 
-
-
-
 // Middleware pour ajouter io à req (déplacé avant les routes)
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
-
-
 
 // Set up session
 app.use(
@@ -137,6 +155,12 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// Route pour exposer les métriques Prometheus
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', prom.register.contentType);
+  res.end(await prom.register.metrics());
+});
+
 // Register all routes AFTER middleware is set up
 app.use("/api", authRoutes);
 app.use("/api/skills", skillRoutes);
@@ -149,14 +173,12 @@ app.use("/loginGit", loginGit);
 app.use("/auth", authOATH);
 app.use("/api", profileRoutes);
 app.use("/api/roadmaps", roadmapRoutes);
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "Uploads")));
 app.use('/api/courses', courseRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/certification', certificateRoutes);
 
-
 app.use("/MessengerRoute", MessengerRoute);
-
 
 // Example route to render a view
 app.get('/', (req, res) => {
@@ -172,20 +194,6 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
-
-// Socket.io setup (if you're using it)
-// const io = require('socket.io')(server, {
-//   cors: {
-//     origin: 'http://localhost:5173',
-//     methods: ['GET', 'POST'],
-//     credentials: true
-//   }
-// });
-
-// app.use((req, res, next) => {
-//   req.io = io;
-//   next();
-// });
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {

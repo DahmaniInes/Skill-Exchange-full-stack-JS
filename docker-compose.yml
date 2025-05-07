@@ -25,6 +25,8 @@ services:
       - db
     environment:
       - MONGO_URI=mongodb://root:example@db:27017/skill-exchange?authSource=admin
+    networks:
+      - monitoring
 
   frontend:
     build:
@@ -34,9 +36,63 @@ services:
     restart: always
     container_name: front
     ports:
-      - '3000:3000'
+      - '3000:80' # Changé car NGINX écoute sur le port 80
     depends_on:
       - backend
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3001:3000' # Port 3000 est déjà utilisé par le frontend
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
+
+  cadvisor: # Optionnel, pour surveiller les conteneurs
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
 
 volumes:
   mongo-data:
+  prometheus_data:
+  grafana_data:
