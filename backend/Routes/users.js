@@ -4,9 +4,11 @@ var User = require("../Models/User");
 const nodemailer = require("nodemailer");
 var router = express.Router();
 const verifyToken = require('../middleware/verifySession');
+const userController = require('../Controllers/userController');
 
 
 const jwt = require('jsonwebtoken');
+router.get('/xp-level/:userId', userController.getUserXPAndLevel);
 
 const transporter = nodemailer.createTransport({
   service: "gmail",

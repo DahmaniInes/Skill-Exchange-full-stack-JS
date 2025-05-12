@@ -39,6 +39,7 @@ const ProfileService = {
       const DEFAULT_AVATAR =
         "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
       const response = await api.get("/profile/me", { signal });
+      console.log("Profile data:", response.data);
       const userData = response.data.data?.user || {};
       if (!userData.profilePicture || userData.profilePicture === "") {
         userData.profilePicture = DEFAULT_AVATAR;

@@ -28,6 +28,8 @@ const instructorRoutes = require('./Routes/instructorRoutes');
 const certificateRoutes = require('./Routes/certificateRoutes');
 const courseContentRoutes = require('./Routes/courseContentRoutes');
 const courseReviewRoutes = require('./Routes/courseReviewRoutes');
+const enrollmentRoutes = require("./Routes/enrollmentRoutes");
+const badgeRoutes = require("./Routes/badgeRoutes");
 
 
 
@@ -157,6 +159,8 @@ app.use('/api/instructors', instructorRoutes);
 app.use('/api/certification', certificateRoutes);
 app.use('/api/course-content', courseContentRoutes);
 app.use('/api', courseReviewRoutes);
+app.use("/api/enrollments", enrollmentRoutes);
+app.use("/api/badges", badgeRoutes);
 
 
 app.use("/MessengerRoute", MessengerRoute);

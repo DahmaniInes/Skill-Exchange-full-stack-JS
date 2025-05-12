@@ -230,7 +230,19 @@ const UserSchema = new mongoose.Schema(
       default: "offline"
     },
 
-    // Section 7 : Audit
+    // Section 7 : Gamification
+    xp: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    level: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    // Section 8 : Audit
     isActive: {
       type: Boolean,
       default: true

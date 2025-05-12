@@ -12,6 +12,7 @@ const LearnPage = () => {
   const [completedLectures, setCompletedLectures] = useState([]);
   const [expandedSections, setExpandedSections] = useState([]);
   const [notes, setNotes] = useState('');
+  const [badgeClaimed, setBadgeClaimed] = useState(false);
 
   useEffect(() => {
     const fetchCourseContent = async () => {
@@ -113,6 +114,27 @@ const LearnPage = () => {
 
   const totalLectures = courseContent.reduce((acc, section) => acc + section.lectures.length, 0);
   const progress = totalLectures === 0 ? 0 : (completedLectures.length / totalLectures) * 100;
+
+  // Claim badge automatically when progress reaches 100%
+  useEffect(() => {
+    const claimBadge = async () => {
+      const userId = localStorage.getItem('userid');
+      if (!userId || progress < 100 || badgeClaimed) return;
+
+      try {
+        await axios.post('http://localhost:5000/api/enrollments/claim-badge', {
+          userId,
+          courseId,
+        });
+        console.log('Badge claimed successfully!');
+        setBadgeClaimed(true);
+      } catch (error) {
+        console.error('Error claiming badge:', error);
+      }
+    };
+
+    claimBadge();
+  }, [progress, courseId, badgeClaimed]);
 
   if (!currentLecture) {
     return <div>Loading course content...</div>;
