@@ -15,7 +15,7 @@ const CreateCourse = () => {
     image: '',
     description: '',
     price: '',
-    rating: '',
+    rating: '0',
     tags: [],
     details: {
       trailerVideoUrl: '',
@@ -24,14 +24,18 @@ const CreateCourse = () => {
       requirements: [],
       courseIncludes: [],
       exploreRelatedTopics: [],
-      contentSections: [{ title: '', videos: [] }],
+      sections: [
+        {
+          section: '',
+          lectures: [{ title: '', src: '', duration: '' }]
+        }
+      ],
       fullDescription: '',
-      instructors: []
+      instructors: ["67f923308a97219d19fec068"]
     }
   });
 
   const [tagInput, setTagInput] = useState('');
-  const [instructorInput, setInstructorInput] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,30 +53,45 @@ const CreateCourse = () => {
     }));
   };
 
-  const handleArrayChange = (field, value, parent = 'details') => {
+  const handleArrayChange = (field, value) => {
     setCourse(prev => ({
       ...prev,
-      [parent]: {
-        ...prev[parent],
+      details: {
+        ...prev.details,
         [field]: value.split('\n').filter(item => item.trim() !== '')
       }
     }));
   };
 
-  const handleSectionChange = (index, field, value) => {
-    const updatedSections = [...course.details.contentSections];
-    if (field === 'videos') {
-      updatedSections[index][field] = value.split('\n').filter(v => v.trim() !== '');
-    } else {
-      updatedSections[index][field] = value;
-    }
-    setCourse(prev => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        contentSections: updatedSections
-      }
-    }));
+  const handleSectionChange = (sectionIndex, field, value) => {
+    setCourse(prev => {
+      const updatedSections = [...prev.details.sections];
+      updatedSections[sectionIndex] = { ...updatedSections[sectionIndex], [field]: value };
+      return {
+        ...prev,
+        details: {
+          ...prev.details,
+          sections: updatedSections
+        }
+      };
+    });
+  };
+
+  const handleLectureChange = (sectionIndex, lectureIndex, field, value) => {
+    setCourse(prev => {
+      const updatedSections = [...prev.details.sections];
+      updatedSections[sectionIndex].lectures[lectureIndex] = {
+        ...updatedSections[sectionIndex].lectures[lectureIndex],
+        [field]: value
+      };
+      return {
+        ...prev,
+        details: {
+          ...prev.details,
+          sections: updatedSections
+        }
+      };
+    });
   };
 
   const addSection = () => {
@@ -80,23 +99,59 @@ const CreateCourse = () => {
       ...prev,
       details: {
         ...prev.details,
-        contentSections: [...prev.details.contentSections, { title: '', videos: [] }]
+        sections: [
+          ...prev.details.sections,
+          { section: '', lectures: [{ title: '', src: '', duration: '' }] }
+        ]
       }
     }));
   };
 
   const removeSection = (index) => {
-    if (course.details.contentSections.length > 1) {
-      const updated = [...course.details.contentSections];
-      updated.splice(index, 1);
-      setCourse(prev => ({
+    if (course.details.sections.length > 1) {
+      setCourse(prev => {
+        const updatedSections = prev.details.sections.filter((_, i) => i !== index);
+        return {
+          ...prev,
+          details: {
+            ...prev.details,
+            sections: updatedSections
+          }
+        };
+      });
+    }
+  };
+
+  const addLecture = (sectionIndex) => {
+    setCourse(prev => {
+      const updatedSections = [...prev.details.sections];
+      updatedSections[sectionIndex].lectures.push({ title: '', src: '', duration: '' });
+      return {
         ...prev,
         details: {
           ...prev.details,
-          contentSections: updated
+          sections: updatedSections
         }
-      }));
-    }
+      };
+    });
+  };
+
+  const removeLecture = (sectionIndex, lectureIndex) => {
+    setCourse(prev => {
+      const updatedSections = [...prev.details.sections];
+      if (updatedSections[sectionIndex].lectures.length > 1) {
+        updatedSections[sectionIndex].lectures = updatedSections[sectionIndex].lectures.filter(
+          (_, i) => i !== lectureIndex
+        );
+      }
+      return {
+        ...prev,
+        details: {
+          ...prev.details,
+          sections: updatedSections
+        }
+      };
+    });
   };
 
   const handleImageChange = (e) => {
@@ -152,34 +207,9 @@ const CreateCourse = () => {
   };
 
   const removeTag = (index) => {
-    const updated = [...course.tags];
-    updated.splice(index, 1);
-    setCourse(prev => ({ ...prev, tags: updated }));
-  };
-
-  const handleInstructorKeyDown = (e) => {
-    if (e.key === 'Enter' && instructorInput.trim() !== '') {
-      e.preventDefault();
-      setCourse(prev => ({
-        ...prev,
-        details: {
-          ...prev.details,
-          instructors: [...prev.details.instructors, instructorInput.trim()]
-        }
-      }));
-      setInstructorInput('');
-    }
-  };
-
-  const removeInstructor = (index) => {
-    const updated = [...course.details.instructors];
-    updated.splice(index, 1);
     setCourse(prev => ({
       ...prev,
-      details: {
-        ...prev.details,
-        instructors: updated
-      }
+      tags: [...prev.tags].filter((_, i) => i !== index)
     }));
   };
 
@@ -193,15 +223,75 @@ const CreateCourse = () => {
         imageUrl = await uploadImage();
       }
 
+      const currentUserId = localStorage.getItem('userid');
+      if (!currentUserId) {
+        throw new Error('User not logged in. Please log in to create a course.');
+      }
+
+      // Log sections for debugging
+      console.log('Raw sections:', JSON.stringify(course.details.sections, null, 2));
+
+      // Validate sections
+      const sections = course.details.sections || [];
+      if (!sections.length) {
+        throw new Error('At least one section is required.');
+      }
+
+      // Ensure sections have a name and at least one lecture
+      const validatedSections = sections
+        .map(section => ({
+          section: section.section,
+          lectures: section.lectures.filter(lecture => 
+            lecture.title || lecture.src || lecture.duration
+          )
+        }))
+        .filter(section => section.section && section.lectures.length);
+
+      console.log('Validated sections:', JSON.stringify(validatedSections, null, 2));
+
+      if (!validatedSections.length) {
+        throw new Error('At least one section with a valid lecture (title, src, or duration) is required.');
+      }
+
       const courseData = {
-        ...course,
+        title: course.title,
         image: imageUrl,
+        description: course.description,
         price: parseFloat(course.price),
-        rating: course.rating ? parseFloat(course.rating) : 0
+        rating: course.rating ? parseFloat(course.rating) : 0,
+        tags: course.tags,
+        users: [],
+        details: {
+          trailerVideoUrl: course.details.trailerVideoUrl,
+          videoPath: course.details.videoPath,
+          whatYouWillLearn: course.details.whatYouWillLearn,
+          requirements: course.details.requirements,
+          courseIncludes: course.details.courseIncludes,
+          exploreRelatedTopics: course.details.exploreRelatedTopics,
+          fullDescription: course.details.fullDescription,
+          instructors: course.details.instructors
+        }
       };
 
-      const response = await axios.post('http://localhost:5000/api/courses', courseData);
-      navigate(`/courses/${response.data.course._id}`);
+      console.log('Submitting courseData:', JSON.stringify(courseData, null, 2));
+
+      const courseResponse = await axios.post('http://localhost:5000/api/courses/create', courseData);
+      const courseId = courseResponse.data.course._id;
+
+      console.log('Course creation response:', courseResponse.data);
+
+      const contentData = {
+        course: courseId,
+        sections: validatedSections
+      };
+
+      console.log('Submitting contentData:', JSON.stringify(contentData, null, 2));
+
+      const contentResponse = await axios.post('http://localhost:5000/api/course-content', contentData);
+
+      console.log('CourseContent creation response:', contentResponse.data);
+
+      navigate(`/course/${courseId}`);
     } catch (error) {
       console.error('Error creating course:', error);
       alert('Failed to create course: ' + (error.response?.data?.error || error.message));
@@ -217,7 +307,7 @@ const CreateCourse = () => {
           <h1>Create Your Masterpiece Course</h1>
           <p className="subtitle">Share your knowledge with the world</p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="create-course-form">
           {/* Basic Information Section */}
           <div className="form-section glassmorphism">
@@ -225,7 +315,7 @@ const CreateCourse = () => {
               <span className="section-icon">📝</span>
               Basic Information
             </h2>
-            
+
             <div className="form-group">
               <label>Course Title*</label>
               <input
@@ -305,45 +395,11 @@ const CreateCourse = () => {
                   className="styled-input"
                 />
               </div>
-              <div className="form-group">
-                <label>Rating (1-5)</label>
-                <input
-                  type="number"
-                  name="rating"
-                  value={course.rating}
-                  onChange={handleChange}
-                  min="0"
-                  max="5"
-                  step="0.1"
-                  placeholder="4.5"
-                  className="styled-input"
-                />
-              </div>
+
+              
             </div>
 
-            <div className="form-group">
-              <label>Tags</label>
-              <div className="tags-input-container">
-                <div className="tags-display">
-                  {course.tags.map((tag, index) => (
-                    <span key={index} className="tag">
-                      {tag}
-                      <button type="button" onClick={() => removeTag(index)} className="tag-remove">
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  placeholder="Type a tag and press Enter"
-                  className="tag-input styled-input"
-                />
-              </div>
-            </div>
+            
           </div>
 
           {/* Course Details Section */}
@@ -360,6 +416,17 @@ const CreateCourse = () => {
                 value={course.details.trailerVideoUrl}
                 onChange={handleDetailsChange}
                 placeholder="https://youtube.com/embed/example"
+                className="styled-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Video Path</label>
+              <input
+                name="videoPath"
+                value={course.details.videoPath}
+                onChange={handleDetailsChange}
+                placeholder="/videos/react_intro.mp4"
                 className="styled-input"
               />
             </div>
@@ -387,35 +454,34 @@ const CreateCourse = () => {
             </div>
 
             <div className="form-group">
-              <label>Instructors (enter instructor IDs)</label>
-              <div className="tags-input-container">
-                <div className="tags-display">
-                  {course.details.instructors.map((instructor, index) => (
-                    <span key={index} className="tag">
-                      {instructor}
-                      <button type="button" onClick={() => removeInstructor(index)} className="tag-remove">
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={instructorInput}
-                  onChange={(e) => setInstructorInput(e.target.value)}
-                  onKeyDown={handleInstructorKeyDown}
-                  placeholder="Enter instructor ID and press Enter"
-                  className="tag-input styled-input"
-                />
-              </div>
+              <label>Course Includes (one per line)</label>
+              <textarea
+                value={course.details.courseIncludes.join('\n')}
+                onChange={(e) => handleArrayChange('courseIncludes', e.target.value)}
+                rows={3}
+                placeholder="10 hours of video content\nCertificate of completion"
+                className="styled-input"
+              />
             </div>
 
             <div className="form-group">
-              <label>Full Description</label>
+              <label>Explore Related Topics (one per line)</label>
+              <textarea
+                value={course.details.exploreRelatedTopics.join('\n')}
+                onChange={(e) => handleArrayChange('exploreRelatedTopics', e.target.value)}
+                rows={3}
+                placeholder="JavaScript\nRedux"
+                className="styled-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Full Description*</label>
               <textarea
                 name="fullDescription"
                 value={course.details.fullDescription}
                 onChange={handleDetailsChange}
+                required
                 rows={6}
                 placeholder="Detailed description of your course..."
                 className="styled-input"
@@ -431,14 +497,14 @@ const CreateCourse = () => {
             </h2>
             <p className="section-description">Organize your course into sections and lectures</p>
 
-            {course.details.contentSections.map((section, index) => (
-              <div key={index} className="content-section-block">
+            {course.details.sections.map((section, sectionIndex) => (
+              <div key={sectionIndex} className="content-section-block">
                 <div className="section-header">
-                  <h3>Section {index + 1}</h3>
-                  {course.details.contentSections.length > 1 && (
+                  <h3>Section {sectionIndex + 1}</h3>
+                  {course.details.sections.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeSection(index)}
+                      onClick={() => removeSection(sectionIndex)}
                       className="remove-section-btn"
                     >
                       Remove Section
@@ -447,24 +513,61 @@ const CreateCourse = () => {
                 </div>
 
                 <div className="form-group">
+                  <label>Section Title*</label>
                   <input
-                    placeholder="Section Title"
-                    value={section.title}
-                    onChange={(e) => handleSectionChange(index, 'title', e.target.value)}
+                    placeholder="e.g. Introduction"
+                    value={section.section}
+                    onChange={(e) => handleSectionChange(sectionIndex, 'section', e.target.value)}
                     required
                     className="styled-input"
                   />
                 </div>
 
                 <div className="form-group">
-                  <textarea
-                    placeholder="Video URLs (one per line)"
-                    value={section.videos.join('\n')}
-                    onChange={(e) => handleSectionChange(index, 'videos', e.target.value)}
-                    rows={3}
-                    required
-                    className="styled-input"
-                  />
+                  <label>Lectures</label>
+                  {section.lectures.map((lecture, lectureIndex) => (
+                    <div key={lectureIndex} className="lecture-block">
+                      <div className="lecture-header">
+                        <h4>Lecture {lectureIndex + 1}</h4>
+                        {section.lectures.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeLecture(sectionIndex, lectureIndex)}
+                            className="remove-lecture-btn"
+                          >
+                            Remove Lecture
+                          </button>
+                        )}
+                      </div>
+                      <div className="lecture-fields">
+                        <input
+                          placeholder="Lecture Title (e.g. Welcome to the Course)"
+                          value={lecture.title}
+                          onChange={(e) => handleLectureChange(sectionIndex, lectureIndex, 'title', e.target.value)}
+                          className="styled-input"
+                        />
+                        <input
+                          placeholder="Video URL (e.g. /videos/intro.mp4)"
+                          value={lecture.src}
+                          onChange={(e) => handleLectureChange(sectionIndex, lectureIndex, 'src', e.target.value)}
+                          className="styled-input"
+                        />
+                        <input
+                          placeholder="Duration (MM:SS, e.g. 5:30)"
+                          value={lecture.duration}
+                          onChange={(e) => handleLectureChange(sectionIndex, lectureIndex, 'duration', e.target.value)}
+                          className="styled-input"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addLecture(sectionIndex)}
+                    className="add-lecture-btn"
+                  >
+                    + Add Lecture
+                  </button>
                 </div>
               </div>
             ))}

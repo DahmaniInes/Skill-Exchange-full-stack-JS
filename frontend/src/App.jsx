@@ -52,6 +52,8 @@ import AllCourses from './components/CertificationCourses/AllCourses/AllCourses'
 import MyCourses  from './components/CertificationCourses/MyCourses/MyCourses';
 import CourseDetail  from './components/CertificationCourses/CourseDetail/CourseDetail';
 import CreateCourse  from './components/CertificationCourses/CreateCourse/CreateCourse';
+import LearnPage  from './components/CertificationCourses/LearnPage/LearnPage';
+import CompletedCourses  from './components/CertificationCourses/CompletedCourses/CompletedCourses';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -147,6 +149,7 @@ function App() {
         <Route path="ReportUserPage" element={<RoleGuard element={<ReportUserPage />} allowedRoles="admin" />} />
 
          {/* Courses */}
+        {/* Courses */}
          <Route path="my-courses" element={<MyCourses  />} />
           <Route path="/courses" element={<AllCourses />}>
             <Route index element={<AllCourses userId="123" />} />
@@ -155,10 +158,11 @@ function App() {
             
 
           <Route path="/create-course" element={<CreateCourse />} />
+          <Route path="/learn/:courseId" element={<LearnPage />} />
+          <Route path="/CompletedCourses" element={<CompletedCourses />} />
           
           <Route path="certification-form" element={<CertificationForm />} />
             <Route path="peer-validation" element={<PeerValidation />} />
-     
 
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />

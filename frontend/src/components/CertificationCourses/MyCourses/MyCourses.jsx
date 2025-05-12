@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './MyCourses.css'; 
+import './MyCourses.css';
 
 const MyCourses = () => {
   const [courses, setCourses] = useState([]);
@@ -8,29 +8,40 @@ const MyCourses = () => {
   const [category, setCategory] = useState('All');
 
   // Retrieve the user ID from localStorage
-  const userId = localStorage.getItem("userid");
+  const userId = localStorage.getItem('userid');
 
   useEffect(() => {
     const fetchUserCourses = async () => {
       if (!userId) {
-        console.error("User ID not found in localStorage.");
+        console.error('User ID not found in localStorage.');
         return;
       }
 
       try {
-        const res = await axios.get(`http://localhost:5000/api/courses/user/${userId}`); // Fetch courses for the current user
-        setCourses(res.data);
+        const res = await axios.get(`http://localhost:5000/api/courses/user/${userId}`);
+        // Transform courses to include progress and completed fields
+        const transformedCourses = res.data.map(course => {
+          const userData = course.users?.find(u => u.user === userId);
+          const progress = userData ? userData.progress || 0 : 0;
+          return {
+            ...course,
+            progress,
+            completed: progress === 100
+          };
+        });
+        setCourses(transformedCourses);
       } catch (err) {
         console.error('Failed to fetch courses:', err);
+        alert('Failed to load your courses. Please try again.');
       }
     };
 
     fetchUserCourses();
-  }, [userId]); // Fetch courses when userId changes
+  }, [userId]);
 
   const filteredCourses = courses.filter(course =>
     (category === 'All' || course.tags.includes(category)) &&
-    (course.title && course.title.toLowerCase().includes(searchTerm.toLowerCase())) // Check if title is defined
+    (course.title && course.title.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const ProgressBar = ({ value }) => {
@@ -74,7 +85,7 @@ const MyCourses = () => {
               </div>
             </div>
             <p className="description">{course.description || 'No description available.'}</p>
-            <p className="duration"><strong>Duration:</strong> {course.duration || 'N/A'}</p>
+            <p className="duration"><strong>Duration:</strong> {course.duration || '30:00'}</p>
 
             <div className="course-progress">
               <div className="progress-label">
@@ -90,9 +101,9 @@ const MyCourses = () => {
 
             <div className="course-actions">
               <button onClick={() => window.location.href = `/course/${course._id}`} className="view-btn">View Course</button>
-              <div className="share-btn-container"> {/* Wrapping share button in a container */}
+              <div className="share-btn-container">
                 <button className="share-btn">
-                  <img src="/images/share.png" alt="Share" /> {/* Ensure correct path to the image */}
+                  <img src="/images/share.png" alt="Share" />
                 </button>
               </div>
             </div>

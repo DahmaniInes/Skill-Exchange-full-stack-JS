@@ -26,6 +26,8 @@ var MessengerRoute = require('./Routes/MessengerRoute');
 const courseRoutes = require('./Routes/courseRoutes');
 const instructorRoutes = require('./Routes/instructorRoutes');
 const certificateRoutes = require('./Routes/certificateRoutes');
+const courseContentRoutes = require('./Routes/courseContentRoutes');
+const courseReviewRoutes = require('./Routes/courseReviewRoutes');
 
 
 
@@ -153,6 +155,8 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use('/api/courses', courseRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/certification', certificateRoutes);
+app.use('/api/course-content', courseContentRoutes);
+app.use('/api', courseReviewRoutes);
 
 
 app.use("/MessengerRoute", MessengerRoute);

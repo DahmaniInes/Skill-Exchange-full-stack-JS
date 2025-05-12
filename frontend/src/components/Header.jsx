@@ -64,11 +64,9 @@ function Header() {
 
   const fetchUserProfile = useCallback(async (signal) => {
     try {
-      const response = await axiosInstance.get('/api/me', { signal });
+      const response = await axiosInstance.get('/api/profile/me', { signal });
 
-      if (response.data.status !== 'success') {
-        throw new Error(response.data.message || 'Erreur inconnue');
-      }
+      
 
       // Formater les dates
       const formatDate = (dateString) => 
@@ -365,7 +363,7 @@ function Header() {
       >
         <Link to="/" className="navbar-brand d-flex align-items-center px-4 px-lg-5">
           <h2 className="m-0 text-primary">
-            <i className="fa fa-book me-3"></i>eLEARNING
+            <i className="fa fa-book me-3"></i>E-learning
           </h2>
         </Link>
         
@@ -383,28 +381,13 @@ function Header() {
             <Link to="/" className={`nav-item nav-link ${location.pathname === "/" ? "active" : ""}`}>
               Home
             </Link>
-            <Link to="/about" className={`nav-item nav-link ${location.pathname === "/about" ? "active" : ""}`}>
-              About
-            </Link>
+            
             <Link to="/courses" className={`nav-item nav-link ${location.pathname === "/courses" ? "active" : ""}`}>
               Courses
             </Link>
-            <div className="nav-item dropdown">
-              <a href="#" className="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                Pages
-              </a>
-              <div className="dropdown-menu fade-down m-0">
-                <Link to="/team" className={`dropdown-item ${location.pathname === "/team" ? "active" : ""}`}>
-                  Our Team
-                </Link>
-                <Link to="/testimonial" className={`dropdown-item ${location.pathname === "/testimonial" ? "active" : ""}`}>
-                  Testimonial
-                </Link>
-                <Link to="/notfound" className={`dropdown-item ${location.pathname === "/notfound" ? "active" : ""}`}>
-                  404 Page
-                </Link>
-              </div>
-            </div>
+            <Link to="/my-courses" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
+              Enrolled
+            </Link>
             <Link to="/marketplace-skill" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
               Marketplace
             </Link>
