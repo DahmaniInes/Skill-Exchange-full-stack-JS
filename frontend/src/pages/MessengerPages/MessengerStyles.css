@@ -90,6 +90,8 @@
     border-radius: 50%;
     object-fit: cover;
     margin-bottom: 20px;
+    border: 3px solid #06BBCC;
+
 }
 
 .profile-name {
@@ -360,6 +362,8 @@
   border-radius: 50%;
   object-fit: cover;
   margin-right: 15px;
+  border: 3px solid #06BBCC;
+
 }
 
 .user-profile-details {
@@ -434,6 +438,8 @@
   object-fit: cover;
   margin: 0 8px;
   align-self: flex-end;
+  border: 3px solid #06BBCC;
+
 }
 
 .message {
@@ -1280,6 +1286,8 @@
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
+  border: 3px solid #06BBCC;
+
 }
 
 .chat-details {
@@ -1464,6 +1472,206 @@
   background-color: rgba(0, 132, 255, 0.05);
 }
 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.emoji-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.input-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #06BBCC;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.input-action-btn:hover {
+  background-color: rgba(6, 187, 204, 0.1);
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background-color: white;
+  margin-bottom: 10px;
+  padding-left: 60px;
+  padding-right: 300px;
+}
+
+
+
+
+
+
+.notification-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.notification-icon .fa-bell {
+  font-size: 20px;
+  cursor: pointer;
+  color: #495057;
+}
+
+.notification-icon .fa-bell.active {
+  color: #495057;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.notification-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notification-header button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.notification-header button:hover {
+  color: #0056b3;
+}
+
+.notification-dropdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-dropdown li {
+  padding: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.notification-dropdown li:last-child {
+  border-bottom: none;
+}
+
+.notification-dropdown p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.notification-dropdown small {
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

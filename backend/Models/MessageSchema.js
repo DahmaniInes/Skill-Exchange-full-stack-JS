@@ -1,22 +1,22 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+
 const MessageSchema = new mongoose.Schema({
   conversation: {
     type: Schema.Types.ObjectId,
-    ref: 'Conversation', // Référence au modèle Conversation
+    ref: 'Conversation',
     required: true,
   },
   sender: {
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: function () {
-      return !this.isSystemMessage; // `sender` est requis uniquement si ce n'est pas un message système
+      return !this.isSystemMessage;
     },
   },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-   // required: true
   },
   content: {
     type: String,
@@ -80,40 +80,71 @@ const MessageSchema = new mongoose.Schema({
     emoji: String,
     _id: false
   }],
-  isSystemMessage: { // Nouveau champ pour identifier les messages système
+  isSystemMessage: {
     type: Boolean,
     default: false,
   },
-
+  emotions: {
+    anger: { type: Number, default: 0 },
+    anticipation: { type: Number, default: 0 },
+    disgust: { type: Number, default: 0 },
+    fear: { type: Number, default: 0 },
+    joy: { type: Number, default: 0 },
+    negative: { type: Number, default: 0 },
+    positive: { type: Number, default: 0 },
+    sadness: { type: Number, default: 0 },
+    surprise: { type: Number, default: 0 },
+    trust: { type: Number, default: 0 }
+  },
+  emoji: {
+    type: String,
+    default: '😐'
+  },
+  receiverEmotions: {
+    anger: { type: Number, default: 0 },
+    anticipation: { type: Number, default: 0 },
+    disgust: { type: Number, default: 0 },
+    fear: { type: Number, default: 0 },
+    joy: { type: Number, default: 0 },
+    negative: { type: Number, default: 0 },
+    positive: { type: Number, default: 0 },
+    sadness: { type: Number, default: 0 },
+    surprise: { type: Number, default: 0 },
+    trust: { type: Number, default: 0 }
+  },
+  receiverEmoji: {
+    type: String,
+    default: '😐'
+  },
   systemData: {
     action: {
       type: String,
       enum: [
-        'group_name_updated',    // Ajouté pour updateGroupName
-        'group_photo_updated',   // Ajouté pour updateGroupPhoto
-        'participant_added',     // Exemple d'autres actions possibles
-        'participant_removed',   // Exemple d'autres actions possibles
+        'group_name_updated',
+        'group_photo_updated',
+        'participant_added',
+        'participant_removed',
         'user_added',
-        'user_left', // Ajout de 'user_left' ici
+        'user_left',
         'user_blocked',
         'user_unblocked',
       ],
       required: function () {
-        return this.isSystemMessage; // `systemData.action` est requis pour les messages système
+        return this.isSystemMessage;
       },
     },
     actionBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: function () {
-        return this.isSystemMessage; // `actionBy` est requis pour les messages système
+        return this.isSystemMessage;
       },
     },
     actionTarget: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    customContent: { // Ajouté pour stocker forAuthor et forOthers
+    customContent: {
       forAuthor: String,
       forOthers: String,
     },
@@ -138,14 +169,13 @@ const ConversationSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  groupName:{
-    type:String,
+  groupName: {
+    type: String,
     default: "Groupe sans nom"
-  } ,
+  },
   groupPhoto: {
     type: String,
     default: 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg',
-  
   },
   groupAdmin: {
     type: mongoose.Schema.Types.ObjectId,
@@ -170,19 +200,15 @@ const ConversationSchema = new mongoose.Schema({
     },
     _id: false
   }],
-
-blockedBy: { // Nouveau champ pour suivre le blocage
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-  default: null
-}
-},
-
-{ 
-  timestamps: true 
+  blockedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null
+  },
+}, {
+  timestamps: true
 });
 
-// Exportez les modèles
 module.exports = {
   Message: mongoose.model('Message', MessageSchema),
   Conversation: mongoose.model('Conversation', ConversationSchema)

@@ -3,6 +3,8 @@ const messageController = require("../Controllers/messageController");
 const mongoose = require("mongoose");
 const Conversation = mongoose.model("Conversation");
 const Message = mongoose.model("Message");
+const axios = require('axios');
+
 
 module.exports = (io, onlineUsers) => {
   // Vérifier que io est bien défini
@@ -26,7 +28,7 @@ module.exports = (io, onlineUsers) => {
       }
       socket.userId = decoded.userId;
       onlineUsers.add(decoded.userId);
-      socket.join(decoded.userId); // Rejoindre une salle personnelle pour les notifications utilisateur
+      socket.join(decoded.userId);
       console.log(`Utilisateur ${socket.userId} connecté via Socket.IO`);
       io.emit("userStatus", { userId: socket.userId, isOnline: true });
       next();
@@ -36,7 +38,7 @@ module.exports = (io, onlineUsers) => {
   io.on("connection", (socket) => {
     console.log("New client connected:", socket.id);
 
-    // Authentification explicite (optionnel, déjà géré par le middleware)
+    // Authentification explicite (optionnel)
     socket.on("authenticate", (userId) => {
       if (socket.userId !== userId) {
         console.error(`Authentification échouée: userId ${userId} ne correspond pas à socket.userId ${socket.userId}`);
@@ -61,7 +63,6 @@ module.exports = (io, onlineUsers) => {
           return;
         }
 
-        // Vérifier si l'utilisateur fait partie de la conversation
         const isParticipant = conversation.participants.some(
           (participant) => participant._id.toString() === socket.userId
         );
@@ -81,70 +82,94 @@ module.exports = (io, onlineUsers) => {
 
     // Gestion de l'envoi de messages
     socket.on("sendMessage", async (data) => {
-      const { senderId, content, attachments, tempId, conversationId, isGroup } = data;
-
       try {
-        // Vérifier que l'utilisateur est authentifié
-        if (!socket.userId || socket.userId !== senderId) {
-          console.error("Utilisateur non authentifié ou non autorisé");
-          socket.emit("error", { message: "Utilisateur non authentifié ou non autorisé" });
-          return;
-        }
-
-        // Trouver la conversation
-        const conversation = await Conversation.findById(conversationId).populate("participants");
-        if (!conversation) {
-          console.error("Conversation non trouvée:", conversationId);
-          socket.emit("error", { message: "Conversation non trouvée" });
-          return;
-        }
-
-        // Vérifier que l'utilisateur fait partie de la conversation
-        const isParticipant = conversation.participants.some(
-          (participant) => participant._id.toString() === senderId
-        );
-        if (!isParticipant) {
-          console.error("Utilisateur non autorisé dans cette conversation");
-          socket.emit("error", { message: "Utilisateur non autorisé dans cette conversation" });
-          return;
-        }
-
-        // Créer un nouveau message
-        const newMessage = new Message({
-          conversation: conversationId,
-          sender: senderId,
-          content,
-          attachments,
-          createdAt: new Date(),
-        });
-
-        // Sauvegarder le message dans la base de données
-        await newMessage.save();
-
-        // Ajouter le message au tableau messages de la conversation
-        conversation.messages = conversation.messages || [];
-        conversation.messages.push(newMessage._id);
-        conversation.lastMessage = newMessage._id;
-        conversation.updatedAt = new Date();
-        await conversation.save();
-
-        // Peupler les informations du sender pour l'envoi aux clients
-        const populatedMessage = await Message.findById(newMessage._id)
-          .populate("sender", "firstName lastName profilePicture")
-          .populate("conversation");
-
-        // Émettre le message à tous les participants via la salle de la conversation
-        console.log(`Émission de newMessage à la salle de la conversation ${conversationId}`);
-        io.to(conversationId).emit("newMessage", populatedMessage);
-
-        // Confirmer l'envoi à l'expéditeur
-        console.log(`Confirmation de l'envoi à l'expéditeur ${senderId} avec tempId ${tempId}`);
-        socket.emit("messageSent", { ...populatedMessage.toObject(), tempId });
+        console.log('Événement sendMessage reçu:', data);
+        await messageController.sendMessage(socket, io, data);
       } catch (error) {
-        console.error("Erreur lors de l’envoi du message:", error);
+        console.error("Erreur dans l'événement sendMessage:", error);
         socket.emit("error", { message: "Erreur lors de l’envoi du message" });
       }
     });
+
+
+
+
+      // Ajout d'un écouteur pour déboguer emotionalAlert
+      socket.on("emotionalAlert", (alertData) => {
+        console.log(`Événement emotionalAlert reçu pour l'utilisateur ${socket.userId}:`, alertData);
+      });
+  
+      socket.on("initiateCall", async (data) => {
+        try {
+          const call = await messageController.initiateCall(socket, data);
+          socket.emit("callInitiated", call);
+        } catch (error) {
+          console.error("Call initiation error:", error);
+          socket.emit("error", { message: "Erreur lors de l'initiation de l'appel" });
+        }
+      });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Gestion des messages du chatbot en temps réel
+socket.on("sendChatbotMessage", async (data) => {
+  try {
+    console.log('Événement sendChatbotMessage reçu:', data);
+    const { message } = data;
+    const userId = socket.userId;
+
+    if (!message || !userId) {
+      socket.emit("error", { message: "Message ou userId manquant" });
+      return;
+    }
+
+    // Appeler l'API Flask via axios
+    const flaskResponse = await axios.post('http://localhost:5002/chatbot/message', {
+      user_id: userId,
+      message
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 5000
+    });
+
+    const response = flaskResponse.data.response;
+    console.log('Réponse du chatbot:', response);
+
+    // Émettre la réponse du chatbot au client
+    socket.emit("chatbotMessage", { message, response });
+  } catch (error) {
+    console.error("Erreur dans l'événement sendChatbotMessage:", error);
+    socket.emit("error", { message: "Erreur lors de l'envoi du message au chatbot" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // Gestion des appels
     socket.on("initiateCall", async (data) => {

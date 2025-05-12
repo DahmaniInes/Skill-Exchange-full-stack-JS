@@ -3,11 +3,11 @@ import axios from 'axios';
 import './SecondComponantStyles.css';
 import { ConversationContext } from './ConversationContext';
 
-function SecondComponent({ conversation: initialConversation, otherParticipant }) {
+function SecondComponent({ conversation: initialConversation, otherParticipant: propOtherParticipant }) {
   const { currentConversation } = useContext(ConversationContext);
   const conversation = currentConversation || initialConversation;
   const defaultProfileImage = 'https://static.vecteezy.com/ti/vecteur-libre/p1/5194103-icone-de-personnes-conception-plate-de-symbole-de-personnes-sur-un-fond-blanc-gratuit-vectoriel.jpg';
-  const defaultName = 'Groupe sans nom';
+  const defaultName = 'Unnamed Group';
   const defaultProfileImagePersonne = 'https://pbs.twimg.com/media/Fc-7kM3XkAEfuim.png';
 
   const [showAddUserPopup, setShowAddUserPopup] = useState(false);
@@ -19,20 +19,27 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [showReportPopup, setShowReportPopup] = useState(false); // Popup principale pour les causes
-  const [showCustomReasonPopup, setShowCustomReasonPopup] = useState(false); // Popup pour "Autre"
-  const [reportReason, setReportReason] = useState(''); // Raison personnalisée
+  const [showReportPopup, setShowReportPopup] = useState(false);
+  const [showCustomReasonPopup, setShowCustomReasonPopup] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [showRatingPopup, setShowRatingPopup] = useState(false);
+  const [ratings, setRatings] = useState({
+    explains_well: 0,
+    availability: 0,
+    responsiveness: 0,
+  });
+  const [derivedOtherParticipant, setDerivedOtherParticipant] = useState(null);
   const fileInputRef = useRef(null);
 
   const reportCauses = [
-    'Harcèlement',
-    'Suicide ou automutilation',
-    'Usurpation d’identité',
-    'Violence ou organisations dangereuses',
-    'Nudité ou actes sexuels',
-    'Arnaque ou fraude',
+    'Harassment',
+    'Suicide or Self-Harm',
+    'Impersonation',
+    'Violence or Dangerous Organizations',
+    'Nudity or Sexual Acts',
+    'Scam or Fraud',
     'Spam',
-    'Autre',
+    'Other',
   ];
 
   useEffect(() => {
@@ -40,33 +47,44 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       try {
         const token = localStorage.getItem('jwtToken');
         if (!token) {
-          console.error('Aucun token JWT trouvé');
+          console.error('No JWT token found');
           return;
         }
         const response = await axios.get('http://localhost:5000/MessengerRoute/currentUser', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCurrentUserId(response.data._id);
+
+        if (!propOtherParticipant && conversation && !conversation.isGroup && conversation.participants) {
+          const other = conversation.participants.find(
+            (p) => p._id.toString() !== response.data._id
+          );
+          setDerivedOtherParticipant(other || null);
+          console.log('Derived otherParticipant:', other);
+        }
       } catch (error) {
-        console.error('Erreur lors de la récupération de l’utilisateur connecté:', error);
+        console.error('Error fetching current user:', error);
       }
     };
     fetchCurrentUser();
-    console.log('Conversation actuelle:', conversation);
-  }, [conversation]);
+    console.log('Current conversation:', conversation);
+    console.log('Prop otherParticipant:', propOtherParticipant);
+  }, [conversation, propOtherParticipant]);
+
+  const otherParticipant = propOtherParticipant || derivedOtherParticipant;
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('jwtToken');
       if (!token) {
-        console.error('Aucun token JWT trouvé dans localStorage');
-        alert('Vous devez être connecté pour ajouter des utilisateurs');
+        console.error('No JWT token found in localStorage');
+        alert('You must be logged in to add users');
         return;
       }
 
       if (!conversation) {
-        console.error('Aucune conversation sélectionnée');
-        alert('Veuillez sélectionner une conversation');
+        console.error('No conversation selected');
+        alert('Please select a conversation');
         return;
       }
 
@@ -80,29 +98,93 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       );
       setUsers(filteredUsers);
       setShowAddUserPopup(true);
-      console.log('Utilisateurs disponibles à ajouter :', filteredUsers);
+      console.log('Available users to add:', filteredUsers);
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
-      alert('Impossible de charger la liste des utilisateurs');
+      console.error('Error fetching users:', error);
+      alert('Unable to load the user list');
     }
+  };
+
+  const handleRatingChange = (criterion, score) => {
+    setRatings((prev) => ({ ...prev, [criterion]: score }));
+  };
+
+  const handleSubmitRating = async () => {
+    try {
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        console.error('No JWT token found');
+        alert('You must be logged in to submit a rating');
+        return;
+      }
+
+      const ratingData = Object.entries(ratings).map(([criterion, score]) => ({
+        criterion,
+        score,
+      })).filter((r) => r.score > 0);
+
+      if (ratingData.length === 0) {
+        alert('Please assign at least one rating');
+        return;
+      }
+
+      const response = await axios.post(
+        'http://localhost:5000/MessengerRoute/rateTeacher',
+        {
+          conversationId: conversation._id,
+          teacherId: otherParticipant._id,
+          ratings: ratingData,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        console.log('Rating submitted successfully');
+        alert('Rating submitted successfully');
+        setShowRatingPopup(false);
+        setRatings({ explains_well: 0, availability: 0, responsiveness: 0 });
+      } else {
+        console.error('Rating submission failed:', response.data.message);
+        alert('Rating submission failed: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      alert('An error occurred while submitting the rating');
+    }
+  };
+
+  const renderStars = (criterion, currentScore) => {
+    return (
+      <div className="rating-stars">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={`star ${star <= currentScore ? 'filled' : ''}`}
+            onClick={() => handleRatingChange(criterion, star)}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    );
   };
 
   const handleAddUser = async (userToAdd) => {
     try {
       const token = localStorage.getItem('jwtToken');
       if (!token) {
-        console.error('Aucun token JWT trouvé');
-        alert('Vous devez être connecté pour effectuer cette action');
+        console.error('No JWT token found');
+        alert('You must be logged in to perform this action');
         return;
       }
 
       if (!conversation || !conversation._id) {
-        console.error('Conversation non définie ou sans ID');
-        alert('Erreur : Aucune conversation sélectionnée');
+        console.error('Conversation undefined or missing ID');
+        alert('Error: No conversation selected');
         return;
       }
 
-      console.log('Données envoyées :', {
+      console.log('Data sent:', {
         conversationId: conversation._id,
         newUserId: userToAdd._id,
         isGroup: conversation.isGroup,
@@ -125,31 +207,31 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
 
       if (response.data.success) {
         setShowAddUserPopup(false);
-        console.log(`${userToAdd.firstName} ${userToAdd.lastName} ajouté avec succès`);
+        console.log(`${userToAdd.firstName} ${userToAdd.lastName} added successfully`);
         alert(
           conversation.isGroup
-            ? `${userToAdd.firstName} ${userToAdd.lastName} a été ajouté au groupe`
-            : `Nouveau groupe créé avec ${userToAdd.firstName} ${userToAdd.lastName}`
+            ? `${userToAdd.firstName} ${userToAdd.lastName} has been added to the group`
+            : `New group created with ${userToAdd.firstName} ${userToAdd.lastName}`
         );
       } else {
-        console.error('Échec de l’ajout:', response.data.message);
-        alert('Échec de l’ajout: ' + response.data.message);
+        console.error('Add failed:', response.data.message);
+        alert('Add failed: ' + response.data.message);
       }
     } catch (error) {
-      console.error('Erreur lors de l’ajout de l’utilisateur:', error);
-      alert('Une erreur est survenue lors de l’ajout');
+      console.error('Error adding user:', error);
+      alert('An error occurred while adding the user');
     }
   };
 
   const handleDeleteConversation = async () => {
     try {
       if (!conversation?._id) {
-        console.error('Aucune conversation sélectionnée pour suppression');
-        alert('Aucune conversation sélectionnée');
+        console.error('No conversation selected for deletion');
+        alert('No conversation selected');
         return;
       }
 
-      if (window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.')) {
+      if (window.confirm('Are you sure you want to delete this conversation? This action is irreversible.')) {
         const token = localStorage.getItem('jwtToken');
         const response = await axios.delete('http://localhost:5000/MessengerRoute/deleteConversationForUser', {
           params: { conversationId: conversation._id },
@@ -157,29 +239,29 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         });
 
         if (response.data.success) {
-          console.log('Conversation supprimée avec succès');
-          alert('Conversation supprimée avec succès (uniquement pour vous)');
+          console.log('Conversation deleted successfully');
+          alert('Conversation deleted successfully (for you only)');
           window.location.reload();
         } else {
-          console.error('Échec de la suppression:', response.data.message);
-          alert('Échec de la suppression: ' + response.data.message);
+          console.error('Deletion failed:', response.data.message);
+          alert('Deletion failed: ' + response.data.message);
         }
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de la conversation:', error);
-      alert('Une erreur est survenue lors de la suppression');
+      console.error('Error deleting conversation:', error);
+      alert('An error occurred while deleting the conversation');
     }
   };
 
   const handleLeaveGroup = async () => {
     try {
       if (!conversation?._id) {
-        console.error('Aucune conversation sélectionnée pour quitter');
-        alert('Aucune conversation sélectionnée');
+        console.error('No conversation selected to leave');
+        alert('No conversation selected');
         return;
       }
 
-      if (window.confirm('Êtes-vous sûr de vouloir quitter ce groupe ? Vous ne pourrez plus envoyer de messages.')) {
+      if (window.confirm('Are you sure you want to leave this group? You will no longer be able to send messages.')) {
         const token = localStorage.getItem('jwtToken');
         const response = await axios.post(
           'http://localhost:5000/MessengerRoute/leaveGroupConversation',
@@ -188,29 +270,29 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         );
 
         if (response.data.success) {
-          console.log('Groupe quitté avec succès');
-          alert('Vous avez quitté le groupe avec succès');
+          console.log('Group left successfully');
+          alert('You have successfully left the group');
           window.location.reload();
         } else {
-          console.error('Échec de l’abandon du groupe:', response.data.message);
-          alert('Échec de l’abandon du groupe: ' + response.data.message);
+          console.error('Failed to leave group:', response.data.message);
+          alert('Failed to leave group: ' + response.data.message);
         }
       }
     } catch (error) {
-      console.error('Erreur lors de l’abandon du groupe:', error);
-      alert('Une erreur est survenue lors de l’abandon du groupe');
+      console.error('Error leaving group:', error);
+      alert('An error occurred while leaving the group');
     }
   };
 
   const handleBlockUser = async () => {
     try {
       if (!conversation?._id || !otherParticipant?._id) {
-        console.error('Conversation ou participant non défini');
-        alert('Erreur : Conversation ou participant non sélectionné');
+        console.error('Conversation or participant undefined');
+        alert('Error: Conversation or participant not selected');
         return;
       }
 
-      if (window.confirm(`Êtes-vous sûr de vouloir bloquer ${otherParticipant.firstName} ${otherParticipant.lastName} ?`)) {
+      if (window.confirm(`Are you sure you want to block ${otherParticipant.firstName} ${otherParticipant.lastName}?`)) {
         const token = localStorage.getItem('jwtToken');
         const response = await axios.post(
           'http://localhost:5000/MessengerRoute/blockUser',
@@ -219,30 +301,30 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         );
 
         if (response.data.success) {
-          console.log('Utilisateur bloqué avec succès');
-          alert('Utilisateur bloqué avec succès');
+          console.log('User blocked successfully');
+          alert('User blocked successfully');
           window.location.reload();
         } else {
-          console.error('Échec du blocage:', response.data.message);
-          alert('Échec du blocage: ' + response.data.message);
+          console.error('Block failed:', response.data.message);
+          alert('Block failed: ' + response.data.message);
         }
       }
     } catch (error) {
-      console.error('Erreur lors du blocage de l’utilisateur:', error);
-      alert('Une erreur est survenue lors du blocage');
+      console.error('Error blocking user:', error);
+      alert('An error occurred while blocking the user');
     }
   };
 
   const handleReportUser = async (reason) => {
     try {
       if (!conversation?._id || !otherParticipant?._id) {
-        console.error('Conversation ou participant non défini');
-        alert('Erreur : Conversation ou participant non sélectionné');
+        console.error('Conversation or participant undefined');
+        alert('Error: Conversation or participant not selected');
         return;
       }
 
       if (!reason.trim()) {
-        alert('Veuillez sélectionner ou entrer une raison pour le signalement');
+        alert('Please select or enter a reason for the report');
         return;
       }
 
@@ -258,23 +340,23 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       );
 
       if (response.data.success) {
-        console.log('Utilisateur signalé avec succès');
-        alert('Utilisateur signalé avec succès');
+        console.log('User reported successfully');
+        alert('User reported successfully');
         setShowReportPopup(false);
         setShowCustomReasonPopup(false);
         setReportReason('');
       } else {
-        console.error('Échec du signalement:', response.data.message);
-        alert('Échec du signalement: ' + response.data.message);
+        console.error('Report failed:', response.data.message);
+        alert('Report failed: ' + response.data.message);
       }
     } catch (error) {
-      console.error('Erreur lors du signalement de l’utilisateur:', error);
-      alert('Une erreur est survenue lors du signalement');
+      console.error('Error reporting user:', error);
+      alert('An error occurred while reporting the user');
     }
   };
 
   const handleCauseClick = (cause) => {
-    if (cause === 'Autre') {
+    if (cause === 'Other') {
       setShowReportPopup(false);
       setShowCustomReasonPopup(true);
     } else {
@@ -310,7 +392,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
   const handleSavePhoto = async () => {
     try {
       if (!selectedFile) {
-        alert('Veuillez sélectionner une photo');
+        alert('Please select a photo');
         return;
       }
 
@@ -326,22 +408,22 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         setShowEditPhotoPopup(false);
         setSelectedFile(null);
         setNewGroupPhoto('');
-        console.log('Photo du groupe mise à jour avec succès');
-        alert('Photo du groupe mise à jour avec succès');
+        console.log('Group photo updated successfully');
+        alert('Group photo updated successfully');
       } else {
-        console.error('Échec de la mise à jour de la photo:', response.data.message);
-        alert('Échec de la mise à jour de la photo: ' + response.data.message);
+        console.error('Failed to update photo:', response.data.message);
+        alert('Failed to update photo: ' + response.data.message);
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de la photo:', error);
-      alert('Une erreur est survenue lors de la mise à jour de la photo');
+      console.error('Error updating photo:', error);
+      alert('An error occurred while updating the photo');
     }
   };
 
   const handleSaveName = async () => {
     try {
       if (!newGroupName.trim()) {
-        alert('Veuillez entrer un nom pour le groupe');
+        alert('Please enter a group name');
         return;
       }
 
@@ -355,15 +437,15 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       if (response.data.success) {
         setShowEditNamePopup(false);
         setNewGroupName('');
-        console.log('Nom du groupe mis à jour avec succès');
-        alert('Nom du groupe mis à jour avec succès');
+        console.log('Group name updated successfully');
+        alert('Group name updated successfully');
       } else {
-        console.error('Échec de la mise à jour du nom:', response.data.message);
-        alert('Échec de la mise à jour du nom: ' + response.data.message);
+        console.error('Failed to update name:', response.data.message);
+        alert('Failed to update name: ' + response.data.message);
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du nom:', error);
-      alert('Une erreur est survenue lors de la mise à jour du nom');
+      console.error('Error updating name:', error);
+      alert('An error occurred while updating the name');
     }
   };
 
@@ -380,8 +462,8 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
 
   const handleShowParticipants = () => {
     if (!conversation?.participants) {
-      console.error('Aucune donnée de participants disponible');
-      alert('Aucune données de participants disponible');
+      console.error('No participant data available');
+      alert('No participant data available');
       return;
     }
     setShowParticipantsPopup(true);
@@ -412,12 +494,12 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
           </div>
         ) : (
           <div className="user-header">
-            <p>Aucun utilisateur sélectionné</p>
+            <p>No user selected</p>
           </div>
         )
       ) : (
         <div className="user-header">
-          <p>Aucun utilisateur sélectionné</p>
+          <p>No user selected</p>
         </div>
       )}
 
@@ -425,7 +507,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
         {!conversation?.isGroup && (
           <div className="menu-item">
             <span className="menu-icon">👤</span>
-            <span>Voir le profil</span>
+            <span>View profile</span>
           </div>
         )}
 
@@ -433,51 +515,57 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
           <>
             <div className="menu-item" onClick={() => setShowEditPhotoPopup(true)}>
               <span className="menu-icon">📸</span>
-              <span>Modifier la photo du groupe</span>
+              <span>Edit group photo</span>
             </div>
             <div className="menu-item" onClick={() => setShowEditNamePopup(true)}>
               <span className="menu-icon">✏️</span>
-              <span>Modifier le nom du groupe</span>
+              <span>Edit group name</span>
             </div>
             <div className="menu-item" onClick={fetchUsers}>
               <span className="menu-icon">👥</span>
-              <span>Ajouter un utilisateur</span>
+              <span>Add a user</span>
             </div>
             <div className="menu-item" onClick={handleShowParticipants}>
               <span className="menu-icon">👥</span>
-              <span>Afficher tous les participants</span>
+              <span>View all participants</span>
             </div>
             <div className="menu-item warning" onClick={handleLeaveGroup}>
               <span className="menu-icon">🚪</span>
-              <span>Quitter la conversation</span>
+              <span>Leave conversation</span>
             </div>
           </>
         ) : (
           <>
             <div className="menu-item" onClick={fetchUsers}>
               <span className="menu-icon">👥</span>
-              <span>Ajouter une personne</span>
+              <span>Add a person</span>
             </div>
+            {otherParticipant && otherParticipant.role === 'teacher' && (
+              <div className="menu-item" onClick={() => setShowRatingPopup(true)}>
+                <span className="menu-icon">⭐</span>
+                <span>Rate this teacher</span>
+              </div>
+            )}
             <div className="menu-item" onClick={handleBlockUser}>
               <span className="menu-icon">🚫</span>
-              <span>Bloquer</span>
+              <span>Block</span>
             </div>
             <div className="menu-item" onClick={() => setShowReportPopup(true)}>
               <span className="menu-icon">⚠️</span>
-              <span>Signaler</span>
+              <span>Report</span>
             </div>
           </>
         )}
         <div className="menu-item warning" onClick={handleDeleteConversation}>
           <span className="menu-icon">🗑️</span>
-          <span>Supprimer la conversation</span>
+          <span>Delete conversation</span>
         </div>
       </div>
 
       {showEditPhotoPopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3>Modifier la photo du groupe</h3>
+            <h3>Edit group photo</h3>
             <input
               type="file"
               ref={fileInputRef}
@@ -485,13 +573,13 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
               accept="image/*"
               style={{ display: 'none' }}
             />
-            <button onClick={() => fileInputRef.current.click()}>Choisir une photo</button>
+            <button onClick={() => fileInputRef.current.click()}>Choose a photo</button>
             {newGroupPhoto && (
-              <img src={newGroupPhoto} alt="Aperçu" style={{ maxWidth: '100px', marginTop: '10px' }} />
+              <img src={newGroupPhoto} alt="Preview" style={{ maxWidth: '100px', marginTop: '10px' }} />
             )}
             <div className="popup-buttons">
-              <button onClick={handleSavePhoto} className="apply-btn">Appliquer</button>
-              <button onClick={handleCancelPhotoChange} className="cancel-btn">Annuler</button>
+              <button onClick={handleSavePhoto} className="apply-btn">Apply</button>
+              <button onClick={handleCancelPhotoChange} className="cancel-btn">Cancel</button>
             </div>
           </div>
         </div>
@@ -500,18 +588,18 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       {showEditNamePopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3>Modifier le nom du groupe</h3>
+            <h3>Edit group name</h3>
             <div className="popup-input-group">
               <input
                 type="text"
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="Nouveau nom du groupe"
+                placeholder="New group name"
               />
             </div>
             <div className="popup-buttons">
-              <button onClick={handleSaveName} className="apply-btn">Appliquer</button>
-              <button onClick={handleCancelNameChange} className="cancel-btn">Annuler</button>
+              <button onClick={handleSaveName} className="apply-btn">Apply</button>
+              <button onClick={handleCancelNameChange} className="cancel-btn">Cancel</button>
             </div>
           </div>
         </div>
@@ -520,7 +608,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       {showAddUserPopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3>{conversation.isGroup ? 'Ajouter un utilisateur' : 'Ajouter une personne'}</h3>
+            <h3>{conversation.isGroup ? 'Add a user' : 'Add a person'}</h3>
             {users.length > 0 ? (
               <div className="user-list">
                 {users.map((user) => (
@@ -538,10 +626,10 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
                 ))}
               </div>
             ) : (
-              <p className="no-users">Aucun utilisateur disponible à ajouter</p>
+              <p className="no-users">No users available to add</p>
             )}
             <div className="popup-buttons">
-              <button onClick={() => setShowAddUserPopup(false)} className="cancel-btn">Fermer</button>
+              <button onClick={() => setShowAddUserPopup(false)} className="cancel-btn">Close</button>
             </div>
           </div>
         </div>
@@ -569,10 +657,10 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
                   ))}
               </div>
             ) : (
-              <p className="no-users">Aucun autre participant dans cette conversation</p>
+              <p className="no-users">No other participants in this conversation</p>
             )}
             <div className="popup-buttons">
-              <button onClick={() => setShowParticipantsPopup(false)} className="cancel-btn">Fermer</button>
+              <button onClick={() => setShowParticipantsPopup(false)} className="cancel-btn">Close</button>
             </div>
           </div>
         </div>
@@ -581,7 +669,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       {showReportPopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3>Signaler {otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
+            <h3>Report {otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
             <div className="report-causes">
               {reportCauses.map((cause, index) => (
                 <div
@@ -594,7 +682,7 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
               ))}
             </div>
             <div className="popup-buttons">
-              <button onClick={() => setShowReportPopup(false)} className="cancel-btn">Annuler</button>
+              <button onClick={() => setShowReportPopup(false)} className="cancel-btn">Cancel</button>
             </div>
           </div>
         </div>
@@ -603,18 +691,18 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
       {showCustomReasonPopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3>Signaler - Autre</h3>
+            <h3>Report - Other</h3>
             <div className="popup-input-group">
               <textarea
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
-                placeholder="Entrez la raison du signalement"
+                placeholder="Enter the reason for the report"
                 rows="4"
                 style={{ width: '100%' }}
               />
             </div>
             <div className="popup-buttons">
-              <button onClick={() => handleReportUser(reportReason)} className="apply-btn">Signaler</button>
+              <button onClick={() => handleReportUser(reportReason)} className="apply-btn">Report</button>
               <button
                 onClick={() => {
                   setShowCustomReasonPopup(false);
@@ -622,7 +710,41 @@ function SecondComponent({ conversation: initialConversation, otherParticipant }
                 }}
                 className="cancel-btn"
               >
-                Annuler
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRatingPopup && (
+        <div className="popup-overlay">
+          <div className="popup-content">
+            <h3>Rate {otherParticipant?.firstName} {otherParticipant?.lastName}</h3>
+            <div className="rating-criteria">
+              <div className="criterion">
+                <span>Explains well</span>
+                {renderStars('explains_well', ratings.explains_well)}
+              </div>
+              <div className="criterion">
+                <span>Availability</span>
+                {renderStars('availability', ratings.availability)}
+              </div>
+              <div className="criterion">
+                <span>Responsiveness</span>
+                {renderStars('responsiveness', ratings.responsiveness)}
+              </div>
+            </div>
+            <div className="popup-buttons">
+              <button onClick={handleSubmitRating} className="apply-btn">Submit</button>
+              <button
+                onClick={() => {
+                  setShowRatingPopup(false);
+                  setRatings({ explains_well: 0, availability: 0, responsiveness: 0 });
+                }}
+                className="cancel-btn"
+              >
+                Cancel
               </button>
             </div>
           </div>

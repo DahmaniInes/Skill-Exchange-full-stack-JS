@@ -28,6 +28,8 @@ import EditInternshipPage from './pages/internships/EditInternshipPage';
 import StudentInternshipListPage from './pages/internships/StudentInternshipListPage';
 import ApplyInternshipPage from './pages/internships/ApplyInternshipPage';
 import ApplicationsToMyOffersPage from './pages/internships/ApplicationsToMyOffersPage';
+import UserDashboard from './pages/MessengerPages/UserDashboard';
+
 import StudentApplicationsTable from './pages/internships/StudentApplicationsTable';
 import ManageInternshipTasksPage from "./pages/internships/ManageInternshipTasksPage";
 import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage";
@@ -126,6 +128,8 @@ function App() {
         <Route path="/generate-roadmap" element={<CreateRoadmapPage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
 
+        <Route path="/dashboard" element={<UserDashboard />} />
+        <Route path="ReportUserPage" element={<ReportUserPage />} />
 
         <Route path="MessengerPage" element={<MessengerPage />} />
           <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />

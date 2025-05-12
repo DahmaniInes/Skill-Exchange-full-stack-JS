@@ -26,7 +26,7 @@
     border-radius: 50%;
     object-fit: cover;
     margin-bottom: 15px;
-    border: 3px solid #f0f0f0;
+    border: 3px solid #06BBCC;
 }
 
 .user-full-name {
@@ -642,5 +642,45 @@
 
 .report-cause-item:last-child {
   border-bottom: none;
+}
+
+
+
+/* ... (existing styles) */
+
+.rating-criteria {
+  margin: 15px 0;
+}
+
+.criterion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.criterion span {
+  font-size: 14px;
+  color: #333;
+}
+
+.rating-stars {
+  display: flex;
+}
+
+.star {
+  font-size: 24px;
+  color: #ccc;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.star.filled {
+  color: #FFD700; /* Gold color for filled stars */
+}
+
+.star:hover,
+.star.filled:hover {
+  color: #FFC107; /* Slightly darker gold on hover */
 }
   

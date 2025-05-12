@@ -942,6 +942,9 @@ const handleCallResponse = (accepted) => {
           <div>
             <span className="chat-header-name">
               {isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+              {!isGroupConversation && !isSelfConversation && activeConversation?.receiverMood?.emoji && (
+                <span className="receiver-mood-emoji">{activeConversation.receiverMood.emoji}</span>
+              )}
             </span>
             {hasOnlineUser && !isSelfConversation && !isGroupConversation && (
               <span className="chat-header-status">Actif maintenant</span>
@@ -1051,20 +1054,23 @@ const handleCallResponse = (accepted) => {
                 <img
                   src={otherParticipant?.profilePicture || defaultProfileImage}
                   alt={isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
-                  className="user-profile-image"
+                  className="user-profile-image"  
                 />
                 <div className="user-profile-details">
                   <h2 className="user-full-name">
                     {isGroupConversation ? otherParticipant?.firstName : `${otherParticipant?.firstName} ${otherParticipant?.lastName}`}
+                    {!isGroupConversation && !isSelfConversation && activeConversation?.receiverMood?.emoji && (
+                      <span className="receiver-mood-emoji">{activeConversation.receiverMood.emoji}</span>
+                    )}
                   </h2>
-                  <p className="user-job-title">{otherParticipant?.jobTitle || 'Ingénieur'}</p>
-                  <p className="user-bio">{otherParticipant?.bio || 'Je n\'ai jamais rêvé de succès. J\'ai travaillé pour ça...'}</p>
-                  <button className="view-profile-btn">Voir Profil</button>
+                  <p className="user-job-title">{otherParticipant?.jobTitle}</p>
+                  <p className="user-bio">{otherParticipant?.bio }</p>
+                  <button className="view-profile-btn">Show Profil</button>
                   {isSelfConversation && (
-                    <div className="personal-conversation-note">
-                      <p>Votre espace de conversation personnel</p>
-                      <small>Les messages que vous vous envoyez apparaîtront ici</small>
-                    </div>
+                   <div className="personal-conversation-note">
+                   <p>Your personal conversation space</p>
+                   <small>Messages you send to yourself will appear here</small>
+                 </div>
                   )}
                 </div>
               </div>
@@ -1308,27 +1314,27 @@ const handleCallResponse = (accepted) => {
                 </svg>
               </div>
               <div className="emoji-picker-container">
-                <button className="input-action-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button" title="Emoji">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                    <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                    <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                  </svg>
-                </button>
-                {showEmojiPicker && (
-                  <div className="emoji-picker-wrapper">
-                    <EmojiPicker
-                      onEmojiClick={handleEmojiClick}
-                      width={300}
-                      height={350}
-                      previewConfig={{ showPreview: false }}
-                      searchDisabled={false}
-                      skinTonesDisabled
-                    />
-                  </div>
-                )}
-              </div>
+  <button className="input-action-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button" title="Emoji">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+      <line x1="9" y1="9" x2="9.01" y2="9"></line>
+      <line x1="15" y1="9" x2="15.01" y2="9"></line>
+    </svg>
+  </button>
+  {showEmojiPicker && (
+    <div className="emoji-picker-wrapper">
+      <EmojiPicker
+        onEmojiClick={handleEmojiClick}
+        width={500}
+        height={350}
+        previewConfig={{ showPreview: false }}
+        searchDisabled={false}
+        skinTonesDisabled
+      />
+    </div>
+  )}
+</div>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
               <input type="file" ref={docInputRef} onChange={handleFileChange} accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" style={{ display: 'none' }} />
               <input type="file" ref={audioInputRef} onChange={handleFileChange} accept="audio/*" style={{ display: 'none' }} />
@@ -1362,16 +1368,30 @@ const handleCallResponse = (accepted) => {
               )}
             </div>
 
-            <button className="send-button" onClick={handleSendMessage} disabled={isBlocked || (!newMessage.trim() && !selectedFile && !audioBlob) || isUploading}>
-              {isUploading ? (
-                <div className="loading-spinner"></div>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              )}
-            </button>
+            <button 
+  className="send-button" 
+  onClick={handleSendMessage} 
+  disabled={isBlocked || (!newMessage.trim() && !selectedFile && !audioBlob) || isUploading}
+>
+  {isUploading ? (
+    <div className="loading-spinner"></div>
+  ) : (
+    <svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="20"
+  height="20"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="#06BBCC"
+  strokeWidth="2"
+  strokeLinecap="round"
+  strokeLinejoin="round"
+>
+  <line x1="22" y1="2" x2="11" y2="13"></line>
+  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+</svg>
+  )}
+</button>
           </>
         )}
       </div>

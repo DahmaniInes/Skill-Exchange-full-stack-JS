@@ -46,4 +46,4 @@ const CallSchema = new mongoose.Schema({
     default: false
   }
 }, { timestamps: true });
-module.exports = mongoose.model('Call', CallSchema);
+module.exports = mongoose.models.Call || mongoose.model('Call', CallSchema);

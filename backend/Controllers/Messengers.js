@@ -13,6 +13,11 @@ const formatDate = (date) => {
   });
 };
 
+
+
+
+
+
 // Fonction existante : getUserConversations
 const getUserConversations = async (req, res) => {
   try {
@@ -71,11 +76,21 @@ const getUserConversations = async (req, res) => {
     })
       .populate({
         path: "participants",
-        select: "firstName lastName profilePicture",
+        select: "firstName lastName profilePicture role",
       })
       .populate({
         path: "lastMessage",
-        populate: { path: "sender", select: "firstName lastName profilePicture" },
+        populate: [
+          { path: "sender", select: "firstName lastName profilePicture" },
+          { path: "receiver", select: "firstName lastName profilePicture" },
+        ],
+      })
+      .populate({
+        path: "messages",
+        populate: [
+          { path: "sender", select: "firstName lastName profilePicture" },
+          { path: "receiver", select: "firstName lastName profilePicture" },
+        ],
       })
       .sort({ updatedAt: -1 })
       .lean();
@@ -92,6 +107,28 @@ const getUserConversations = async (req, res) => {
       const otherParticipant = isSelf
         ? null
         : conv.participants?.find((p) => p?._id?.toString() !== userId.toString());
+
+      // Calculer l'humeur du receiver pour les conversations individuelles
+      let receiverMood = null;
+      if (!isSelf && !conv.isGroup && otherParticipant) {
+        const receiverMessages = conv.messages?.filter(
+          (msg) => msg.receiver?.toString() === otherParticipant._id.toString() && msg.receiverSentiment
+        );
+        if (receiverMessages?.length > 0) {
+          const sentiments = receiverMessages.map((msg) => msg.receiverSentiment);
+          const sentimentCounts = {
+            positif: sentiments.filter((s) => s === 'positif').length,
+            négatif: sentiments.filter((s) => s === 'négatif').length,
+            neutre: sentiments.filter((s) => s === 'neutre').length,
+          };
+          receiverMood = {
+            sentiment: Object.keys(sentimentCounts).reduce((a, b) =>
+              sentimentCounts[a] > sentimentCounts[b] ? a : b
+            ),
+            emoji: receiverMessages[receiverMessages.length - 1].receiverEmoji,
+          };
+        }
+      }
 
       return {
         _id: conv._id,
@@ -116,9 +153,10 @@ const getUserConversations = async (req, res) => {
         time: formatDate(conv.lastMessage?.createdAt),
         participants: conv.participants.map((p) => ({
           ...p,
-          isOnline: p._id ? onlineUsers.has(p._id.toString()) : false, // Vérification sécurisée
+          isOnline: p._id ? onlineUsers.has(p._id.toString()) : false,
         })),
         senderId: conv.lastMessage?.sender?._id?.toString(),
+        receiverMood, // Ajout de l'humeur du receiver
       };
     });
 
@@ -137,6 +175,9 @@ const getUserConversations = async (req, res) => {
     });
   }
 };
+
+
+
 
 
 

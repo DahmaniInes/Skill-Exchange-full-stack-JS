@@ -182,6 +182,57 @@ const UserSchema = new mongoose.Schema(
       type: String
     },
 
+
+
+
+
+    learning_speed: {
+      type: String,
+      enum: {
+        values: ["slow", "medium", "fast"],
+        message: 'Vitesse d\'apprentissage invalide'
+      },
+      default: "medium"
+    },
+
+    purchasedTeachers: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      validate: {
+        validator: function (v) {
+          // Autoriser ce champ uniquement pour les rôles "user" et "student"
+          return (
+            (this.role === "user" || this.role === "student") &&
+            Array.isArray(v)
+          );
+        },
+        message:
+          "Le champ purchasedTeachers est réservé aux rôles 'user' et 'student'",
+      },
+    },
+  
+
+
+    teacherRatings: {
+      explains_well: {
+        average: { type: Number, min: 0, max: 5, default: 0 },
+        count: { type: Number, default: 0 },
+      },
+      availability: {
+        average: { type: Number, min: 0, max: 5, default: 0 },
+        count: { type: Number, default: 0 },
+      },
+      responsiveness: {
+        average: { type: Number, min: 0, max: 5, default: 0 },
+        count: { type: Number, default: 0 },
+      },
+      overall: {
+        average: { type: Number, min: 0, max: 5, default: 0 },
+        count: { type: Number, default: 0 },
+      },
+    },
+
+
     // Section 5 : Social
     socialLinks: {
       portfolio: {

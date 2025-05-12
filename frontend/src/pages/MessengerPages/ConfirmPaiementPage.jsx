@@ -47,7 +47,8 @@ const ConfirmPaiementPage = () => {
   }, [location]);
 
   const handleReturnClick = () => {
-    navigate('/MessengerDefaultPage');
+    // Forcer un rechargement complet de la page au lieu d'une navigation simple
+    navigate('/MessengerDefaultPage?refresh=true');
   };
 
   if (loading) {

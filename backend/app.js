@@ -57,7 +57,7 @@ app.use(cors({
     'X-Client-Version',
     'X-Requested-With'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
   exposedHeaders: ['Content-Length', 'Authorization']
 }));
 app.options('*', cors());
