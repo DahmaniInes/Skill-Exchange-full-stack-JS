@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courseController = require('../Controllers/courseController');
-const upload = require('../utils/fileUpload');
+const upload = require('../Utils/fileUpload');
 
 router.post('/create', courseController.createCourse);
 router.get('/', courseController.getAllCourses);

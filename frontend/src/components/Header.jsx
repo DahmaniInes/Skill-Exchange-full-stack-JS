@@ -506,10 +506,6 @@ function Header() {
             <Link to="/marketplace-skill" className="nav-item nav-link">
               Marketplace Skill
               </Link>
-               </Link>
-            <Link to="/internships" className={`nav-item nav-link ${location.pathname === "/internships" ? "active" : ""}`}>
-              Internships </Link>
-
             {/* Ajout du lien Messenger avec l'icône et le compteur */}
             <Link 
               to="/MessengerDefaultPage" 
