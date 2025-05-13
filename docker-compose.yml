@@ -10,19 +10,28 @@ services:
     ports:
       - 27017:27017
     volumes:
+      - mongo-data:/data/db
       - ./data/dump:/dump
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - monitoring
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     image: nodemongoapp
-    restart: always
     container_name: back
+    restart: always
     ports:
       - '5000:5000'
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://root:example@db:27017/skill-exchange?authSource=admin
     networks:
@@ -33,10 +42,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     image: frontend
-    restart: always
     container_name: front
+    restart: always
     ports:
-      - '3000:80' # Changé car NGINX écoute sur le port 80
+      - '3000:80'
     depends_on:
       - backend
     networks:
@@ -59,7 +68,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - '3001:3000' # Port 3000 est déjà utilisé par le frontend
+      - '3001:3000'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -71,12 +80,12 @@ services:
     networks:
       - monitoring
 
-  cadvisor: # Optionnel, pour surveiller les conteneurs
+  cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
     ports:
-      - '8085:8085'
+      - '8085:8080' # Corrigé pour correspondre au port interne de cAdvisor
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
