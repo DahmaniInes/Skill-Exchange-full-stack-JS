@@ -308,18 +308,18 @@ router.post(
         return res.status(400).json({ message: "Already applied." });
       }
 
-      // 🔍 Step 1: Extract CV text from buffer
+      // Step 1: Extract CV text from buffer
       const parsed = await pdfParse(req.file.buffer);
       const cvText = parsed.text;
 
-      // 🔁 Step 2: Send to Flask match scoring service
+      // Step 2: Send to Flask match scoring service
       const flaskRes = await axios.post("http://localhost:5003/analyze-match", {
         internshipId: internshipOfferId,
         cvText,
       });
       const matchScore = flaskRes.data.matchScore;
 
-      // ☁️ Step 3: Upload to Cloudinary manually
+      // ☁Step 3: Upload to Cloudinary manually
       const uploadResult = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
@@ -334,7 +334,7 @@ router.post(
         ).end(req.file.buffer); // buffer stream
       });
 
-      // 💾 Step 4: Save to MongoDB
+      // Step 4: Save to MongoDB
       const application = new InternshipApplication({
         student,
         internshipOffer: internshipOfferId,

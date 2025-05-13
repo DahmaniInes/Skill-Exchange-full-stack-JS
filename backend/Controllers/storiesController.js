@@ -1,167 +1,122 @@
 const Story = require("../Models/Story");
 const User = require("../Models/User");
-const Skill = require("../Models/Skill");
-const fs = require("fs");
-const path = require("path");
+const mongoose = require("mongoose");
 
-// Create a new story
 exports.createStory = async (req, res) => {
   try {
-    const { title, content, skillId, userId } = req.body;
-    
-    // Check if user exists
-    const user = await User.findById(userId || req.userId); // Use req.userId from middleware if no userId in body
+    const { title, content, category, userId } = req.body;
+    const effectiveUserId = userId || req.user?.id || req.userId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "User ID is required. Please ensure you are authenticated.",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(effectiveUserId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+
+    const user = await User.findById(effectiveUserId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
-    
-    // Check if skill exists
-    const skill = await Skill.findById(skillId);
-    if (!skill) {
-      return res.status(404).json({
-        success: false,
-        message: "Skill not found"
-      });
-    }
-    
+
     if (!req.file) {
+      console.error("No file uploaded. Request body:", req.body);
       return res.status(400).json({
         success: false,
-        message: "Media (image or video) is required for stories"
+        message: "Media (image or video) is required for stories",
       });
     }
+
+    console.log("File uploaded successfully:", req.file);
 
     const story = new Story({
       title,
       content,
-      userId: userId || req.userId,
-      skillId,
+      userId: effectiveUserId,
+      category,
       userName: `${user.firstName} ${user.lastName}`,
-      userImage: user.profileImage,
-      skillName: skill.name,
-      media: `/uploads/stories/${req.file.filename}`,
+      userImage: user.profilePicture || "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg",
+      media: req.file.path, // Cloudinary URL
       mediaType: req.file.mimetype.startsWith("image/") ? "image" : "video",
-      createdAt: new Date()
+      createdAt: new Date(),
     });
-    
+
     await story.save();
-    
-    // Return success
+
+    console.log("Story created successfully:", story);
+
     res.status(201).json({
       success: true,
       message: "Story created successfully",
-      data: story
+      data: story,
     });
   } catch (error) {
-    console.error("Error creating story:", error);
+    console.error("Error creating story:", error.stack);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Erreur de validation des données",
+        error: error.message,
+      });
+    }
     res.status(500).json({
       success: false,
-      message: "Error creating story",
-      error: error.message
+      message: "Erreur serveur lors de la création de la story",
+      error: error.message,
     });
   }
 };
 
-// Get all stories
 exports.getAllStories = async (req, res) => {
   try {
-    // Get stories, sorted by date (newest first)
-    // With time limit (not older than 24h)
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-    
-    const stories = await Story.find({
-      createdAt: { $gte: oneDayAgo }
-    })
-    .sort({ createdAt: -1 })
-    .limit(20); // Limit to 20 stories
-    
-    res.status(200).json({
-      success: true,
-      count: stories.length,
-      data: stories
-    });
+    const stories = await Story.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: stories });
   } catch (error) {
-    console.error("Error retrieving stories:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving stories",
-      error: error.message
-    });
+    console.error("Error fetching stories:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Get stories for a specific user
 exports.getUserStories = async (req, res) => {
   try {
-    const { userId } = req.params;
-    
-    const stories = await Story.find({ userId })
-      .sort({ createdAt: -1 });
-    
-    res.status(200).json({
-      success: true,
-      count: stories.length,
-      data: stories
-    });
+    const userId = req.params.userId;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+    const stories = await Story.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: stories });
   } catch (error) {
-    console.error("Error retrieving user stories:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving stories",
-      error: error.message
-    });
+    console.error("Error fetching user stories:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Delete a story
 exports.deleteStory = async (req, res) => {
   try {
-    const { storyId } = req.params;
-    const userId = req.body.userId || req.userId; // Use user ID from middleware if not in body
-    
-    // Get the story
+    const storyId = req.params.storyId;
+    const userId = req.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({ success: false, message: "Invalid story ID" });
+    }
+
     const story = await Story.findById(storyId);
-    
     if (!story) {
-      return res.status(404).json({
-        success: false,
-        message: "Story not found"
-      });
+      return res.status(404).json({ success: false, message: "Story not found" });
     }
-    
-    // Check that the user is the owner of the story
-    if (story.userId.toString() !== userId.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to delete this story"
-      });
+
+    if (story.userId.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "Unauthorized to delete this story" });
     }
-    
-    if (story.media) {
-      const mediaPath = path.join(__dirname, "../public", story.media);
-      if (fs.existsSync(mediaPath)) {
-        fs.unlinkSync(mediaPath);
-      }
-    }
-    
-    // Delete the story
-    await Story.findByIdAndDelete(storyId);
-    
-    res.status(200).json({
-      success: true,
-      message: "Story deleted successfully"
-    });
+
+    await Story.deleteOne({ _id: storyId });
+    res.status(200).json({ success: true, message: "Story deleted successfully" });
   } catch (error) {
     console.error("Error deleting story:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error deleting story",
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
-

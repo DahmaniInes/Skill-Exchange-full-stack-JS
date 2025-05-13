@@ -9,12 +9,17 @@ const FormInput = ({
   placeholder, 
   icon, 
   required = false, 
-  validation 
+  validation,
+  error: externalError
 }) => {
   const [error, setError] = useState("");
-  
+
+  console.log(`FormInput - ${fieldName} - value:`, value);
+  console.log(`FormInput - ${fieldName} - handleChange:`, handleChange);
+
   const validateInput = (value) => {
-    if (required && !value.trim()) {
+    console.log(`FormInput - ${fieldName} - Validating value:`, value); // Debug validation
+    if (required && !value?.trim()) {
       return `${label} is required`;
     }
     
@@ -27,16 +32,14 @@ const FormInput = ({
   
   const handleInputChange = (e) => {
     const newValue = e.target.value;
+    console.log(`FormInput - ${fieldName} - New value:`, newValue);
     const errorMsg = validateInput(newValue);
     setError(errorMsg);
-    
-    // If handleChange is a function accepting two or three parameters
+
     if (typeof handleChange === 'function') {
-      if (handleChange.length === 2) {
-        handleChange(fieldName, newValue);
-      } else if (handleChange.length === 3) {
-        handleChange(fieldName, newValue, errorMsg);
-      }
+      handleChange(fieldName, newValue);
+    } else {
+      console.error(`FormInput - ${fieldName} - handleChange is not a function`);
     }
   };
   
@@ -50,15 +53,22 @@ const FormInput = ({
         {icon && icon}
         <input
           type={type}
-          className={`form-input ${icon ? "with-icon" : ""} ${error ? "input-error" : ""}`}
-          value={value}
-          onChange={handleInputChange}
-          onBlur={() => setError(validateInput(value))}
+          className={`form-input ${icon ? "with-icon" : ""} ${(error || externalError) ? "input-error" : ""}`}
+          value={value || ""}
+          onChange={(e) => {
+            console.log(`FormInput - ${fieldName} - onChange triggered`);
+            handleInputChange(e);
+          }}
+          onBlur={() => {
+            const errorMsg = validateInput(value);
+            setError(errorMsg);
+          }}
+          onClick={() => console.log(`FormInput - ${fieldName} - Input clicked`)}
           placeholder={placeholder}
           required={required}
         />
       </div>
-      {error && <span className="error-message">{error}</span>}
+      {(error || externalError) && <span className="error-message">{error || externalError}</span>}
     </div>
   );
 };

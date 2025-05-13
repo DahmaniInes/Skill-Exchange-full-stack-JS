@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import axiosInstance from "../interceptor/axiosInstance";
-import axios from "axios";
+import axios from 'axios';
+import io from 'socket.io-client'; // Ajout de l'import pour Socket.IO
 
 // Import des styles CSS
 import "../utils/css/bootstrap.min.css";
@@ -20,6 +21,7 @@ function Header() {
   const isHomePage = location.pathname === "/";
   const carouselRef = useRef(null);
   const carouselInitializedRef = useRef(false);
+  const socketRef = useRef(null); // Référence pour Socket.IO
   const [showCarousel, setShowCarousel] = useState(isHomePage);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
@@ -31,7 +33,9 @@ function Header() {
   );
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
   const navigate = useNavigate();
-
+  const [currentUserId, setCurrentUserId] = useState(null); // ID de l'utilisateur
+  const [unseenMessages, setUnseenMessages] = useState({}); // État pour les messages non lus
+ 
   // Définition des titres
   const pageTitles = {
     "/": "Home",
@@ -120,6 +124,7 @@ function Header() {
     [handleProfileError]
   );
 
+
   // Fetch user profile
   useEffect(() => {
     const abortController = new AbortController();
@@ -130,6 +135,7 @@ function Header() {
 
       try {
         const decoded = jwtDecode(token);
+        setCurrentUserId(decoded.userId); // Récupérer l'ID de l'utilisateur
         return decoded.exp * 1000 > Date.now();
       } catch (e) {
         console.error("Token validation error:", e);
@@ -156,6 +162,112 @@ function Header() {
 
     return () => abortController.abort();
   }, [fetchUserProfile, navigate, location]);
+
+  // Initialisation de Socket.IO pour les messages
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) return;
+
+    socketRef.current = io('http://localhost:5000', {
+      auth: { token: `Bearer ${token}` },
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket : Connecté au serveur avec userId', currentUserId);
+      socketRef.current.emit('authenticate', currentUserId);
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket : Erreur de connexion', error.message);
+    });
+
+    socketRef.current.on('newMessage', (message) => {
+      console.log('Socket : Nouveau message reçu:', message);
+
+      if (!message || !message.conversation?._id || !message._id) {
+        console.error('Message invalide ou incomplet:', message);
+        return;
+      }
+
+      if (
+        message.sender?._id !== currentUserId &&
+        !message.read &&
+        location.pathname !== "/MessengerDefaultPage"
+      ) {
+        setUnseenMessages((prev) => {
+          const updated = { ...prev, [message.conversation._id]: true };
+          console.log('Messages non lus mis à jour:', updated);
+          return updated;
+        });
+      }
+    });
+
+    const fetchConversations = async () => {
+      try {
+        const response = await axiosInstance.get('/MessengerRoute/conversations');
+        const conversations = response.data.data || [];
+        const newUnseenMessages = {};
+        conversations.forEach(conv => {
+          if (
+            conv?.lastMessage &&
+            conv.lastMessage.sender?._id !== currentUserId &&
+            !conv.lastMessage.read
+          ) {
+            newUnseenMessages[conv._id] = true;
+          }
+        });
+        setUnseenMessages(newUnseenMessages);
+        console.log('Conversations initiales chargées, messages non lus:', newUnseenMessages);
+      } catch (error) {
+        console.error('Erreur lors du chargement des conversations:', error);
+      }
+    };
+
+    if (currentUserId) {
+      fetchConversations();
+    }
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('newMessage');
+        socketRef.current.disconnect();
+        console.log('Socket : Déconnexion effectuée');
+      }
+    };
+  }, [currentUserId]);
+
+  // Réinitialiser les messages non lus quand on visite la page Messenger
+  useEffect(() => {
+    if (location.pathname === "/MessengerDefaultPage") {
+      setUnseenMessages({});
+      const markAllAsRead = async () => {
+        try {
+          await axiosInstance.post('/MessengerRoute/mark-messages-as-read', {
+            userId: currentUserId,
+          });
+          console.log('Tous les messages ont été marqués comme lus');
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour des messages comme lus:', error);
+        }
+      };
+      markAllAsRead();
+    }
+  }, [location.pathname, currentUserId]);
+
+  // Calculer le nombre total de messages non lus
+  const unseenCount = Object.values(unseenMessages).filter(Boolean).length;
+
+  // Gestion du clic sur le lien Messenger
+  const handleMessengerClick = (e) => {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) {
+      e.preventDefault();
+      navigate('/login');
+    }
+  };
 
   // Dark mode management
   useEffect(() => {
@@ -297,7 +409,7 @@ function Header() {
           className="navbar-brand d-flex align-items-center px-4 px-lg-5"
         >
           <h2 className="m-0 text-primary">
-            <i className="fa fa-book me-3"></i>eLEARNING
+            <i className="fa fa-book me-3"></i>E-learning
           </h2>
         </Link>
 
@@ -384,9 +496,50 @@ function Header() {
                 Manage Internships
               </Link>
             )}
+              <Link to="/courses" className={`nav-item nav-link ${location.pathname === "/courses" ? "active" : ""}`}>
+              Courses
+            </Link>
+            <Link to="/my-courses" className={`nav-item nav-link ${location.pathname === "/marketplace-skill" ? "active" : ""}`}>
+              Enrolled
+            </Link>
 
             <Link to="/marketplace-skill" className="nav-item nav-link">
               Marketplace Skill
+              </Link>
+               </Link>
+            <Link to="/internships" className={`nav-item nav-link ${location.pathname === "/internships" ? "active" : ""}`}>
+              Internships </Link>
+
+            {/* Ajout du lien Messenger avec l'icône et le compteur */}
+            <Link 
+              to="/MessengerDefaultPage" 
+              className={`nav-item nav-link ${location.pathname === "/MessengerDefaultPage" ? "active" : ""}`} 
+              onClick={handleMessengerClick}
+            >
+              <div style={{ position: "relative" }}>
+                <i className="fa fa-envelope me-2"></i>
+                {unseenCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-8px",
+                      right: "-8px",
+                      backgroundColor: "red",
+                      color: "white",
+                      borderRadius: "50%",
+                      width: "16px",
+                      height: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {unseenCount}
+                  </span>
+                )}
+              </div>
             </Link>
           </div>
 

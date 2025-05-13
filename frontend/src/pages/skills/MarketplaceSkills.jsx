@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "./MarketplaceStyles.css";
 
 const MarketplaceSkills = () => {
@@ -9,67 +11,88 @@ const MarketplaceSkills = () => {
   const [selectedLevels, setSelectedLevels] = useState([]);
   const [minRating, setMinRating] = useState(0);
   const [sortOption, setSortOption] = useState("popularity");
-  const [stories] = useState([
-    {
-      id: 1,
-      username: "Sophie M.",
-      userImage: "/placeholder-user.png",
-      image: "/placeholder-story.png",
-      title: "I learned React in 3 weeks!",
-      content: "Thanks to this amazing platform...",
-      timestamp: "2 hours ago"
-    },
-    // Plus de stories...
-  ]);
+  const [stories, setStories] = useState([]);
   const [currentStory, setCurrentStory] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [newStory, setNewStory] = useState({ title: "", content: "", media: null });
   const navigate = useNavigate();
   const API_BASE_URL = "http://localhost:5000";
 
+  const token = localStorage.getItem("jwtToken");
+
+  // Generate a consistent color for each tag
+  const getTagColor = (tag) => {
+    const colors = [
+      "#FF5733", "#33A1FF", "#33FF57", "#FF33A8", "#A833FF",
+      "#FFD733", "#33FFD7", "#FF8333", "#3369FF", "#FF336E"
+    ];
+    let hashCode = 0;
+    for (let i = 0; i < tag.length; i++) {
+      hashCode += tag.charCodeAt(i);
+    }
+    return colors[hashCode % colors.length];
+  };
+
+  // Fetch skills
   useEffect(() => {
     const fetchSkills = async () => {
       try {
-        // Construction de l'URL avec tous les paramètres de filtrage
         let url = `${API_BASE_URL}/api/skills?`;
-        
-        // Ajout des paramètres de filtrage
         if (search) url += `query=${encodeURIComponent(search)}&`;
         if (selectedCategories.length > 0) url += `categories=${encodeURIComponent(selectedCategories.join(','))}&`;
         if (selectedLevels.length > 0) url += `levels=${encodeURIComponent(selectedLevels.join(','))}&`;
         if (minRating > 0) url += `minRating=${minRating}&`;
-        
-        // Ajout du paramètre de tri
         if (sortOption === "popularity") url += "sort=popular";
         else if (sortOption === "rating") url += "sort=rating";
         else if (sortOption === "newest") url += "sort=recent";
-        
-        console.log("Requesting URL:", url); // Déboguer l'URL
-        
+
         const response = await fetch(url);
         const data = await response.json();
-        
-        console.log("API response:", data); // Vérifier la réponse
-        
         if (response.ok) {
           setSkills(data.data || []);
         } else {
-          console.error("Erreur API:", data.message);
+          toast.error("Error loading skills");
         }
-        
       } catch (error) {
-        console.error("Error fetching skills:", error);
+        console.error("Error:", error);
+        toast.error("Error loading skills");
       }
     };
-    
     fetchSkills();
   }, [search, selectedCategories, selectedLevels, minRating, sortOption]);
-  
+
+  // Fetch stories
+  useEffect(() => {
+    const fetchStories = async () => {
+      if (!token) {
+        toast.error("Please login to view stories");
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/stories`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setStories(data.data || []);
+        } else {
+          toast.error("Error loading stories");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        toast.error("Error loading stories");
+      }
+    };
+    fetchStories();
+  }, [token]);
+
+  // Filter and sort skills
   const filteredSkills = skills.filter(skill => {
     const searchMatch = skill.name.toLowerCase().includes(search.toLowerCase());
     const categoryMatch = selectedCategories.length === 0 || 
                          skill.categories.some(c => selectedCategories.includes(c));
     const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(skill.level);
     const ratingMatch = skill.rating >= minRating;
-    
     return searchMatch && categoryMatch && levelMatch && ratingMatch;
   });
 
@@ -79,95 +102,149 @@ const MarketplaceSkills = () => {
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
+  // Handle image URLs
   const getImageUrl = (imageUrl) => {
     if (!imageUrl) return '/placeholder-skill.png';
     return imageUrl.startsWith('http') ? imageUrl : `${API_BASE_URL}${imageUrl}`;
   };
 
-  // Function to get a small excerpt of a comment
-  const getCommentExcerpt = (skill) => {
-    if (!skill.ratings || skill.ratings.length === 0) return null;
-    // Get the latest rating with a comment
-    const ratingWithComment = skill.ratings.find(r => r.comment);
-    if (!ratingWithComment) return null;
-    
-    // Return a short excerpt
-    return ratingWithComment.comment.length > 60 
-      ? ratingWithComment.comment.substring(0, 60) + '...' 
-      : ratingWithComment.comment;
+  // Create a new story
+  const handleCreateStory = async (e) => {
+    e.preventDefault();
+    if (!token) {
+      toast.error("Please login to add a story");
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("title", newStory.title);
+      formData.append("content", newStory.content);
+      if (newStory.media) formData.append("media", newStory.media);
+
+      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Story added successfully!");
+        setStories([...stories, data.data]);
+        setShowModal(false);
+        setNewStory({ title: "", content: "", media: null });
+      } else {
+        toast.error("Error adding story");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Error adding story");
+    }
   };
 
   return (
     <div className="marketplace-container">
-      {/* En-tête */}
+      <ToastContainer />
       <header className="header-section">
-        <h1 className="main-title gradient-text">🧠 Skills Marketplace</h1>
-        <Link to="/marketplace" className="back-button">
-          ← Back to Marketplace
-        </Link>
-      </header>
+  <button onClick={() => navigate(-1)} className="back-button">
+    ← Back
+  </button>
+  <h1 className="main-title gradient-text">🧠 Skills Marketplace</h1>
+</header>
 
-      {/* Success Stories */}
       <section className="success-stories-section">
         <h2 className="section-title">✨ Success Stories</h2>
+        <button onClick={() => setShowModal(true)} className="add-story-button">
+          + Add a story
+        </button>
         <div className="stories-container">
-          {stories.map(story => (
-            <div key={story.id} className="story-card" onClick={() => setCurrentStory(story)}>
-              <div className="story-image-container">
-                <img src={story.userImage} alt={story.username} />
+          {stories.length > 0 ? (
+            stories.map(story => (
+              <div key={story._id} className="story-card" onClick={() => setCurrentStory(story)}>
+                <div className="story-image-container">
+                  <img
+                    src={getImageUrl(story.userImage)}
+                    alt={story.userName}
+                    onError={(e) => { e.target.onerror = null; e.target.src = "/placeholder-user.png"; }}
+                  />
+                </div>
+                <h3>{story.title}</h3>
+                <p className="story-excerpt">{story.content.substring(0, 50)}...</p>
+                <span className="story-timestamp">{new Date(story.createdAt).toLocaleString()}</span>
               </div>
-              <h3>{story.title}</h3>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p>No stories available at the moment.</p>
+          )}
         </div>
       </section>
 
-      {/* Contenu principal */}
+      {showModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h2>Add a new story</h2>
+            <form onSubmit={handleCreateStory}>
+              <input
+                type="text"
+                placeholder="Title"
+                value={newStory.title}
+                onChange={(e) => setNewStory({ ...newStory, title: e.target.value })}
+                required
+              />
+              <textarea
+                placeholder="Content"
+                value={newStory.content}
+                onChange={(e) => setNewStory({ ...newStory, content: e.target.value })}
+                required
+              />
+              <input
+                type="file"
+                onChange={(e) => setNewStory({ ...newStory, media: e.target.files[0] })}
+                accept="image/*,video/*"
+                required
+              />
+              <button type="submit">Add</button>
+              <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="main-content-wrapper">
-        {/* Filtres */}
         <div className="filters-sidebar">
           <div className="filter-group">
             <h3>📁 Categories</h3>
-            {["Développement", "Design", "Marketing", "Business", "Langues", "Musique", "Art", "Science", "Autres"].map(category => (
+            {["Development", "Design", "Marketing", "Business", "Languages", "Music", "Art", "Science", "Others"].map(category => (
               <label key={category}>
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category)}
                   onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedCategories([...selectedCategories, category]);
-                    } else {
-                      setSelectedCategories(selectedCategories.filter(c => c !== category));
-                    }
+                    if (e.target.checked) setSelectedCategories([...selectedCategories, category]);
+                    else setSelectedCategories(selectedCategories.filter(c => c !== category));
                   }}
                 />
                 {category}
               </label>
             ))}
           </div>
-
           <div className="filter-group">
             <h3>🎚 Levels</h3>
-            {["Débutant", "Intermediate", "Advanced"].map(level => (
+            {["Beginner", "Intermediate", "Advanced"].map(level => (
               <label key={level}>
                 <input
                   type="checkbox"
                   checked={selectedLevels.includes(level)}
                   onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedLevels([...selectedLevels, level]);
-                    } else {
-                      setSelectedLevels(selectedLevels.filter(l => l !== level));
-                    }
+                    if (e.target.checked) setSelectedLevels([...selectedLevels, level]);
+                    else setSelectedLevels(selectedLevels.filter(l => l !== level));
                   }}
                 />
                 {level}
               </label>
             ))}
           </div>
-
           <div className="filter-group">
-            <h3>⭐ Rating Minimum</h3>
+            <h3>⭐ Minimum Rating</h3>
             <input
               type="range"
               min="0"
@@ -178,8 +255,7 @@ const MarketplaceSkills = () => {
             />
             <span>{minRating}+</span>
           </div>
-
-          <button 
+          <button
             className="reset-button"
             onClick={() => {
               setSelectedCategories([]);
@@ -187,11 +263,10 @@ const MarketplaceSkills = () => {
               setMinRating(0);
             }}
           >
-            ⟳ Reset Filters
+            ⟳ Reset filters
           </button>
         </div>
 
-        {/* Liste des compétences */}
         <div className="skills-content">
           <div className="search-sort-bar">
             <input
@@ -200,58 +275,45 @@ const MarketplaceSkills = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            
             <select value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
-              <option value="popularity">Most Popular</option>
-              <option value="rating">Best Rated</option>
+              <option value="popularity">Most popular</option>
+              <option value="rating">Highest rated</option>
               <option value="newest">Newest</option>
             </select>
           </div>
-
           <div className="skills-grid">
             {sortedSkills.length > 0 ? (
               sortedSkills.map(skill => (
-                <div 
-                  key={skill._id} 
-                  className="skill-card"
-                  onClick={() => navigate(`/skills/${skill._id}`)}
-                >
-                  <img 
-                    src={getImageUrl(skill.imageUrl)} 
+                <div key={skill._id} className="skill-card" onClick={() => navigate(`/skills/${skill._id}`)}>
+                  <img
+                    src={getImageUrl(skill.imageUrl)}
                     alt={skill.name}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/placeholder-skill.png";
-                    }}
+                    onError={(e) => { e.target.onerror = null; e.target.src = "/placeholder-skill.png"; }}
                   />
                   <div className="card-content">
                     <h3>{skill.name}</h3>
                     <p>{skill.description}</p>
-                    
-                    {/* Tags */}
-                    {skill.tags && skill.tags.length > 0 && (
-                      <div className="tags-container">
-                        {skill.tags.slice(0, 3).map((tag, index) => (
-                          <span key={index} className="tag">{tag}</span>
-                        ))}
-                        {skill.tags.length > 3 && <span className="tag">+{skill.tags.length - 3}</span>}
-                      </div>
-                    )}
-                    
                     <div className="skill-meta">
                       <span className="category">{skill.categories.join(", ")}</span>
-                      <span className={`level ${skill.level.toLowerCase()}`}>
-                        {skill.level}
-                      </span>
+                      <span className={`level ${skill.level.toLowerCase()}`}>{skill.level}</span>
                     </div>
-                    
-                    {/* Preview of a rating comment if available */}
-                    {getCommentExcerpt(skill) && (
-                      <div className="rating-preview">
-                        "{getCommentExcerpt(skill)}"
+                    {skill.tags && skill.tags.length > 0 && (
+                      <div className="skill-tags">
+                        {skill.tags.map((tag, index) => (
+                          <span 
+                            key={index} 
+                            className="tag"
+                            style={{ 
+                              backgroundColor: getTagColor(tag),
+                              color: "#fff",
+                              textShadow: "0px 0px 1px rgba(0,0,0,0.5)"
+                            }}
+                          >
+                            #{tag}
+                          </span>
+                        ))}
                       </div>
                     )}
-                    
                     <div className="stats">
                       <span>⭐ {skill.rating.toFixed(1)}</span>
                       <span>👥 {skill.popularity}</span>
@@ -268,7 +330,7 @@ const MarketplaceSkills = () => {
                   setMinRating(0);
                   setSearch("");
                 }}>
-                  Reset Filters
+                  Reset filters
                 </button>
               </div>
             )}
@@ -276,17 +338,25 @@ const MarketplaceSkills = () => {
         </div>
       </div>
 
-      {/* Story Viewer */}
       {currentStory && (
         <div className="story-overlay" onClick={() => setCurrentStory(null)}>
           <div className="story-viewer" onClick={(e) => e.stopPropagation()}>
-            <img src={currentStory.image} alt="Story" />
+            <img
+              src={getImageUrl(currentStory.media)}
+              alt={currentStory.title}
+              onError={(e) => { e.target.onerror = null; e.target.src = "/placeholder-story.png"; }}
+            />
             <div className="story-content">
               <h2>{currentStory.title}</h2>
               <p>{currentStory.content}</p>
               <div className="user-info">
-                <img src={currentStory.userImage} alt={currentStory.username} />
-                <span>{currentStory.username}</span>
+                <img
+                  src={getImageUrl(currentStory.userImage)}
+                  alt={currentStory.userName}
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/placeholder-user.png"; }}
+                />
+                <span>{currentStory.userName}</span>
+                <span className="story-timestamp">{new Date(currentStory.createdAt).toLocaleString()}</span>
               </div>
             </div>
           </div>

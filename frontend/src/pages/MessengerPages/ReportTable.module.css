@@ -1,0 +1,147 @@
+.container {
+    font-family: 'Arial', sans-serif;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .title {
+    color: #06BBCC;
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+  
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .tableHeader {
+    background-color: #06BBCC;
+    color: white;
+    text-align: left;
+  }
+  
+  .tableHeader th {
+    padding: 12px 15px;
+    font-weight: 500;
+  }
+  
+  .tableRow {
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .tableRow:last-child {
+    border-bottom: none;
+  }
+  
+  .tableRow:hover {
+    background-color: rgba(6, 187, 204, 0.05);
+  }
+  
+  .tableCell {
+    padding: 12px 15px;
+  }
+  
+  .idCell {
+    font-family: monospace;
+    font-size: 12px;
+    color: #666;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .statusCell {
+    font-weight: 500;
+  }
+  
+  .blocked {
+    color: #e74c3c;
+  }
+  
+  .pending {
+    color: #f39c12;
+  }
+  
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .blockedBadge {
+    background-color: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+  }
+  
+  .pendingBadge {
+    background-color: rgba(243, 156, 18, 0.15);
+    color: #f39c12;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+  .statusContainer {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  
+  .editIcon:hover {
+    opacity: 0.8;
+  }
+  
+  .statusSelect {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 4px;
+    font-size: 14px;
+    border: 1px solid #06BBCC;
+    border-radius: 4px;
+    background-color: white;
+    color: #333;
+    cursor: pointer;
+  }
+  
+  .statusSelect:focus {
+    outline: none;
+    box-shadow: 0 0 4px rgba(6, 187, 204, 0.5);
+  }
+  
+  /* Optional: Additional badge styles for new statuses */
+  .reviewedBadge {
+    background-color: #2196f3;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  
+  .resolvedBadge {
+    background-color: #4caf50;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+  }

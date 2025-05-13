@@ -2,23 +2,23 @@ import React, { useState, useEffect } from 'react';
 import {
   Mail, Phone, MapPin, Globe, Edit3, LockKeyhole,
   Linkedin, Github, Twitter, Briefcase, Bell,
-  GraduationCap, Star, FileText, 
+  GraduationCap, Star, FileText,
   ShieldCheck, Activity, CheckCircle2, Layers
 } from 'lucide-react';
 import ProfileService from '../../services/ProfileService';
 import './ProfilePage.css';
 import { useNavigate } from 'react-router-dom';
-
-// Dans votre composant, ajoutez:
-
+import axios from 'axios';
 
 const ProfilePage = () => {
   const [activeSection, setActiveSection] = useState('overview');
   const [userData, setUserData] = useState(null);
+  const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [badgeLoading, setBadgeLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  // Composants internes
+
   const SectionCard = ({ children, title }) => (
     <div className="section-card">
       {title && <h3 className="card-title">{title}</h3>}
@@ -52,6 +52,23 @@ const ProfilePage = () => {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    const fetchBadges = async () => {
+      if (!userData || !userData._id) return;
+      try {
+        const response = await axios.get(`http://localhost:5000/api/badges/${userData._id}`);
+        setBadges(response.data);
+        console.log("badges : " + response.data);
+      } catch (err) {
+        console.error('Error fetching badges:', err);
+      } finally {
+        setBadgeLoading(false);
+      }
+    };
+
+    fetchBadges();
+  }, [userData]);
+
   const updateField = async (field, value) => {
     try {
       await ProfileService.updateProfile({ [field]: value });
@@ -66,6 +83,7 @@ const ProfilePage = () => {
   if (!userData) return null;
 
   const {
+    _id,
     firstName = 'John',
     lastName = 'Doe',
     email = 'john.doe@example.com',
@@ -81,6 +99,8 @@ const ProfilePage = () => {
     skills = [],
     cv = null,
     averageRating = 4.8,
+    xp = 0,
+    level = 0,
     ratings = [],
     privacySettings = { isProfilePublic: true },
     notifications = {},
@@ -89,18 +109,17 @@ const ProfilePage = () => {
 
   return (
     <div className="profile-container">
-      {/* Header Section */}
       <header className="profile-header">
         <div className="avatar-card">
           <div className="avatar-wrapper">
-          <img 
-  src={profilePicture} 
-  alt={`${firstName} ${lastName}`}
-  onError={(e) => {
-    console.log("Image error, falling back to default");
-    e.target.src = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
-  }}
-/>
+            <img
+              src={profilePicture}
+              alt={`${firstName} ${lastName}`}
+              onError={(e) => {
+                console.log("Image error, falling back to default");
+                e.target.src = "https://res.cloudinary.com/diahyrchf/image/upload/v1743253858/default-avatar_mq00mg.jpg";
+              }}
+            />
             <div className="rating-badge">
               <Star fill="#FFD700" size={18} />
               <span>{averageRating.toFixed(1)}</span>
@@ -113,6 +132,10 @@ const ProfilePage = () => {
                 <span className="job-title">{jobTitle}</span>
                 <span className="company-name">@{company}</span>
               </div>
+              <div className="user-stats">
+                <div className="xp-badge">🔥 XP: {xp}</div>
+                <div className="level-badge1">🎯 Level: {level}</div>
+              </div>
             </div>
             <div className="status-badge">
               <div className={`status-dot ${status}`}></div>
@@ -122,27 +145,26 @@ const ProfilePage = () => {
         </div>
 
         <div className="action-buttons">
-  <button 
-    className="action-btn edit-btn" 
-    onClick={() => navigate('/profileForm')}
-  >
-    <Edit3 size={14} />
-    Edit Profile
-  </button>
-  <button 
-    className="action-btn password-btn" 
-    onClick={() => navigate('/SecuritySettings')}
-  >
-    <LockKeyhole size={14} />
-    Change Password
-  </button>
-</div>
+          <button
+            className="action-btn edit-btn"
+            onClick={() => navigate('/profileForm')}
+          >
+            <Edit3 size={14} />
+            Edit Profile
+          </button>
+          <button
+            className="action-btn password-btn"
+            onClick={() => navigate('/SecuritySettings')}
+          >
+            <LockKeyhole size={14} />
+            Change Password
+          </button>
+        </div>
       </header>
 
-      {/* Navigation */}
       <nav className="navigation-cards">
-        {['Overview', 'Experience', 'Skills', 'Social', 'Settings'].map((item) => (
-          <button 
+        {['Overview', 'Experience', 'Skills', 'Social', 'Badges', 'Settings'].map((item) => (
+          <button
             key={item}
             className={`nav-card ${activeSection === item.toLowerCase() ? 'active' : ''}`}
             onClick={() => setActiveSection(item.toLowerCase())}
@@ -152,39 +174,33 @@ const ProfilePage = () => {
         ))}
       </nav>
 
-      {/* Dynamic Sections */}
+      {/* Overview Section */}
       {activeSection === 'overview' && (
         <SectionCard title="Professional Overview">
           <div className="info-grid">
             <div className="info-item">
               <Mail className="info-icon" />
-              <div>
-                <h5>Email</h5>
-                <p>{email}</p>
-              </div>
+              <div><h5>Email</h5><p>{email}</p></div>
             </div>
             <div className="info-item">
               <Phone className="info-icon" />
-              <div>
-                <h5>Phone</h5>
-                <p>{phone}</p>
-              </div>
+              <div><h5>Phone</h5><p>{phone}</p></div>
             </div>
             <div className="info-item">
               <MapPin className="info-icon" />
-              <div>
-                <h5>Location</h5>
-                <p>{location}</p>
-              </div>
+              <div><h5>Location</h5><p>{location}</p></div>
             </div>
           </div>
-          {bio && <div className="bio-card">
-            <h4>About Me</h4>
-            <p>{bio}</p>
-          </div>}
+          {bio && (
+            <div className="bio-card">
+              <h4>About Me</h4>
+              <p>{bio}</p>
+            </div>
+          )}
         </SectionCard>
       )}
 
+      {/* Experience Section */}
       {activeSection === 'experience' && (
         <SectionCard title="Professional Journey">
           <div className="timeline-section">
@@ -213,6 +229,7 @@ const ProfilePage = () => {
         </SectionCard>
       )}
 
+      {/* Skills Section */}
       {activeSection === 'skills' && (
         <SectionCard title="Core Competencies">
           <div className="skills-grid">
@@ -220,15 +237,13 @@ const ProfilePage = () => {
               <div key={index} className="skill-card">
                 <div className="skill-header">
                   <h5>{skill.name}</h5>
-                  <span className={`skill-level ${skill.level.toLowerCase()}`}>
-                    {skill.level}
-                  </span>
+                  <span className={`skill-level ${skill.level.toLowerCase()}`}>{skill.level}</span>
                 </div>
                 {skill.description && <p className="skill-description">{skill.description}</p>}
                 <div className="skill-progress">
-                  <div 
-                    className="progress-bar" 
-                    style={{ width: `${(skill.yearsOfExperience/10)*100}%` }}
+                  <div
+                    className="progress-bar"
+                    style={{ width: `${(skill.yearsOfExperience / 10) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -237,15 +252,16 @@ const ProfilePage = () => {
         </SectionCard>
       )}
 
+      {/* Social Section */}
       {activeSection === 'social' && (
         <SectionCard title="Digital Presence">
           <div className="social-grid">
             {Object.entries(socialLinks).map(([platform, url]) => (
-              <a 
-                key={platform} 
-                href={url} 
+              <a
+                key={platform}
+                href={url}
                 className="social-card"
-                target="_blank" 
+                target="_blank"
                 rel="noopener noreferrer"
               >
                 {{
@@ -258,13 +274,46 @@ const ProfilePage = () => {
               </a>
             ))}
           </div>
-          {cv && <div className="cv-card">
-            <FileText />
-            <a href={cv} download>Download Full CV</a>
-          </div>}
+          {cv && (
+            <div className="cv-card">
+              <FileText />
+              <a href={cv} download>Download Full CV</a>
+            </div>
+          )}
         </SectionCard>
       )}
 
+      {activeSection === 'badges' && (
+  <SectionCard title="Achievement Badges">
+    {badgeLoading ? (
+      <div className="spinner">Loading badges...</div>
+    ) : (
+      <div className="badges-grid1">
+        {badges.length === 0 ? (
+          <p>No badges yet.</p>
+        ) : (
+          badges.map((badge, index) => (
+            <div key={index} className="badge-card1">
+              <img
+                src={badge.badgeIconUrl || "/default-badge-icon.png"}
+                alt={badge.badgeName}
+                className="badge-icon"
+              />
+              <div className="badge-info1">
+                <h5>{badge.badgeName}</h5>
+                <span className="badge-date">
+                  Claimed on: {new Date(badge.claimedAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    )}
+  </SectionCard>
+)}
+
+      {/* Settings Section */}
       {activeSection === 'settings' && (
         <SectionCard title="Account Settings">
           <div className="settings-grid">

@@ -4,6 +4,7 @@ const { OAuth2Client } = require('google-auth-library');
 const User = require('../Models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const verifyToken = require('../middleware/verifySession');
 
 // Configurer le client OAuth2 avec les informations de Google Cloud
 const client = new OAuth2Client(
@@ -77,16 +78,31 @@ router.get('/login-with-google', async (req, res) => {
     }
     
     // Créer un JWT pour l'utilisateur
-    const token = jwt.sign({ userId: user._id, userRole: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log("Token JWT créé avec succès pour Google OAuth");
 
     // Envoi du token côté client via le header
-    res.set('Authorization', `Bearer ${token}`);
-    res.redirect('http://localhost:5173');
+    //res.set('Authorization', `Bearer ${token}`);
+    res.redirect(`http://localhost:5173/login?token=${token}`);
     
   } catch (error) {
     console.error('ERREUR GOOGLE AUTH:', error);
     res.status(500).send('Erreur d\'authentification');
+  }
+});
+
+
+
+
+router.get('/google-user', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 

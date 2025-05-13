@@ -8,22 +8,24 @@ const ProfilePicture = ({ profilePicture, handleChange }) => {
   const [preview, setPreview] = useState(profilePicture);
 
   const handleFileChange = (file) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-      handleChange("profilePicture", file);
-    };
-    if (file) reader.readAsDataURL(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+        handleChange("profilePicture", file);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
     <div className="profile-picture-wrapper">
-      <label className="form-label">Photo de profil</label>
+      <label className="form-label">Profile Picture</label>
       <div className="profile-picture-container">
-        <img 
-          src={preview || "/default-avatar.png"} 
-          alt="Profil" 
-          className="profile-preview" 
+        <img
+          src={preview || "/default-avatar.png"}
+          alt="Profile"
+          className="profile-preview"
         />
         <input
           type="file"
@@ -40,182 +42,214 @@ const ProfilePicture = ({ profilePicture, handleChange }) => {
   );
 };
 
-const BioSection = ({ bio, handleChange }) => (
+const BioSection = ({ bio, handleChange, error }) => (
   <div className="bio-section">
-    <label className="form-label">Biographie</label>
+    <label className="form-label">Biography</label>
     <div className="textarea-wrapper">
       <textarea
         className="form-textarea"
-        value={bio}
+        value={bio || ""}
         onChange={(e) => handleChange("bio", e.target.value)}
         rows={5}
-        placeholder="Parlez-nous de vous..."
+        placeholder="Tell us about yourself..."
         minLength={50}
       />
       <Edit3 size={16} className="textarea-icon" />
-    </div>
-  </div>
-);
-
-const FormInput = ({ 
-  label, 
-  type, 
-  value, 
-  fieldName, 
-  handleChange, 
-  placeholder, 
-  icon, 
-  required = false,
-  error
-}) => (
-  <div className="form-group">
-    <label className="form-label">
-      {label} 
-      {required && <span className="required-mark">*</span>}
-    </label>
-    <div className="input-wrapper">
-      {icon}
-      <input
-        type={type}
-        className={`form-input ${icon ? "with-icon" : ""} ${error ? "input-error" : ""}`}
-        value={value}
-        onChange={(e) => handleChange(fieldName, e.target.value)}
-        placeholder={placeholder}
-        required={required}
-      />
     </div>
     {error && <span className="error-message">{error}</span>}
   </div>
 );
 
+const FormInput = ({
+  label,
+  type,
+  value,
+  fieldName,
+  handleChange,
+  placeholder,
+  icon,
+  required = false,
+  error,
+}) => {
+  console.log(`Input ${fieldName} value:`, value);
+
+  return (
+    <div className="form-group">
+      <label className="form-label">
+        {label}
+        {required && <span className="required-mark">*</span>}
+      </label>
+      <div className="input-wrapper">
+        {icon}
+        <input
+          type={type}
+          className={`form-input ${icon ? "with-icon" : ""} ${error ? "input-error" : ""}`}
+          value={value || ""}
+          onChange={(e) => handleChange(fieldName, e.target.value)}
+          placeholder={placeholder}
+          required={required}
+        />
+      </div>
+      {error && <span className="error-message">{error}</span>}
+    </div>
+  );
+};
+
 const PersonalInfoPage = ({ formData, setFormData, nextStep, handleCancel }) => {
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [errors, setErrors] = useState({});
+
+  const [localFormData, setLocalFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    location: "",
+    bio: "",
+    profilePicture: "",
+  });
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
+        setFetchLoading(true);
         const data = await ProfileService.getUserProfile();
-        setFormData(data);
+        console.log("Fetched profile data:", data);
+
+        const normalizedData = {
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          location: data.location || "",
+          bio: data.bio || "",
+          profilePicture: data.profilePicture || "",
+        };
+
+        console.log("Normalized data:", normalizedData);
+        setLocalFormData(normalizedData);
+        setFormData(normalizedData);
       } catch (error) {
-        setErrors({ global: "Erreur de chargement du profil" });
+        console.error("Error loading profile:", error);
+        setErrors({ global: "Failed to load profile" });
+      } finally {
+        setFetchLoading(false);
       }
     };
     loadProfile();
-  }, []);
-
-  const validateField = (field, value) => {
-    const validations = {
-      firstName: value.length < 2 ? "Minimum 2 caractères" : "",
-      lastName: value.length < 2 ? "Minimum 2 caractères" : "",
-      email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "Email invalide" : "",
-      phone: value && !/^\+?[\d\s()-]{8,20}$/.test(value) ? "Format invalide" : "",
-      location: value.length < 3 ? "Localisation invalide" : "",
-      bio: value.length < 20 ? "Minimum 20 caractères" : ""
-    };
-    return validations[field];
-  };
+  }, [setFormData]);
 
   const handleChange = (field, value) => {
-    const error = validateField(field, value);
-    setFormData(prev => ({
+    console.log(`Changing ${field} to:`, value);
+
+    setLocalFormData((prev) => ({
       ...prev,
       [field]: value,
-      errors: { ...prev.errors, [field]: error }
+    }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    const fieldValidation = ProfileService.validatePersonalInfo({
+      ...localFormData,
+      [field]: value,
+    });
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: fieldValidation[field] || "",
     }));
   };
-  const handleSubmit = async () => {
-    console.log("🔵 handleSubmit called!");
-  
-    const validationErrors = Object.entries(formData).reduce((acc, [key, value]) => ({
-      ...acc,
-      [key]: validateField(key, value)
-    }), {});
-  
-    if (Object.values(validationErrors).some(e => e)) {
-      console.log("🔴 Validation errors:", validationErrors);
+
+  const handleNextStep = () => {
+    console.log("🔵 handleNextStep called with data:", localFormData);
+
+    const validationErrors = ProfileService.validatePersonalInfo(localFormData);
+    console.log("Validation errors:", validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      console.log("🔴 Validation errors found:", validationErrors);
       setErrors(validationErrors);
       return;
     }
-  
-    try {
-      setLoading(true);
-      await ProfileService.updatePersonalInfo(formData);
-      console.log("🟢 Profile updated successfully, going to next step...");
-      nextStep();  // Passer à l'étape suivante après validation
-    } catch (error) {
-      console.log("🔴 Update failed:", error.message);
-      setErrors({ global: error.message || "Erreur lors de la mise à jour" });
-    } finally {
-      setLoading(false);
-    }
+
+    console.log("Calling nextStep...");
+    nextStep();
   };
-  
+
+  const handleCancelClick = () => {
+    console.log("🔵 handleCancelClick called");
+    handleCancel(false);
+  };
+
+  if (fetchLoading) {
+    return <div className="spinner-container"><div className="spinner"></div></div>;
+  }
 
   return (
     <section className="personal-info-section">
-      <h3 className="section-title">Informations Personnelles</h3>
-      
-      {errors.global && (
-        <div className="error-banner">{errors.global}</div>
-      )}
+      <h3 className="section-title">Personal Information</h3>
+
+      {errors.global && <div className="error-banner">{errors.global}</div>}
 
       <div className="centered-profile">
-        <ProfilePicture 
-          profilePicture={formData.profilePicture} 
+        <ProfilePicture
+          profilePicture={localFormData.profilePicture}
           handleChange={handleChange}
         />
       </div>
 
       <div className="form-grid">
         <FormInput
-          label="Prénom"
+          label="First Name"
           type="text"
-          value={formData.firstName}
+          value={localFormData.firstName}
           fieldName="firstName"
           handleChange={handleChange}
-          placeholder="Votre prénom"
+          placeholder="Your first name"
           required={true}
           error={errors.firstName}
         />
 
         <FormInput
-          label="Nom"
+          label="Last Name"
           type="text"
-          value={formData.lastName}
+          value={localFormData.lastName}
           fieldName="lastName"
           handleChange={handleChange}
-          placeholder="Votre nom"
+          placeholder="Your last name"
           required={true}
           error={errors.lastName}
         />
       </div>
 
       <div className="bio-container">
-        <BioSection 
-          bio={formData.bio} 
+        <BioSection
+          bio={localFormData.bio}
           handleChange={handleChange}
+          error={errors.bio}
         />
-        {errors.bio && <span className="error-message">{errors.bio}</span>}
       </div>
 
       <div className="form-grid">
         <FormInput
           label="Email"
           type="email"
-          value={formData.email}
+          value={localFormData.email}
           fieldName="email"
           handleChange={handleChange}
-          placeholder="email@exemple.com"
+          placeholder="email@example.com"
           icon={<Mail size={16} className="input-icon" />}
           required={true}
           error={errors.email}
         />
 
         <FormInput
-          label="Téléphone"
+          label="Phone"
           type="tel"
-          value={formData.phone}
+          value={localFormData.phone}
           fieldName="phone"
           handleChange={handleChange}
           placeholder="+33 6 12 34 56 78"
@@ -224,12 +258,12 @@ const PersonalInfoPage = ({ formData, setFormData, nextStep, handleCancel }) => 
         />
 
         <FormInput
-          label="Localisation"
+          label="Location"
           type="text"
-          value={formData.location}
+          value={localFormData.location}
           fieldName="location"
           handleChange={handleChange}
-          placeholder="Ville, Pays"
+          placeholder="City, Country"
           icon={<MapPin size={16} className="input-icon" />}
           required={true}
           error={errors.location}
@@ -238,8 +272,8 @@ const PersonalInfoPage = ({ formData, setFormData, nextStep, handleCancel }) => 
 
       <div className="navigation-container">
         <FormNavigationButtons
-          nextStep={handleSubmit}
-          handleCancel={handleCancel}
+          nextStep={handleNextStep}
+          handleCancel={handleCancelClick}
           loading={loading}
         />
       </div>

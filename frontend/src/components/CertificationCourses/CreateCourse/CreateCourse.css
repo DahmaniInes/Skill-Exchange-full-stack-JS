@@ -1,0 +1,444 @@
+/* Background and overall styling */
+.create-course-page {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+              url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: 100vh;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.create-course-container {
+  max-width: 1000px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  margin: 2rem 0;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.form-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #1c1d1f;
+  background: linear-gradient(90deg, #5624d0, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+.form-header .subtitle {
+  font-size: 1.1rem;
+  color: #6a6f73;
+  font-weight: 500;
+}
+
+/* Glassmorphism effect for form sections */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(5px);
+}
+
+.form-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #1c1d1f;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-icon {
+  font-size: 1.8rem;
+}
+
+.section-description {
+  color: #6a6f73;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+/* Enhanced input styling */
+.styled-input {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #e1e5eb;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.styled-input:focus {
+  border-color: #5624d0;
+  box-shadow: 0 0 0 3px rgba(86, 36, 208, 0.2);
+  background: white;
+  outline: none;
+}
+
+/* Form group styling */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #1c1d1f;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+/* Textarea styling */
+textarea.styled-input {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Enhanced image upload area */
+.image-upload-area {
+  border: 2px dashed #d1d7dc;
+  border-radius: 12px;
+  padding: 2.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.7);
+  position: relative;
+  overflow: hidden;
+}
+
+.image-upload-area:hover {
+  border-color: #5624d0;
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-icon svg {
+  stroke-width: 1.5;
+}
+
+/* Enhanced preview styling */
+.image-preview-container {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.image-preview {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.image-preview:hover {
+  transform: scale(1.02);
+}
+
+.change-image-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(86, 36, 208, 0.9);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.change-image-btn:hover {
+  background: #4a1fb8;
+  transform: translateY(-1px);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #6a6f73;
+  margin-top: 0.5rem;
+}
+
+/* Upload progress */
+.upload-progress {
+  margin-top: 0.5rem;
+  background: rgba(241, 241, 241, 0.8);
+  border-radius: 10px;
+  height: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #5624d0, #3b82f6);
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+  z-index: 1;
+}
+
+/* Enhanced tags styling */
+.tags-input-container {
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tag {
+  background: linear-gradient(135deg, #f0f2ff, #e0e5ff);
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  color: #1c1d1f;
+  border: 1px solid #d1d7dc;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: #6a6f73;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.tag-remove:hover {
+  color: #1c1d1f;
+}
+
+.tag-input {
+  border: none;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.tag-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Content sections */
+.content-section-block {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1c1d1f;
+}
+
+.remove-section-btn {
+  background: none;
+  border: none;
+  color: #d7263d;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.remove-section-btn:hover {
+  text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+.add-section-btn {
+  background: transparent;
+  border: 2px dashed #d1d7dc;
+  color: #1c1d1f;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.add-section-btn:hover {
+  background: rgba(86, 36, 208, 0.1);
+  border-color: #5624d0;
+  color: #5624d0;
+}
+
+/* Form actions */
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #5624d0, #3b82f6);
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  box-shadow: 0 5px 15px rgba(86, 36, 208, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(86, 36, 208, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Spinner animation */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .create-course-container {
+    padding: 1.5rem;
+    border-radius: 15px;
+  }
+  
+  .form-header h1 {
+    font-size: 2rem;
+  }
+  
+  .glassmorphism {
+    padding: 1.5rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-course-page {
+    padding: 1rem;
+  }
+  
+  .create-course-container {
+    padding: 1rem;
+  }
+  
+  .glassmorphism {
+    padding: 1rem;
+  }
+}
+
+.lecture-block {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+.lecture-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lecture-fields input {
+  margin: 0.5rem 0;
+}
+.add-lecture-btn, .remove-lecture-btn {
+  padding: 0.5rem 1rem;
+  background-color: #5624d0;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.remove-lecture-btn {
+  background-color: #dc3545;
+}

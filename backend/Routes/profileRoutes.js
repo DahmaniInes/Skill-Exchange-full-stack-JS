@@ -1,50 +1,42 @@
 const express = require("express");
-const {
-  getUserProfile,
-  updateProfile,
-  updatePassword,
-  uploadCV,
-  deleteCV,
-  addExperience,
-  deleteExperience,
-  addEducation,
-  deleteEducation,
-  addSkill,
-  deleteSkill,
-  updatePrivacySettings,
-  getProfileRecommendations,
-  validatePassword
-} = require("../Controllers/profileController");
-
-const { upload } = require("../Config/multerConfig");
+const router = express.Router();
+const profileController = require("../Controllers/profileController");
 const verifySession = require("../middleware/verifySession");
 
-const router = express.Router();
+// Importez l'instance Multer pour les photos de profil
+const { uploadProfile } = require("../middleware/upload");
 
-// Routes existantes
-router.get("/me", verifySession, getUserProfile);
-router.put("/me/password", verifySession, updatePassword);
-router.put("/profile", verifySession, upload.single("profilePicture"), updateProfile);
-router.post("/me/validate-password", verifySession, validatePassword);
-// Routes CV
-router.post("/upload-cv", verifySession, upload.single("cv"), uploadCV);
-router.delete("/delete-cv", verifySession, deleteCV);
+// Ajouter un log pour vérifier l'importation
+console.log("Imported uploadProfile:", uploadProfile);
 
+router.get("/me", verifySession, profileController.getUserProfile); // Récupérer le profil
+router.put(
+  "/",
+  verifySession,
+  uploadProfile.single("profilePicture"), // Upload de profilePicture via Cloudinary
+  profileController.updatePersonalInfo
+); // Mettre à jour les informations personnelles (y compris socialLinks)
+router.put("/password", verifySession, profileController.updatePassword); // Mettre à jour le mot de passe
+router.post("/validate-password", verifySession, profileController.validatePassword); // Valider le mot de passe
 
-// Nouvelles routes pour expériences
-router.post("/experiences", verifySession, addExperience);
-router.delete("/experiences/:experienceId", verifySession, deleteExperience);
+// Routes pour gérer les compétences
+router.get("/skills", verifySession, profileController.getSkills); // Récupérer les compétences
+router.post("/skills", verifySession, profileController.addSkill); // Ajouter une compétence
+router.delete("/skills/:skillId", verifySession, profileController.deleteSkill); // Supprimer une compétence
 
-// Nouvelles routes pour formations
-router.post("/educations", verifySession, addEducation);
-router.delete("/educations/:educationId", verifySession, deleteEducation);
+// Routes pour gérer les expériences
+router.post("/experiences", verifySession, profileController.addExperience); // Ajouter une expérience
+router.delete("/experiences/:experienceId", verifySession, profileController.deleteExperience); // Supprimer une expérience
 
-// Nouvelles routes pour compétences
-router.post("/skills", verifySession, addSkill);
-router.delete("/skills/:skillId", verifySession, deleteSkill);
+// Routes pour gérer les formations
+router.post("/educations", verifySession, profileController.addEducation); // Ajouter une formation
+router.delete("/educations/:educationId", verifySession, profileController.deleteEducation); // Supprimer une formation
 
-// Routes pour les paramètres de confidentialité et recommandations
-router.put("/privacy-settings", verifySession, updatePrivacySettings);
-router.get("/profile-recommendations", verifySession, getProfileRecommendations);
+// Routes pour les paramètres de confidentialité et notifications
+router.put("/privacy-settings", verifySession, profileController.updatePrivacySettings); // Mettre à jour les paramètres de confidentialité
+router.put("/notifications", verifySession, profileController.updateNotificationPreferences); // Mettre à jour les préférences de notifications
+
+// Route pour les recommandations de profil
+router.get("/profile-recommendations", verifySession, profileController.getProfileRecommendations); // Récupérer les recommandations
 
 module.exports = router;

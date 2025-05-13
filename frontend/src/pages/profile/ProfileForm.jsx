@@ -16,12 +16,36 @@ const ProfileForm = ({ onCancel }) => {
   const [error, setError] = useState(null);
   const totalSteps = 6;
 
-  // Chargement initial des données
   useEffect(() => {
     const loadData = async () => {
       try {
         const data = await ProfileService.getUserProfile();
-        setFormData(data);
+        const normalizedData = {
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          location: data.location || "",
+          bio: data.bio || "",
+          profilePicture: data.profilePicture || "",
+          jobTitle: data.jobTitle || "",
+          company: data.company || "",
+          experience: data.experience || [],
+          skills: data.skills || [],
+          socialLinks: data.socialLinks || {},
+          privacySettings: {
+            isProfilePublic: data.privacySettings?.isProfilePublic ?? true, // Default to true if undefined
+            isDiscoverable: data.privacySettings?.isDiscoverable ?? true, // Default to true if undefined
+          },
+          notifications: {
+            emailNotifications: data.notifications?.emailNotifications ?? true,
+            pushNotifications: data.notifications?.pushNotifications ?? true,
+            skillRequests: data.notifications?.skillRequests ?? true,
+          },
+        
+        };
+        console.log("ProfileForm - Normalized formData:", normalizedData);
+        setFormData(normalizedData);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -29,14 +53,13 @@ const ProfileForm = ({ onCancel }) => {
       }
     };
     loadData();
-  }, []);
+  }, []); // Tableau de dépendances vide
 
-  // Gestionnaire de changement générique
   const handleChange = (field, value) => {
+    console.log(`ProfileForm - handleChange - ${field}:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Gestion des objets imbriqués
   const handleNestedChange = (parent, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -44,17 +67,41 @@ const ProfileForm = ({ onCancel }) => {
     }));
   };
 
-  // Soumission du formulaire
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      await ProfileService.updateProfile(formData);
+      await ProfileService.updatePersonalInfo(formData);
       onCancel(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelClick = (saved) => {
+    console.log("ProfileForm handleCancel called with saved:", saved);
+    onCancel(saved);
+  };
+
+  const handleNextStep = () => {
+    console.log("ProfileForm - Current step:", step);
+    console.log("ProfileForm - Setting step to:", step + 1);
+    setStep(prevStep => {
+      const newStep = prevStep + 1;
+      console.log("ProfileForm - New step:", newStep);
+      return newStep;
+    });
+  };
+
+  const handlePrevStep = () => {
+    console.log("ProfileForm - Current step:", step);
+    console.log("ProfileForm - Setting step to:", step - 1);
+    setStep(prevStep => {
+      const newStep = prevStep - 1;
+      console.log("ProfileForm - New step:", newStep);
+      return newStep;
+    });
   };
 
   if (loading) return <div className="loading-spinner"></div>;
@@ -64,22 +111,21 @@ const ProfileForm = ({ onCancel }) => {
   return (
     <div className="security-container">
       <div className="security-header">
-        <h2>Édition du profil</h2>
+        <h2>Profile Editing</h2>
         <div className="header-actions">
-          <button className="btn secondary" onClick={() => onCancel(false)}>
-            <X size={16} /> Annuler
+          <button className="btn secondary" onClick={() => handleCancelClick(false)}>
+            <X size={16} /> Cancel
           </button>
           <button 
             className="btn primary" 
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? 'Sauvegarde...' : <><Save size={16} /> Sauvegarder</>}
+            {loading ? 'Saving...' : <><Save size={16} /> Save</>}
           </button>
         </div>
       </div>
 
-      {/* Navigation entre les étapes */}
       <div className="form-navigation">
         {[...Array(totalSteps)].map((_, i) => (
           <button
@@ -87,26 +133,27 @@ const ProfileForm = ({ onCancel }) => {
             className={`step-button ${step === i+1 ? 'active' : ''}`}
             onClick={() => setStep(i+1)}
           >
-            Étape {i+1}
+            Step {i+1}
           </button>
         ))}
       </div>
 
-      {/* Contenu des étapes */}
       <div className="form-content">
-      {step === 1 && (
-  <PersonalInfoPage
-    formData={formData}
-    setFormData={setFormData}
-    nextStep={() => setStep(step + 1)}  // Passer la fonction nextStep
-    handleCancel={onCancel}
-  />
-)}
+        {step === 1 && (
+          <PersonalInfoPage
+            formData={formData}
+            setFormData={setFormData}
+            nextStep={handleNextStep}
+            handleCancel={handleCancelClick}
+          />
+        )}
 
         {step === 2 && (
           <ProfessionalInfoPage
             formData={formData}
-            setFormData={setFormData}
+            handleChange={handleChange}
+            nextStep={handleNextStep}
+            prevStep={handlePrevStep}
           />
         )}
 
@@ -114,13 +161,20 @@ const ProfileForm = ({ onCancel }) => {
           <EducationPage
             formData={formData}
             setFormData={setFormData}
+            nextStep={handleNextStep}
+            prevStep={handlePrevStep}
+            handleCancel={handleCancelClick}
           />
         )}
 
         {step === 4 && (
           <SkillsPage
-            skills={formData.skills}
+            formData={formData}
+            setFormData={setFormData}
             handleChange={handleChange}
+            nextStep={handleNextStep}
+            prevStep={handlePrevStep}
+            handleCancel={handleCancelClick}
           />
         )}
 
@@ -128,6 +182,9 @@ const ProfileForm = ({ onCancel }) => {
           <SocialLinksPage
             socialLinks={formData.socialLinks}
             handleChange={handleNestedChange}
+            nextStep={handleNextStep}
+            prevStep={handlePrevStep}
+            handleCancel={handleCancelClick}
           />
         )}
 
@@ -136,6 +193,9 @@ const ProfileForm = ({ onCancel }) => {
             privacySettings={formData.privacySettings}
             notifications={formData.notifications}
             handleChange={handleNestedChange}
+            handleSubmit={handleSubmit}
+            handleCancel={handleCancelClick}
+            prevStep={handlePrevStep}
           />
         )}
       </div>

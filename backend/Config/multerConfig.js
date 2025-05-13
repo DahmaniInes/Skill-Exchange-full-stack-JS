@@ -1,26 +1,63 @@
 const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../Config/cloudinaryConfig");
+require("dotenv").config();
 
-const storage = new CloudinaryStorage({
+// Cloudinary config via env
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Profile picture storage
+const profileStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "profile_pictures",
+    allowed_formats: ["jpg", "png", "jpeg"],
+  },
+});
+
+// Story storage (images/videos)
+const storyStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "stories",
+    allowed_formats: ["jpg", "png", "jpeg", "mp4"],
+    resource_type: "auto",
+  },
+});
+
+// Generic uploads (PDFs, others)
+const uploadStorage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
     folder: "upload",
-    resource_type: "raw", // Utilisé pour les fichiers autres que les images
-    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`, // Formatage automatique
+    resource_type: "raw",
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
     allowed_formats: ["jpg", "png", "jpeg", "pdf"],
-  })
+  }),
 });
-// 📌 Filtrage des fichiers acceptés (images et PDF)
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Seules les images et fichiers PDF sont autorisés."), false);
-  }
+
+// File filters
+const profileFileFilter = (req, file, cb) => {
+  const allowed = ["image/jpeg", "image/png", "image/jpg"];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error("Only JPG, PNG, JPEG are allowed."), false);
 };
 
-const upload = multer({ storage, fileFilter });
+const storyFileFilter = (req, file, cb) => {
+  const allowed = ["image/jpeg", "image/png", "image/jpg", "video/mp4"];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error("Only images (JPG, PNG) and MP4 videos are allowed."), false);
+};
 
-module.exports = { upload };
+// Multer instances
+const uploadProfile = multer({ storage: profileStorage, fileFilter: profileFileFilter });
+const uploadStory = multer({ storage: storyStorage, fileFilter: storyFileFilter });
+const uploadGeneric = multer({ storage: uploadStorage }); // No filter, raw support
+
+module.exports = { uploadProfile, uploadStory, uploadGeneric };

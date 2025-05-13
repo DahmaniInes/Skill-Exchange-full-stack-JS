@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "node server.js",
+    "dev": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "concurrently \"ollama serve\" \"node server.js\""
+    "start": "node app.js"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +29,7 @@
     "express-session": "^1.18.1",
     "google-auth-library": "^9.15.1",
     "iconv-lite": "^0.6.3",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "machinelearn": "^2.1.5",
     "mongoose": "^8.13.2",
@@ -40,7 +41,6 @@
     "node-cache": "^5.1.2",
     "nodemailer": "^6.10.0",
     "ollama": "^0.5.14",
-    "ollama-node": "^0.1.28",
     "openai": "^4.91.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
@@ -50,8 +50,10 @@
     "react": "^19.1.0",
     "react-toastify": "^11.0.5",
     "readable-stream": "^4.7.0",
+    "sharp": "^0.34.1",
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
+    "stripe": "^18.0.0",
     "validator": "^13.15.0",
     "yup": "^1.6.1"
   },

@@ -1,0 +1,1694 @@
+/* Reset et base */
+.messenger-app {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    margin-top: 40px;
+}
+
+/* Conteneur principal */
+.messenger-container {
+    display: flex;
+    height: calc(100vh - 60px); /* Ajustez selon la hauteur de votre header */
+    width: 100%;
+}
+
+/* Panneau des conversations (30%) */
+.conversations-panel {
+    flex: 0 0 30%;
+    max-width: 30%;
+    min-width: 250px;
+    height: 100%;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+}
+
+/* Panneau de chat (70%) */
+.chat-panel {
+    flex: 1;
+    min-width: 0; /* Important pour le responsive */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .messenger-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .conversations-panel {
+        flex: 1;
+        max-width: 100%;
+        width: 100%;
+        height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .chat-panel {
+        flex: 1;
+        height: 60vh;
+    }
+}
+
+/* Styles pour éviter les débordements */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* Styles existants conservés */
+
+/* Nouveau style pour la sélection de l'utilisateur */
+.chat-item.selected {
+    background-color: #f0f0f0;
+}
+
+.chat-area.user-profile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.profile-section {
+    text-align: center;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.profile-avatar img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+    border: 3px solid #06BBCC;
+
+}
+
+.profile-name {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.profile-job-title {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.profile-bio {
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.voir-profile-btn {
+    background-color: #0084ff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.chat-area.empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #888;
+}
+
+
+/* Ajoutez ceci en premier dans votre CSS */
+.chat-area .messages-container .user-profile-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+    background: #fff;
+    border-radius: 8px;
+    margin: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .chat-area .messages-container .user-profile-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 300px;
+  }
+  
+  .chat-area .messages-container .user-profile-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 15px;
+    border: 3px solid #06BBCC;
+  }
+  
+  .chat-area .messages-container .user-full-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1px;
+  }
+  
+  .chat-area .messages-container .user-job-title {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 5px;
+  }
+  
+  .chat-area .messages-container .user-bio {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 15px;
+    line-height: 1;
+  }
+  
+  .chat-area .messages-container .view-profile-btn {
+    background-color: #06BBCC;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .chat-area .messages-container .view-profile-btn:hover {
+    background-color: #06BBCC;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  /* Styles pour la zone de messages */
+/* MessengerApplicationStyles.css */
+
+/* Structure principale */
+.chat-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* Container des messages avec barre de défilement */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #06BBCC #f0f2f5;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: #f0f2f5;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background-color: #06BBCC;
+  border-radius: 6px;
+}
+
+.scrollable-content {
+  min-height: min-content;
+}
+
+/* Section profil */
+.user-profile-section {
+  padding: 15px;
+  border-bottom: 1px solid #e4e6eb;
+}
+
+.user-profile-content {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.user-profile-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 15px;
+  border: 3px solid #06BBCC;
+
+}
+
+.user-profile-details {
+  flex: 1;
+}
+
+.user-full-name {
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+
+.user-job-title {
+  color: #06BBCC;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.user-bio {
+  font-size: 14px;
+  color: #65676b;
+  margin-bottom: 15px;
+  line-height: 1.4;
+}
+
+.view-profile-btn {
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.personal-conversation-note {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e4e6eb;
+  color: #65676b;
+  font-size: 14px;
+}
+
+.personal-conversation-note small {
+  display: block;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+/* Liste des messages */
+.messages-list {
+  padding: 15px;
+}
+
+.message-container {
+  display: flex;
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.message-container.sent {
+  justify-content: flex-end;
+}
+
+.message-container.received {
+  justify-content: flex-start;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 8px;
+  align-self: flex-end;
+  border: 3px solid #06BBCC;
+
+}
+
+.message {
+  max-width: 60%;
+  word-wrap: break-word;
+}
+
+.message-content {
+  padding: 10px 15px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.message-sent .message-content {
+  background-color: #06BBCC;
+  color: #fff;
+  border-top-right-radius: 0;
+
+}
+
+.message-received .message-content {
+  background-color: #f0f2f5;
+  color: #000;
+  border-top-left-radius: 0;
+}
+
+.message-time {
+  font-size: 11px;
+  color: #65676b;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.message-status {
+  font-size: 10px;
+  color: #999;
+  margin-left: 5px;
+  font-style: italic;
+}
+
+/* Zone d'input */
+.input-area {
+  display: flex;
+  padding: 10px 15px;
+  border-top: 1px solid #e4e6eb;
+  background-color: #fff;
+  align-items: center;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 20px;
+  border: none;
+  background-color: #f0f2f5;
+  font-size: 14px;
+  max-height: 120px;
+  resize: none;
+}
+
+.send-button {
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+.send-button:disabled {
+  background-color: #e4e6eb;
+  cursor: not-allowed;
+}
+
+/* Styles pour les états vides */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #65676b;
+  font-size: 16px;
+}
+
+
+
+
+/* Styles pour l'upload d'image et vidéo */
+.message-image-container {
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.message-image {
+  max-width: 250px;
+  max-height: 250px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+
+
+
+
+
+
+
+
+/* Styles communs pour les boutons d'action */
+.input-action-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-action-btn:hover {
+  transform: scale(1.1);
+}
+
+.input-actions {
+  display: flex;
+  gap: 10px;
+}
+
+
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.message-document-container {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  max-width: 500px; /* Limiter la largeur */
+
+}
+
+.document-icon {
+  margin-right: 10px;
+}
+
+.document-info {
+  display: flex;
+  flex-direction: column;
+
+}
+
+.document-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  max-width: 100%; /* Limiter la largeur */
+}
+
+.download-btn {
+  font-size: 12px;
+  color: #06BBCC;
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.download-btn:hover {
+  text-decoration: underline;
+}
+
+
+/* Audio recording styles */
+.recording-active {
+  color: #ff0000 !important;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.audio-preview-container {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+}
+
+.audio-preview {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.remove-audio-btn {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-audio-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.message-audio-player {
+  flex-grow: 1;
+  max-width: 250px;
+  height: 40px;
+}
+
+.download-audio-btn {
+  margin-left: 10px;
+  color: #06BBCC;
+  display: flex;
+  align-items: center;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 2px solid white;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+
+
+/* Styles pour le sélecteur d'émojis */
+.emoji-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.emoji-picker-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #06BBCC;
+  transition: all 0.2s;
+}
+
+.emoji-picker-btn:hover {
+  transform: scale(1.1);
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Ajustement de la zone d'input */
+.input-area {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  position: relative;
+}
+
+.message-input {
+  flex-grow: 1;
+  margin: 0 10px;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  outline: none;
+}
+
+/* Pour fermer le picker quand on clique ailleurs */
+.emoji-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+
+
+.call-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.call-modal {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.accept-call-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.reject-call-btn, .end-call-btn {
+  background: #F44336;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.ongoing-call {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-container {
+  flex: 1;
+  position: relative;
+}
+
+.local-video {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 200px;
+  height: 150px;
+  border: 2px solid white;
+  border-radius: 5px;
+}
+
+.remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.audio-call-ui {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: white;
+}
+
+.audio-call-ui .user-avatar {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.audio-call-ui .user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Styles pour la modal d'appel */
+.call-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  text-align: center;
+  width: 300px;
+}
+
+.caller-info img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 1rem;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.accept-call-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reject-call-btn {
+  background: #F44336;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.call-message {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.call-icon {
+  margin-right: 10px;
+}
+
+.call-info {
+  flex-grow: 1;
+}
+
+.call-info p {
+  margin: 0;
+  color: #333;
+}
+
+.play-recording-btn {
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+.call-time {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 5px;
+}
+
+
+
+
+
+.ignore-call-btn {
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+
+
+/* Styles pour les messages d'appel */
+.call-message {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  margin: 5px 0;
+}
+
+.call-icon {
+  margin-right: 10px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.call-icon.green {
+  color: #4CAF50;
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.call-icon.red {
+  color: #F44336;
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.call-icon.orange {
+  color: #FF9800;
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+.call-info {
+  flex: 1;
+}
+
+.call-status {
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.call-time {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 5px;
+}
+
+.play-recording-btn {
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #06BBCC;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+.play-recording-btn:hover {
+  background-color: #05a5b4;
+}
+
+/* Badges d'état */
+.missed-call-badge,
+.rejected-call-badge,
+.ignored-call-badge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: white;
+}
+
+.missed-call-badge {
+  background-color: #F44336;
+}
+
+.rejected-call-badge {
+  background-color: #FF9800;
+}
+
+.ignored-call-badge {
+  background-color: #9E9E9E;
+}
+
+/* Styles pour les différents états d'appel */
+.missed-call {
+  border-left: 3px solid #F44336;
+}
+
+.missed-call-badge {
+  background-color: #F44336;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  margin-left: 8px;
+}
+
+.rejected-call {
+  border-left: 3px solid #FF9800;
+}
+
+.ended-call {
+  border-left: 3px solid #4CAF50;
+}
+
+.ignored-call {
+  border-left: 3px solid #9E9E9E;
+}
+
+
+
+
+
+
+.message-actions {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.more-icon {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.context-menu {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 5px 0;
+}
+
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+
+
+
+
+
+
+
+.message-container {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.message-container.sent {
+  justify-content: flex-end;
+  
+}
+
+.message-container.received {
+  justify-content: flex-start;
+}
+
+.message-wrapper {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+}
+
+.message-container.sent .message-wrapper {
+  flex-direction: row; /* Trois points à droite pour les messages envoyés */
+}
+
+.message-container.received .message-wrapper {
+  flex-direction: row; /* Avatar à gauche, message au centre, trois points à droite pour les messages reçus */
+}
+
+.more-icon {
+  cursor: pointer;
+  margin: 0 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 5px 0;
+  width: 150px; /* Largeur fixe pour le menu */
+}
+
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+
+.message-sent, .message-received, .call-message {
+  position: relative;
+  display: inline-block;
+}
+
+
+.chat-message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #666;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-message-date {
+  margin-left: 5px;
+  color: #999;
+  font-size: 0.8em;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.chat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.chat-item:hover {
+  background-color: #f5f5f5;
+}
+
+.chat-avatar {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+}
+
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #06BBCC;
+
+}
+
+.chat-details {
+  flex: 1;
+  min-width: 0; /* Permet au contenu de ne pas déborder */
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-name {
+  font-weight: 500;
+  font-size: 1em;
+  color: #333;
+}
+
+.chat-time {
+  font-size: 0.8em;
+  color: #999;
+}
+
+.chat-message {
+  display: flex;
+  align-items: center;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.chat-message-text {
+  flex: 1; /* Prend tout l'espace disponible */
+  white-space: nowrap; /* Empêche le texte de passer à la ligne */
+  overflow: hidden; /* Cache le texte qui dépasse */
+  text-overflow: ellipsis; /* Ajoute "..." automatiquement (redondance avec truncateMessage) */
+}
+
+.chat-message-date {
+  margin-left: 5px;
+  color: #999;
+  font-size: 0.8em;
+  white-space: nowrap; /* Garde la date sur une seule ligne */
+}
+
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #0084ff;
+  border-radius: 50%;
+  margin-left: 10px;
+  visibility: hidden; /* À activer si vous ajoutez une logique pour les messages non lus */
+}
+
+.chat-item.selected {
+  background-color: #e6f0fa;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #0084ff;
+  border-radius: 50%;
+  margin-left: 10px;
+  visibility: hidden;
+}
+
+.unread-indicator.online {
+  visibility: visible;
+}
+
+
+
+
+.chat-header-status {
+  display: inline;
+  color: #00ff00; /* Couleur temporaire pour tester */
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+.blocked-message {
+  text-align: center;
+  padding: 10px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.blocked-message p {
+  margin: 0;
+}
+
+.blocked-message {
+  text-align: center;
+  padding: 10px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.blocked-message p {
+  margin: 0;
+}
+
+/* Nouvelle classe pour les boutons de blocage */
+.blocked-message-btn {
+  width: 700px; /* Largeur accrue */
+  padding: 12px 20px; /* Padding ajusté pour plus d’espace interne */
+  border-radius: 8px; /* Rayon pour des coins arrondis */
+  font-size: 16px; /* Taille de police légèrement augmentée pour lisibilité */
+  text-align: center; /* Centrage du texte dans le bouton */
+  border: none; /* Pas de bordure */
+  cursor: pointer; /* Curseur en main */
+  transition: background-color 0.3s ease; /* Transition pour effet au survol */
+}
+
+/* Style spécifique pour le bouton "Débloquer" */
+.blocked-message-btn.unblock-btn {
+  background-color: #06BBCC; /* Couleur de fond actuelle */
+  color: white; /* Texte blanc */
+}
+
+/* Style spécifique pour le bouton "Supprimer la conversation" */
+.blocked-message-btn.delete-btn {
+  background-color: #a10606; /* Couleur de fond actuelle */
+  color: white; /* Texte blanc */
+}
+
+/* Effet au survol pour les deux boutons */
+.blocked-message-btn:hover {
+  opacity: 0.9; /* Légère réduction d’opacité au survol */
+}
+
+/* Style pour les boutons désactivés */
+.blocked-message-btn:disabled {
+  background-color: #cccccc; /* Gris clair pour indiquer désactivé */
+  cursor: not-allowed; /* Curseur interdit */
+}
+
+
+
+/*.unread-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+
+
+.chat-item.unread {
+  background-color: rgba(0, 132, 255, 0.05);
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.emoji-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.input-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #06BBCC;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.input-action-btn:hover {
+  background-color: rgba(6, 187, 204, 0.1);
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background-color: white;
+  margin-bottom: 10px;
+  padding-left: 60px;
+  padding-right: 300px;
+}
+
+
+
+
+
+
+.notification-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.notification-icon .fa-bell {
+  font-size: 20px;
+  cursor: pointer;
+  color: #495057;
+}
+
+.notification-icon .fa-bell.active {
+  color: #495057;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.notification-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notification-header button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.notification-header button:hover {
+  color: #0056b3;
+}
+
+.notification-dropdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-dropdown li {
+  padding: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.notification-dropdown li:last-child {
+  border-bottom: none;
+}
+
+.notification-dropdown p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.notification-dropdown small {
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
