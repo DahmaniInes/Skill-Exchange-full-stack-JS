@@ -6,6 +6,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
     folder: "upload",
+    resource_type: "raw", // Utilisé pour les fichiers autres que les images
     public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`, // Formatage automatique
     allowed_formats: ["jpg", "png", "jpeg", "pdf"],
   })

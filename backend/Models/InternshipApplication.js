@@ -8,6 +8,7 @@ const InternshipApplicationSchema = new mongoose.Schema({
     cvUrl: { type: String, required: true },
     coverLetter: { type: String },
     status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending" },
+    matchScore: { type: Number, default: null },
     appliedAt: { type: Date, default: Date.now }
   });
   

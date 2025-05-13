@@ -34,6 +34,7 @@ import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboar
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
 import ChatbotPage from './pages/internships/ChatbotPage';
+import { ToastContainer } from 'react-toastify';
 
 // Styles
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -70,6 +71,7 @@ function App() {
 
 
   return (
+    <>
     <Routes>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} /> {/* Added index route */}
@@ -112,6 +114,8 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+          <ToastContainer position="bottom-right" autoClose={3000} />
+    </>
   );
 }
 

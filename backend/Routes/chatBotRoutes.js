@@ -28,7 +28,7 @@ router.post("/", verifySession, attachUser, async (req, res) => {
   }
 
   try {
-    const flaskResponse = await axios.post("http://localhost:5001/chat", {
+    const flaskResponse = await axios.post("http://localhost:5005/chat", {
       message,
     });
 
