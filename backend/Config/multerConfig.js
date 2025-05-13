@@ -3,60 +3,61 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 require("dotenv").config();
 
-// Configure Cloudinary
+// Cloudinary config via env
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Storage for profile pictures (Cloudinary)
+// Profile picture storage
 const profileStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
     folder: "profile_pictures",
     allowed_formats: ["jpg", "png", "jpeg"],
   },
 });
 
-// Storage for story media (Cloudinary)
+// Story storage (images/videos)
 const storyStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
     folder: "stories",
-    allowed_formats: ["jpg", "png", "jpeg", "mp4"], // Allow images and videos
-    resource_type: "auto", // Automatically detect resource type (image or video)
+    allowed_formats: ["jpg", "png", "jpeg", "mp4"],
+    resource_type: "auto",
   },
 });
 
-// Filtrage des types de fichiers acceptés
+// Generic uploads (PDFs, others)
+const uploadStorage = new CloudinaryStorage({
+  cloudinary,
+  params: (req, file) => ({
+    folder: "upload",
+    resource_type: "raw",
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+    allowed_formats: ["jpg", "png", "jpeg", "pdf"],
+  }),
+});
+
+// File filters
 const profileFileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Seules les images (JPEG, PNG, JPG) sont autorisées."), false);
-  }
+  const allowed = ["image/jpeg", "image/png", "image/jpg"];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error("Only JPG, PNG, JPEG are allowed."), false);
 };
 
 const storyFileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "video/mp4"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Seules les images (JPEG, PNG, JPG) et vidéos (MP4) sont autorisées."), false);
-  }
+  const allowed = ["image/jpeg", "image/png", "image/jpg", "video/mp4"];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error("Only images (JPG, PNG) and MP4 videos are allowed."), false);
 };
 
-// Create Multer instances
-const uploadProfile = multer({
-  storage: profileStorage,
-  fileFilter: profileFileFilter,
-});
+// Multer instances
+const uploadProfile = multer({ storage: profileStorage, fileFilter: profileFileFilter });
+const uploadStory = multer({ storage: storyStorage, fileFilter: storyFileFilter });
+const uploadGeneric = multer({ storage: uploadStorage }); // No filter, raw support
 
-const uploadStory = multer({
-  storage: storyStorage,
-  fileFilter: storyFileFilter,
-});
-
-module.exports = { uploadProfile, uploadStory };
+module.exports = { uploadProfile, uploadStory, uploadGeneric };

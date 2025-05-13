@@ -24,6 +24,11 @@ import {
 import { Eye, Download } from "lucide-react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { LinearProgress, Box } from "@mui/material";
+
+
 
 const CoverLetterModal = ({ open, onClose, content }) => {
   const theme = useTheme();
@@ -89,6 +94,33 @@ const ApplicationManagementTable = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const handleDownloadExcel = () => {
+    if (filteredApplications.length === 0) {
+      toast.warn("No applications to export!");
+      return;
+    }
+  
+    const worksheetData = filteredApplications.map((app) => ({
+      "Student Name": `${app.student.firstName} ${app.student.lastName}`,
+      "Student Email": app.student.email,
+      "Offer Title": app.internshipOffer.title,
+      "Entreprise Name": app.internshipOffer.entrepriseName,
+      "CV URL": app.cvUrl,
+      "Cover Letter": app.coverLetter?.slice(0, 300) || "No Cover Letter", // limit very long texts
+      "Status": app.status,
+      "Applied At": new Date(app.appliedAt).toLocaleString(), // Date and time nicely formatted
+    }));
+  
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData, { cellStyles: true });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Applications");
+  
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+  
+    saveAs(data, "applications.xlsx");
+  };
+
   useEffect(() => {
     const fetchApplications = async () => {
       try {
@@ -139,7 +171,7 @@ const ApplicationManagementTable = () => {
     <div className="personal-info-section">
       <h3 className="section-title">Applications to My Offers</h3>
 
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
         <FormControl>
           <InputLabel>Status</InputLabel>
           <Select
@@ -163,73 +195,95 @@ const ApplicationManagementTable = () => {
           size="small"
           variant="outlined"
         />
+
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleDownloadExcel}
+          style={{ height: "40px" }}
+        >
+          Download Excel
+        </Button>
       </div>
+
 
       {filteredApplications.length === 0 ? (
         <Typography align="center" sx={{ padding: "2rem", color: "#777" }}>
           No applications found.
         </Typography>
       ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Student</TableCell>
-              <TableCell>Offer</TableCell>
-              <TableCell>CV</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Cover Letter</TableCell>
-              <TableCell>Applied At</TableCell>
-              <TableCell>Student Progress</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredApplications.map((app) => (
-              <TableRow key={app._id}>
-                <TableCell>{app.student.firstName} {app.student.lastName}</TableCell>
-                <TableCell>{app.internshipOffer.title}</TableCell>
-                <TableCell>
-                  <IconButton
-                    href={app.cvUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Download size={18} />
-                  </IconButton>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={app.status}
-                    size="small"
-                    onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                  >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="accepted">Accepted</MenuItem>
-                    <MenuItem value="rejected">Rejected</MenuItem>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => { setSelectedLetter(app.coverLetter); setModalOpen(true); }}>
-                    <Eye size={18} />
-                  </IconButton>
-                </TableCell>
-                <TableCell>{new Date(app.appliedAt).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  {app.status === "accepted" && (
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      onClick={() => window.location.href = `/applications/${app._id}/progress`}
-                    >
-                      View Progress
-                    </Button>
-                  )}
-                </TableCell>
+        <Box sx={{ overflowX: "auto" }}>
+  <Table sx={{ minWidth: 1100 }}>
+    <TableHead>
+      <TableRow>
+        <TableCell>Student</TableCell>
+        <TableCell>Offer</TableCell>
+        <TableCell>CV</TableCell>
+        <TableCell>Status</TableCell>
+        <TableCell>Cover Letter</TableCell>
+        <TableCell>Applied At</TableCell>
+        <TableCell>Match Score</TableCell>
+        <TableCell>Student Progress</TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {filteredApplications.map((app) => (
+        <TableRow key={app._id}>
+          <TableCell>{app.student.firstName} {app.student.lastName}</TableCell>
+          <TableCell>{app.internshipOffer.title}</TableCell>
+          <TableCell>
+            <IconButton href={app.cvUrl} target="_blank" rel="noopener noreferrer">
+              <Download size={18} />
+            </IconButton>
+          </TableCell>
+          <TableCell>
+            <Select
+              value={app.status}
+              size="small"
+              onChange={(e) => handleStatusChange(app._id, e.target.value)}
+            >
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="accepted">Accepted</MenuItem>
+              <MenuItem value="rejected">Rejected</MenuItem>
+            </Select>
+          </TableCell>
+          <TableCell>
+            <IconButton onClick={() => { setSelectedLetter(app.coverLetter); setModalOpen(true); }}>
+              <Eye size={18} />
+            </IconButton>
+          </TableCell>
+          <TableCell>{new Date(app.appliedAt).toLocaleDateString()}</TableCell>
+          <TableCell>
+            <Box sx={{ minWidth: 100 }}>
+              <Typography variant="body2" color="textSecondary">
+                {(app.matchScore * 1).toFixed(0)}%
+              </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={app.matchScore * 1} 
+                sx={{ height: 8, borderRadius: 5 }} 
+                color={app.matchScore > 75 ? "success" : app.matchScore > 50 ? "warning" : "error"}
+              />
+            </Box>
+          </TableCell>
+          <TableCell>
+            {app.status === "accepted" && (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                onClick={() => window.location.href = `/applications/${app._id}/progress`}
+              >
+                View Progress
+              </Button>
+            )}
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</Box>
 
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       )}
 
       <CoverLetterModal

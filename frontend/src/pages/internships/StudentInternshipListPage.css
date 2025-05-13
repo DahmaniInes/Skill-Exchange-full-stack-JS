@@ -56,3 +56,35 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
   
+  .horizontal-scroll-container {
+    display: flex;
+    overflow-x: auto;
+    gap: 16px;
+    padding-bottom: 8px;
+    margin-top: 16px;
+  }
+  
+  .horizontal-scroll-container::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .horizontal-scroll-container::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+  }
+  
+  .scroll-card {
+    flex: 0 0 300px; /* Fixed width card */
+    min-height: 250px;
+  }
+  
+  .spinner-border {
+    animation: spinner-border 0.75s linear infinite;
+  }
+  
+  @keyframes spinner-border {
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  

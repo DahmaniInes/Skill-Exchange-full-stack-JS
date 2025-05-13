@@ -10,8 +10,12 @@ const InternshipTaskProgress = require("../Models/InternshipTaskProgress");
 const PDFDocument = require("pdfkit");
 const { Readable } = require("stream");
 const { v4: uuid } = require("uuid");
+const fs = require("fs");
+const pdfParse = require("pdf-parse");
+const axios = require("axios");
+const { pdfBuffer } = require("../middleware/pdfBuffer");
+const cloudinary = require("../Config/cloudinaryConfig2"); // your cloudinary v2 config
 
-const cloudinary = require("../Config/cloudinaryConfig"); // your cloudinary v2 config
 
 const uploadPdfBufferToCloudinary = (buffer, publicId) => {
   return new Promise((resolve, reject) => {
@@ -46,20 +50,68 @@ const attachUser = async (req, res, next) => {
 };
 
 // Public route: Get all internship offers
+// router.get("/", async (req, res) => {
+//   try {
+//     const offers = await InternshipOffer.find()
+//       .populate("skills", "name categories imageUrl")
+//       .populate("createdBy", "firstName lastName email");
+
+//     res.status(200).json(offers);
+//   } catch (err) {
+//     console.error("Error fetching internship offers:", err);
+//     res
+//       .status(500)
+//       .json({ message: "Server error while retrieving internships." });
+//   }
+// });
 router.get("/", async (req, res) => {
   try {
-    const offers = await InternshipOffer.find()
-      .populate("skills", "name categories imageUrl")
-      .populate("createdBy", "firstName lastName email");
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 6;
+    const skip = (page - 1) * limit;
+    const searchTerm = req.query.search || "";
+    const locationFilter = req.query.location || "";
+    const sortOption = req.query.sort || "";
 
-    res.status(200).json(offers);
+    const filter = {};
+
+    if (searchTerm) {
+      filter.title = { $regex: searchTerm, $options: "i" }; // Case-insensitive
+    }
+
+    if (locationFilter) {
+      filter.location = { $regex: locationFilter, $options: "i" };
+    }
+
+    let sort = {};
+    if (sortOption === "startDate") {
+      sort.startDate = 1; // Ascending by start date
+    } else if (sortOption === "title") {
+      sort.title = 1; // Ascending by title
+    }
+
+    const [offers, totalOffers] = await Promise.all([
+      InternshipOffer.find(filter)
+        .populate("skills", "name categories imageUrl")
+        .populate("createdBy", "firstName lastName email")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit),
+      InternshipOffer.countDocuments(filter)
+    ]);
+
+    res.status(200).json({
+      data: offers,
+      currentPage: page,
+      totalPages: Math.ceil(totalOffers / limit),
+      totalOffers
+    });
   } catch (err) {
     console.error("Error fetching internship offers:", err);
-    res
-      .status(500)
-      .json({ message: "Server error while retrieving internships." });
+    res.status(500).json({ message: "Server error while retrieving internships." });
   }
 });
+
 
 // Get internship offers for the authenticated user (creator)
 router.get("/my-offers", verifySession, attachUser, async (req, res) => {
@@ -229,29 +281,23 @@ router.post(
   "/apply",
   verifySession,
   attachUser,
- // upload.single("cv"),
+  pdfBuffer.single("cv"),
   async (req, res) => {
     try {
       const { internshipOfferId, coverLetter } = req.body;
       const student = req.user._id;
 
-      if (!req.file || !req.file.path) {
-        return res
-          .status(400)
-          .json({ message: "CV upload failed or not provided." });
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ message: "CV not provided." });
       }
 
       if (req.user.role !== "student") {
-        return res
-          .status(403)
-          .json({ message: "Only students can apply to internships." });
+        return res.status(403).json({ message: "Only students can apply." });
       }
 
       const offer = await InternshipOffer.findById(internshipOfferId);
       if (offer.assignedTo) {
-        return res
-          .status(403)
-          .json({ message: "This internship has already been assigned." });
+        return res.status(403).json({ message: "Internship already assigned." });
       }
 
       const alreadyApplied = await InternshipApplication.findOne({
@@ -259,25 +305,55 @@ router.post(
         internshipOffer: internshipOfferId,
       });
       if (alreadyApplied) {
-        return res
-          .status(400)
-          .json({ message: "Already applied to this internship." });
+        return res.status(400).json({ message: "Already applied." });
       }
 
+      // Step 1: Extract CV text from buffer
+      const parsed = await pdfParse(req.file.buffer);
+      const cvText = parsed.text;
+
+      // Step 2: Send to Flask match scoring service
+      const flaskRes = await axios.post("http://localhost:5003/analyze-match", {
+        internshipId: internshipOfferId,
+        cvText,
+      });
+      const matchScore = flaskRes.data.matchScore;
+
+      // ☁Step 3: Upload to Cloudinary manually
+      const uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: "raw",
+            folder: "upload",
+            public_id: `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`,
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        ).end(req.file.buffer); // buffer stream
+      });
+
+      // Step 4: Save to MongoDB
       const application = new InternshipApplication({
         student,
         internshipOffer: internshipOfferId,
         coverLetter,
-        cvUrl: req.file.path,
+        cvUrl: uploadResult.secure_url,
+        matchScore,
       });
 
       await application.save();
-      res
-        .status(201)
-        .json({ message: "Application submitted successfully.", application });
+
+      res.status(201).json({
+        message: "Application submitted.",
+        application,
+        matchScore,
+      });
+
     } catch (err) {
       console.error("Application error:", err);
-      res.status(500).json({ message: "Error applying to internship" });
+      res.status(500).json({ message: "Error applying to internship." });
     }
   }
 );

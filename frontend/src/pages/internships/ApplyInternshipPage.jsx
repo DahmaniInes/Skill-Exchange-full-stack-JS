@@ -34,8 +34,8 @@ const ApplyInternshipPage = () => {
 
     if (!cvFile) {
       newErrors.cvFile = "Please upload your CV.";
-    } else if (!["application/pdf", "image/jpeg", "image/png"].includes(cvFile.type)) {
-      newErrors.cvFile = "Only PDF or image files are allowed.";
+    } else if (!["application/pdf"].includes(cvFile.type)) {
+      newErrors.cvFile = "Only PDF files are allowed.";
     }
 
     if (!coverLetter.trim()) {
@@ -64,7 +64,15 @@ const ApplyInternshipPage = () => {
           "Content-Type": "multipart/form-data",
         },
       });
-      toast.success("Application submitted successfully.");
+      toast.success("Application submitted successfully.", {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
       setCoverLetter("");
       setCvFile(null);
       setErrors({});
@@ -156,7 +164,7 @@ const ApplyInternshipPage = () => {
             <input
               id="cv-upload"
               type="file"
-              accept="application/pdf,image/*"
+              accept="application/pdf"
               onChange={(e) => setCvFile(e.target.files[0])}
               style={{ display: "none" }}
             />

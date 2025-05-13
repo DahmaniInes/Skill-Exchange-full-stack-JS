@@ -36,6 +36,8 @@ import ApplicationProgressPage from "./pages/internships/ApplicationProgressPage
 import AdminDashboardPage from './pages/internships/AdminDashboard/AdminDashboardPage';
 import RoleGuard from './guards/RoleGuard';
 import Unauthorized from './pages/Unauthorized';
+import ChatbotPage from './pages/internships/ChatbotPage';
+import { ToastContainer } from 'react-toastify';
 import FavoritesPage from './pages/skills/FavoritesPage';
 
 import MessengerPage from './pages/MessengerPages/MessengerPage';
@@ -107,6 +109,7 @@ function App() {
 
 
   return (
+    <>
     <ConversationProvider>
     <Routes>
       <Route path="/" element={<MainLayout />}>
@@ -130,6 +133,8 @@ function App() {
 
         <Route path="/dashboard" element={<UserDashboard />} />
         <Route path="ReportUserPage" element={<ReportUserPage />} />
+
+        <Route path="/chatbot" element={<ChatbotPage />} />
 
         <Route path="MessengerPage" element={<MessengerPage />} />
           <Route path="MessengerDefaultPage" element={<MessengerDefaultPage />} />
@@ -172,7 +177,10 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
-    </ConversationProvider>
+          <ToastContainer position="bottom-right" autoClose={3000} />
+                </ConversationProvider>
+
+    </>
 
   );
 }
