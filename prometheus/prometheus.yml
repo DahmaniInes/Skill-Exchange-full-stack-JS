@@ -1,15 +1,12 @@
 global:
   scrape_interval: 15s
-
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['prometheus:9090'] # Prometheus se surveille lui-même
-
+      - targets: ['prometheus:9090']
   - job_name: 'backend'
     static_configs:
-      - targets: ['back:5000'] # Votre service backend Express
-
+      - targets: ['172.29.0.6:5000']
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8080'] # cAdvisor pour les métriques des conteneurs
+      - targets: ['cadvisor:8080']
