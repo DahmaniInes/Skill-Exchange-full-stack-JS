@@ -202,7 +202,7 @@ const UserSchema = new mongoose.Schema(
         validator: function (v) {
           // Autoriser ce champ uniquement pour les rôles "user" et "student"
           return (
-            (this.role === "user" || this.role === "student") &&
+            // (this.role === "user" || this.role === "student") &&
             Array.isArray(v)
           );
         },
