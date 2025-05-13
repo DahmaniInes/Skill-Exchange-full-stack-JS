@@ -5,8 +5,8 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
   service: "Outlook365",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.EMAIL_USER_1,
+    pass: process.env.EMAIL_PASS_1
   }
 });
 
@@ -417,7 +417,7 @@ exports.getProfileRecommendations = async (req, res) => {
 // Fonction pour envoyer un email de mise à jour du mot de passe
 const sendPasswordUpdateEmail = async (user, dateTime) => {
   const mailOptions = {
-    from: `"MindSpark" <${process.env.EMAIL_USER}>`,
+    from: `"MindSpark" <${process.env.EMAIL_USER_1}>`,
     to: user.email,
     subject: "Password Successfully Updated",
     html: `
