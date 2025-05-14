@@ -96,7 +96,7 @@ router.put('/updateGroupName', verifyToken, async (req, res) => {
     conversation.lastMessage = systemMessage._id;
     await conversation.save();
 
-    console.log('Message système créé et émis test test  :', systemMessage);
+    console.log('Message système créé et émis test test test :', systemMessage);
     req.io.to(conversationId).emit('newMessage', systemMessage);
 
     res.status(200).json({ success: true, message: 'Nom du groupe mis à jour' });
