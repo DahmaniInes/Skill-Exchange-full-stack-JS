@@ -7,8 +7,13 @@ const CourseSchema = new mongoose.Schema({
   price: Number,
   rating: Number,
   tags: [String],
-  progress: { type: Number, default: 0 },
-  users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  users: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      progress: { type: Number, default: 0 }
+    }
+  ]
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Course', CourseSchema);

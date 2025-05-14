@@ -1,0 +1,115 @@
+.roadmap-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .roadmap-container h1,
+  .roadmap-container p {
+    text-align: center;
+  }
+  
+  .view-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .view-toggle button {
+    padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .view-toggle button:hover {
+    background-color: #0056b3;
+  }
+  
+  .download-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .download-buttons button {
+    padding: 8px 16px;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .download-buttons button:hover {
+    background-color: #138496;
+  }
+  
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .step-item {
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+  }
+  
+  .step-item h3 {
+    margin: 0 0 10px;
+  }
+  
+  .step-item button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .step-item button:hover {
+    background-color: #0056b3;
+  }
+  
+  .edit-step input,
+  .edit-step textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .gantt-view {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .gantt-bar {
+    background-color: #007bff;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+  }
+  
+  .error {
+    color: red;
+    text-align: center;
+    margin-bottom: 10px;
+  }
